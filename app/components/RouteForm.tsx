@@ -2,6 +2,7 @@
 
 import {
   Crosshair,
+  Clock,
   Fuel,
   Gauge,
   Loader2,
@@ -28,6 +29,7 @@ export function RouteForm() {
     baseRouteAvgPricePerLitre,
     basePriceManual,
     litresToRefill,
+    valueOfTimeGbpPerHour,
     setOrigin,
     setDestination,
     setOriginPlace,
@@ -37,6 +39,7 @@ export function RouteForm() {
     setBaseRouteAvgPrice,
     resetBaseRouteAvgPrice,
     setLitresToRefill,
+    setValueOfTimeGbpPerHour,
     loadStations,
     locateCurrentPosition,
     loading,
@@ -215,6 +218,36 @@ export function RouteForm() {
           <span>5 L</span>
           <span>{maxRefill} L tank</span>
         </div>
+      </label>
+
+      <label className="block space-y-2">
+        <div className="flex items-center justify-between">
+          <span className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-slate-400">
+            <Clock className="h-3.5 w-3.5" />
+            Value of time
+          </span>
+          <span className="font-mono text-sm font-semibold text-teal-300">
+            £{valueOfTimeGbpPerHour.toFixed(0)}/h
+          </span>
+        </div>
+        <input
+          type="range"
+          min={0}
+          max={60}
+          step={1}
+          value={valueOfTimeGbpPerHour}
+          onChange={(e) => setValueOfTimeGbpPerHour(Number(e.target.value))}
+          className="w-full accent-teal-500"
+          aria-label="Value of time in pounds per hour"
+        />
+        <div className="flex justify-between text-[10px] text-slate-500">
+          <span>£0 (ignore time)</span>
+          <span>£60/h</span>
+        </div>
+        <p className="text-[10px] leading-snug text-slate-500">
+          Extra detour minutes are priced at this rate and subtracted from fuel
+          savings when ranking stations.
+        </p>
       </label>
 
       <label className="block space-y-1.5">

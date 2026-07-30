@@ -8,6 +8,21 @@ export interface DrivingRoute {
 }
 
 const METERS_PER_MILE = 1609.344;
+/** Approximate miles per degree of latitude (UK). */
+const MILES_PER_DEGREE_LAT = 69;
+
+/**
+ * Max perpendicular distance from the OSRM route polyline for a station to
+ * be scored. Stations outside this corridor are discarded (bbox corners go).
+ */
+export const CORRIDOR_MAX_DISTANCE_MILES = 3;
+
+/** Degrees of lat/lng padding so the fetch bbox covers the corridor. */
+export function corridorPadDegrees(
+  miles = CORRIDOR_MAX_DISTANCE_MILES
+): number {
+  return miles / MILES_PER_DEGREE_LAT + 0.015;
+}
 
 export function metersToMiles(meters: number): number {
   return meters / METERS_PER_MILE;
@@ -25,10 +40,10 @@ export function haversineMiles(a: GeoPoint, b: GeoPoint): number {
   return 2 * R * Math.asin(Math.min(1, Math.sqrt(h)));
 }
 
-/** Bounding box of a path, padded in degrees (~0.05° ≈ 3–4 miles). */
+/** Bounding box of a path, padded to cover the scoring corridor. */
 export function boundsFromCoordinates(
   points: GeoPoint[],
-  padDegrees = 0.08
+  padDegrees = corridorPadDegrees()
 ): MapBounds {
   if (points.length === 0) {
     return { north: 0, south: 0, east: 0, west: 0 };
@@ -51,6 +66,23 @@ export function boundsFromCoordinates(
   };
 }
 
+/**
+ * Thin a dense OSRM polyline for faster distance-to-route checks while
+ * keeping endpoints and roughly even spacing.
+ */
+export function downsampleRoute(
+  route: GeoPoint[],
+  maxPoints = 250
+): GeoPoint[] {
+  if (route.length <= maxPoints) return route;
+  const out: GeoPoint[] = new Array(maxPoints);
+  const step = (route.length - 1) / (maxPoints - 1);
+  for (let i = 0; i < maxPoints; i++) {
+    out[i] = route[Math.round(i * step)];
+  }
+  return out;
+}
+
 /** Shortest haversine distance from a point to a polyline (miles). */
 export function distanceToRouteMiles(
   point: GeoPoint,
@@ -65,6 +97,25 @@ export function distanceToRouteMiles(
     if (d < min) min = d;
   }
   return min;
+}
+
+/**
+ * Keep only stations within the corridor half-width of the route polyline,
+ * nearest-first.
+ */
+export function filterToRouteCorridor<T extends { location: GeoPoint }>(
+  stations: T[],
+  route: GeoPoint[],
+  maxDistanceMiles = CORRIDOR_MAX_DISTANCE_MILES
+): Array<{ station: T; distToRoute: number }> {
+  const polyline = downsampleRoute(route);
+  return stations
+    .map((station) => ({
+      station,
+      distToRoute: distanceToRouteMiles(station.location, polyline),
+    }))
+    .filter(({ distToRoute }) => distToRoute <= maxDistanceMiles)
+    .sort((a, b) => a.distToRoute - b.distToRoute);
 }
 
 function pointToSegmentMiles(p: GeoPoint, a: GeoPoint, b: GeoPoint): number {
@@ -103,6 +154,30 @@ export function approximateDetourMiles(
   return Number((d * 2).toFixed(2));
 }
 
+/** Fallback UK mixed-road average when no route timing is available. */
+const FALLBACK_AVG_MPH = 35;
+
+/**
+ * Estimate extra driving seconds from extra miles using the main route's
+ * average speed (or a UK mixed-road fallback).
+ */
+export function approximateDetourSeconds(
+  extraMiles: number,
+  route?: Pick<DrivingRoute, "distanceMiles" | "durationSeconds"> | null
+): number {
+  if (extraMiles <= 0) return 0;
+  let avgMph = FALLBACK_AVG_MPH;
+  if (
+    route &&
+    route.distanceMiles > 0 &&
+    route.durationSeconds > 0
+  ) {
+    avgMph = route.distanceMiles / (route.durationSeconds / 3600);
+  }
+  avgMph = Math.max(5, avgMph);
+  return Math.round((extraMiles / avgMph) * 3600);
+}
+
 export function formatDuration(seconds: number): string {
   const m = Math.round(seconds / 60);
   if (m < 60) return `${m} min`;
@@ -132,16 +207,22 @@ export async function fetchDrivingRoute(
   return (await res.json()) as DrivingRoute;
 }
 
+export interface StationDetourMetrics {
+  miles: number;
+  extraSeconds: number;
+}
+
 /**
- * Ask the server to compute OSRM A→station→B extra miles vs the direct route.
- * Falls back to approximateDetourMiles for any station missing from the response.
+ * Ask the server to compute OSRM A→station→B extra miles + time vs the direct route.
+ * Falls back to approximateDetourMiles / approximateDetourSeconds for gaps.
  */
 export async function fetchStationDetours(
   origin: GeoPoint,
   destination: GeoPoint,
   stations: Array<{ id: string; location: GeoPoint }>,
-  routeCoords: GeoPoint[]
-): Promise<Record<string, number>> {
+  routeCoords: GeoPoint[],
+  routeTiming?: Pick<DrivingRoute, "distanceMiles" | "durationSeconds"> | null
+): Promise<Record<string, StationDetourMetrics>> {
   if (stations.length === 0) return {};
 
   try {
@@ -159,16 +240,38 @@ export async function fetchStationDetours(
       }),
     });
     if (res.ok) {
-      const data = (await res.json()) as { detours: Record<string, number> };
-      return data.detours ?? {};
+      const data = (await res.json()) as {
+        detours: Record<string, StationDetourMetrics | number>;
+      };
+      const out: Record<string, StationDetourMetrics> = {};
+      for (const [id, value] of Object.entries(data.detours ?? {})) {
+        // Support legacy `{ id: miles }` shape if an old deploy is hit
+        if (typeof value === "number") {
+          out[id] = {
+            miles: value,
+            extraSeconds: approximateDetourSeconds(value, routeTiming),
+          };
+        } else if (
+          value &&
+          typeof value.miles === "number" &&
+          typeof value.extraSeconds === "number"
+        ) {
+          out[id] = value;
+        }
+      }
+      if (Object.keys(out).length > 0) return out;
     }
   } catch {
     // fall through to approximation
   }
 
-  const approx: Record<string, number> = {};
+  const approx: Record<string, StationDetourMetrics> = {};
   for (const s of stations) {
-    approx[s.id] = approximateDetourMiles(s.location, routeCoords);
+    const miles = approximateDetourMiles(s.location, routeCoords);
+    approx[s.id] = {
+      miles,
+      extraSeconds: approximateDetourSeconds(miles, routeTiming),
+    };
   }
   return approx;
 }

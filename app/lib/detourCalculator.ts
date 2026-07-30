@@ -10,6 +10,9 @@ export const UK_GALLON_TO_LITRES = 4.54609;
 /** Break-even band around £0.00 (± £0.50) */
 export const NEUTRAL_THRESHOLD_GBP = 0.5;
 
+/** Default opportunity cost of driving time (£/hour) */
+export const DEFAULT_VALUE_OF_TIME_GBP_PER_HOUR = 12;
+
 /**
  * Litres burned per mile for a given UK MPG.
  * litresPerMile = 4.54609 / MPG
@@ -43,12 +46,16 @@ function classifyNetSaving(net: number): DetourStatus {
 }
 
 /**
- * Pure mathematical engine for detour net financial savings.
+ * Pure mathematical engine for detour net savings (fuel + optional time cost).
  *
  * Detour Fuel Consumed (L) = Extra Miles × (4.54609 / MPG)
  * Detour Fuel Cost (£)     = Detour Litres × Station Price/L
  * Gross Savings (£)        = (Base Avg Price − Station Price) × Litres to Refill
  * Net Financial Saving (£) = Gross Savings − Detour Fuel Cost
+ * Time Cost (£)            = (Extra Minutes / 60) × Value of Time (£/h)
+ * Net After Time (£)       = Net Financial Saving − Time Cost
+ *
+ * Status / ranking use Net After Time.
  */
 export function calculateDetourSavings(
   input: DetourCalculationInput
@@ -70,6 +77,11 @@ export function calculateDetourSavings(
   const grossSavings = priceDelta * litresToRefill;
   const netFinancialSaving = grossSavings - detourFuelCost;
 
+  const detourExtraMinutes = Math.max(0, input.detourExtraMinutes ?? 0);
+  const valueOfTime = Math.max(0, input.valueOfTimeGbpPerHour ?? 0);
+  const timeCostGbp = (detourExtraMinutes / 60) * valueOfTime;
+  const netAfterTime = netFinancialSaving - timeCostGbp;
+
   return {
     litresPerMile: lpm,
     detourLitresConsumed,
@@ -77,7 +89,10 @@ export function calculateDetourSavings(
     litresToRefill,
     grossSavings,
     netFinancialSaving,
-    status: classifyNetSaving(netFinancialSaving),
+    detourExtraMinutes,
+    timeCostGbp,
+    netAfterTime,
+    status: classifyNetSaving(netAfterTime),
   };
 }
 

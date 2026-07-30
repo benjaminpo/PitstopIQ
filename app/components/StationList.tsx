@@ -2,12 +2,13 @@
 
 import { ArrowUpDown } from "lucide-react";
 import { usePitstopStore } from "@/app/lib/store";
+import { CORRIDOR_MAX_DISTANCE_MILES } from "@/app/lib/routing";
 import type { StationSortKey } from "@/app/lib/types";
 import { cn } from "@/app/lib/utils";
 import { StationCard } from "./StationCard";
 
 const SORT_OPTIONS: { key: StationSortKey; label: string }[] = [
-  { key: "netProfit", label: "Net profit" },
+  { key: "netProfit", label: "Net (inc. time)" },
   { key: "distance", label: "Distance" },
   { key: "price", label: "Price" },
 ];
@@ -35,7 +36,7 @@ export function StationList() {
           <p className="text-xs text-slate-500">
             {loading
               ? "Fetching Fuel Finder prices (first load can take a minute)…"
-              : `${enriched.length} · ${dataSource === "live" ? "live GOV data" : dataSource === "mock" ? "mock data" : "—"} · ${SORT_OPTIONS.find((s) => s.key === sortKey)?.label.toLowerCase()}`}
+              : `${enriched.length} on corridor (≤${CORRIDOR_MAX_DISTANCE_MILES} mi) · ${dataSource === "live" ? "live GOV data" : dataSource === "mock" ? "mock data" : "—"} · ${SORT_OPTIONS.find((s) => s.key === sortKey)?.label.toLowerCase()}`}
           </p>
         </div>
         <div className="flex items-center gap-1 rounded-lg bg-slate-900/80 p-1 ring-1 ring-slate-700/60">
@@ -64,7 +65,14 @@ export function StationList() {
         </p>
       )}
 
-      {!loading && stations.length === 0 && !error && (
+      {!loading && stations.length === 0 && !error && dataSource && (
+        <p className="rounded-lg border border-dashed border-slate-700 px-3 py-8 text-center text-sm text-slate-500">
+          No forecourts within {CORRIDOR_MAX_DISTANCE_MILES} mi of your driving
+          route. Try a longer corridor trip or a different origin/destination.
+        </p>
+      )}
+
+      {!loading && stations.length === 0 && !error && !dataSource && (
         <p className="rounded-lg border border-dashed border-slate-700 px-3 py-8 text-center text-sm text-slate-500">
           Run a search to compare nearby forecourts.
         </p>

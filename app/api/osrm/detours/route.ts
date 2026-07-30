@@ -20,12 +20,15 @@ interface DetourBody {
 
 interface OsrmRouteResponse {
   code: string;
-  routes?: Array<{ distance: number }>;
+  routes?: Array<{ distance: number; duration: number }>;
 }
 
-async function routeDistanceMeters(
-  points: GeoPoint[]
-): Promise<number | null> {
+interface RouteLeg {
+  distanceMeters: number;
+  durationSeconds: number;
+}
+
+async function routeLeg(points: GeoPoint[]): Promise<RouteLeg | null> {
   const path = points.map((p) => `${p.lng},${p.lat}`).join(";");
   const url = new URL(`${OSRM_BASE}/route/v1/driving/${path}`);
   url.searchParams.set("overview", "false");
@@ -37,7 +40,10 @@ async function routeDistanceMeters(
   if (!res.ok) return null;
   const data = (await res.json()) as OsrmRouteResponse;
   if (data.code !== "Ok" || !data.routes?.[0]) return null;
-  return data.routes[0].distance;
+  return {
+    distanceMeters: data.routes[0].distance,
+    durationSeconds: data.routes[0].duration,
+  };
 }
 
 async function mapPool<T, R>(
@@ -61,10 +67,15 @@ async function mapPool<T, R>(
   return results;
 }
 
+export interface StationDetourMetrics {
+  miles: number;
+  extraSeconds: number;
+}
+
 /**
  * POST /api/osrm/detours
  * Body: { origin, destination, stations: [{id,lat,lng}] }
- * Returns extra driving miles for A→station→B vs direct A→B (OSRM).
+ * Returns extra driving miles + seconds for A→station→B vs direct A→B (OSRM).
  */
 export async function POST(request: NextRequest) {
   try {
@@ -82,8 +93,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
     }
 
-    const directMeters = await routeDistanceMeters([origin, destination]);
-    if (directMeters == null) {
+    const direct = await routeLeg([origin, destination]);
+    if (direct == null) {
       return NextResponse.json(
         { error: "Could not resolve direct route" },
         { status: 502 }
@@ -95,23 +106,41 @@ export async function POST(request: NextRequest) {
       .slice(0, MAX_STATIONS);
 
     const extras = await mapPool(limited, CONCURRENCY, async (s) => {
-      const viaMeters = await routeDistanceMeters([
+      const via = await routeLeg([
         origin,
         { lat: s.lat, lng: s.lng },
         destination,
       ]);
-      if (viaMeters == null) return { id: s.id, miles: null as number | null };
-      const extra = Math.max(0, viaMeters - directMeters);
-      return { id: s.id, miles: Number(metersToMiles(extra).toFixed(2)) };
+      if (via == null) {
+        return {
+          id: s.id,
+          metrics: null as StationDetourMetrics | null,
+        };
+      }
+      const extraMeters = Math.max(0, via.distanceMeters - direct.distanceMeters);
+      const extraSeconds = Math.max(
+        0,
+        Math.round(via.durationSeconds - direct.durationSeconds)
+      );
+      return {
+        id: s.id,
+        metrics: {
+          miles: Number(metersToMiles(extraMeters).toFixed(2)),
+          extraSeconds,
+        },
+      };
     });
 
-    const detours: Record<string, number> = {};
+    const detours: Record<string, StationDetourMetrics> = {};
     for (const row of extras) {
-      if (row.miles != null) detours[row.id] = row.miles;
+      if (row.metrics != null) detours[row.id] = row.metrics;
     }
 
     return NextResponse.json({
-      directDistanceMiles: Number(metersToMiles(directMeters).toFixed(2)),
+      directDistanceMiles: Number(
+        metersToMiles(direct.distanceMeters).toFixed(2)
+      ),
+      directDurationSeconds: Math.round(direct.durationSeconds),
       detours,
     });
   } catch (error) {

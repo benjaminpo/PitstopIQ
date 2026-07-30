@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRightLeft, ExternalLink, Fuel, Route } from "lucide-react";
+import { ArrowRightLeft, Clock, ExternalLink, Fuel, Route } from "lucide-react";
 import { formatGbp } from "@/app/lib/detourCalculator";
 import type { StationWithCalculation } from "@/app/lib/types";
 import { cn } from "@/app/lib/utils";
@@ -19,9 +19,15 @@ function googleMapsUrl(lat: number, lng: number, name?: string): string {
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
 }
 
+function formatExtraMinutes(minutes: number): string {
+  const m = Math.round(minutes);
+  if (m < 1) return "<1 min";
+  return `+${m} min`;
+}
+
 export function StationCard({ item, selected, onSelect }: StationCardProps) {
   const { station, calculation, pricePerLitre } = item;
-  const net = calculation.netFinancialSaving;
+  const net = calculation.netAfterTime;
   const mapsHref = googleMapsUrl(
     station.location.lat,
     station.location.lng,
@@ -74,6 +80,10 @@ export function StationCard({ item, selected, onSelect }: StationCardProps) {
           <p className="mt-0.5 font-mono text-sm font-semibold text-slate-100">
             {station.distanceOffRouteMiles.toFixed(1)} mi
           </p>
+          <p className="mt-0.5 flex items-center gap-0.5 font-mono text-[10px] text-slate-500">
+            <Clock className="h-2.5 w-2.5" />
+            {formatExtraMinutes(calculation.detourExtraMinutes)}
+          </p>
         </div>
         <div className="rounded-lg bg-slate-950/50 px-2 py-1.5">
           <div className="flex items-center gap-1 text-[10px] uppercase tracking-wide text-slate-500">
@@ -96,8 +106,11 @@ export function StationCard({ item, selected, onSelect }: StationCardProps) {
       </div>
 
       <p className="mt-2 text-[11px] text-slate-500">
-        Detour fuel £{calculation.detourFuelCost.toFixed(2)} · Gross{" "}
-        {formatGbp(calculation.grossSavings)}
+        Fuel {formatGbp(calculation.netFinancialSaving)}
+        {calculation.timeCostGbp > 0
+          ? ` · Time −£${calculation.timeCostGbp.toFixed(2)}`
+          : ""}{" "}
+        · Gross {formatGbp(calculation.grossSavings)}
       </p>
 
       {selected && (

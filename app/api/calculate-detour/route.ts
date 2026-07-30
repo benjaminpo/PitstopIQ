@@ -10,6 +10,8 @@ interface CalculateDetourBody {
   baseRouteAvgPricePerLitre: number;
   distanceOffRouteMiles: number;
   litresToRefill?: number;
+  detourExtraMinutes?: number;
+  valueOfTimeGbpPerHour?: number;
 }
 
 function isValidBody(body: unknown): body is CalculateDetourBody {
@@ -50,6 +52,8 @@ export async function POST(request: NextRequest) {
       baseRouteAvgPricePerLitre: body.baseRouteAvgPricePerLitre,
       distanceOffRouteMiles: body.distanceOffRouteMiles,
       litresToRefill: body.litresToRefill,
+      detourExtraMinutes: body.detourExtraMinutes,
+      valueOfTimeGbpPerHour: body.valueOfTimeGbpPerHour,
     };
 
     const result = calculateDetourSavings(input);

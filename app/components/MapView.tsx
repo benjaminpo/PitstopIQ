@@ -191,10 +191,13 @@ export default function MapView() {
                 <StatusBadge status={item.calculation.status} />
                 <p className="font-mono text-sm">
                   £{item.pricePerLitre.toFixed(3)}/L ·{" "}
-                  {item.station.distanceOffRouteMiles.toFixed(1)} mi detour
+                  {item.station.distanceOffRouteMiles.toFixed(1)} mi ·{" "}
+                  {item.calculation.detourExtraMinutes < 0.5
+                    ? "<1 min"
+                    : `+${Math.round(item.calculation.detourExtraMinutes)} min`}
                 </p>
                 <p className="font-mono text-sm font-bold">
-                  Net {formatGbp(item.calculation.netFinancialSaving)}
+                  Net {formatGbp(item.calculation.netAfterTime)}
                 </p>
                 <a
                   href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(

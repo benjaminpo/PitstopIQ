@@ -23,6 +23,8 @@ function generateMockStations(bounds: MapBounds): FuelStation[] {
     latOffset: number;
     lngOffset: number;
     distanceOffRouteMiles: number;
+    /** Rough detour minutes at ~35 mph for mock demos */
+    detourExtraSeconds: number;
     prices: Partial<Record<FuelType, number>>;
   }> = [
     {
@@ -32,6 +34,7 @@ function generateMockStations(bounds: MapBounds): FuelStation[] {
       latOffset: 0.018,
       lngOffset: -0.042,
       distanceOffRouteMiles: 1.2,
+      detourExtraSeconds: 120,
       prices: { E10: 1.329, E5: 1.429, B7_Diesel: 1.389 },
     },
     {
@@ -41,6 +44,7 @@ function generateMockStations(bounds: MapBounds): FuelStation[] {
       latOffset: -0.012,
       lngOffset: 0.028,
       distanceOffRouteMiles: 3.8,
+      detourExtraSeconds: 390,
       prices: { E10: 1.459, E5: 1.559, B7_Diesel: 1.499 },
     },
     {
@@ -50,6 +54,7 @@ function generateMockStations(bounds: MapBounds): FuelStation[] {
       latOffset: 0.032,
       lngOffset: -0.065,
       distanceOffRouteMiles: 2.4,
+      detourExtraSeconds: 250,
       prices: { E10: 1.389, E5: 1.489, B7_Diesel: 1.419 },
     },
     {
@@ -59,6 +64,7 @@ function generateMockStations(bounds: MapBounds): FuelStation[] {
       latOffset: -0.028,
       lngOffset: -0.038,
       distanceOffRouteMiles: 0.6,
+      detourExtraSeconds: 60,
       prices: { E10: 1.299, E5: 1.399, B7_Diesel: 1.349 },
     },
     {
@@ -68,6 +74,7 @@ function generateMockStations(bounds: MapBounds): FuelStation[] {
       latOffset: 0.008,
       lngOffset: 0.052,
       distanceOffRouteMiles: 4.5,
+      detourExtraSeconds: 460,
       prices: { E10: 1.279, E5: 1.379, B7_Diesel: 1.329 },
     },
     {
@@ -77,6 +84,7 @@ function generateMockStations(bounds: MapBounds): FuelStation[] {
       latOffset: 0.022,
       lngOffset: 0.015,
       distanceOffRouteMiles: 1.9,
+      detourExtraSeconds: 195,
       prices: { E10: 1.349, E5: 1.449, B7_Diesel: 1.379 },
     },
     {
@@ -86,6 +94,7 @@ function generateMockStations(bounds: MapBounds): FuelStation[] {
       latOffset: -0.035,
       lngOffset: 0.048,
       distanceOffRouteMiles: 5.2,
+      detourExtraSeconds: 535,
       prices: { E10: 1.319, E5: 1.419, B7_Diesel: 1.359 },
     },
   ];
@@ -100,6 +109,7 @@ function generateMockStations(bounds: MapBounds): FuelStation[] {
     },
     prices: t.prices,
     distanceOffRouteMiles: t.distanceOffRouteMiles,
+    detourExtraSeconds: t.detourExtraSeconds,
   }));
 }
 

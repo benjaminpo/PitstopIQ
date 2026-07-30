@@ -300,6 +300,7 @@ function mapStations(
       distanceOffRouteMiles: Number(
         haversineMiles(routeCentre, location).toFixed(2)
       ),
+      detourExtraSeconds: 0,
     });
   }
 

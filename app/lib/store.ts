@@ -10,7 +10,10 @@ import type {
   StationWithCalculation,
   VehicleProfile,
 } from "./types";
-import { calculateDetourSavings } from "./detourCalculator";
+import {
+  calculateDetourSavings,
+  DEFAULT_VALUE_OF_TIME_GBP_PER_HOUR,
+} from "./detourCalculator";
 import { computeBaselineRoutePrice } from "./baselinePrice";
 import { DEFAULT_BASE_ROUTE_AVG_PRICE } from "./fuelApiAdapter";
 import {
@@ -18,8 +21,9 @@ import {
   reverseGeocode,
 } from "./geolocation";
 import {
-  approximateDetourMiles,
-  distanceToRouteMiles,
+  approximateDetourSeconds,
+  corridorPadDegrees,
+  filterToRouteCorridor,
   fetchDrivingRoute,
   fetchStationDetours,
   type DrivingRoute,
@@ -29,6 +33,8 @@ const DEFAULT_ORIGIN: GeoPoint = { lat: 51.4543, lng: -0.9781 }; // Reading
 const DEFAULT_DESTINATION: GeoPoint = { lat: 51.47, lng: -0.4543 }; // Heathrow
 
 const SETTINGS_STORAGE_KEY = "pitstopiq-vehicle-settings";
+/** Max stations to refine with live OSRM A→station→B routing. */
+const MAX_OSRM_CANDIDATES = 25;
 
 interface PitstopState {
   origin: string;
@@ -43,6 +49,8 @@ interface PitstopState {
   /** True when the user has manually edited the base price */
   basePriceManual: boolean;
   litresToRefill: number;
+  /** Opportunity cost of driving time (£/hour); 0 ignores time */
+  valueOfTimeGbpPerHour: number;
   stations: FuelStation[];
   dataSource: "live" | "mock" | null;
   selectedStationId: string | null;
@@ -64,6 +72,7 @@ interface PitstopState {
   setBaseRouteAvgPrice: (price: number) => void;
   resetBaseRouteAvgPrice: () => void;
   setLitresToRefill: (litres: number) => void;
+  setValueOfTimeGbpPerHour: (gbpPerHour: number) => void;
   setSortKey: (key: StationSortKey) => void;
   setSelectedStationId: (id: string | null) => void;
   setSidebarOpen: (open: boolean) => void;
@@ -79,7 +88,10 @@ const defaultVehicle: VehicleProfile = {
   fillPercentage: 25,
 };
 
-type PersistedSettings = Pick<PitstopState, "vehicle" | "litresToRefill">;
+type PersistedSettings = Pick<
+  PitstopState,
+  "vehicle" | "litresToRefill" | "valueOfTimeGbpPerHour"
+>;
 
 export const usePitstopStore = create<PitstopState>()(
   persist(
@@ -95,6 +107,7 @@ export const usePitstopStore = create<PitstopState>()(
       baseRouteAvgPricePerLitre: DEFAULT_BASE_ROUTE_AVG_PRICE,
       basePriceManual: false,
       litresToRefill: defaultVehicle.tankCapacityLitres,
+      valueOfTimeGbpPerHour: DEFAULT_VALUE_OF_TIME_GBP_PER_HOUR,
       stations: [],
       dataSource: null,
       selectedStationId: null,
@@ -163,6 +176,13 @@ export const usePitstopStore = create<PitstopState>()(
         });
       },
       setLitresToRefill: (litresToRefill) => set({ litresToRefill }),
+      setValueOfTimeGbpPerHour: (valueOfTimeGbpPerHour) =>
+        set({
+          valueOfTimeGbpPerHour: Math.max(
+            0,
+            Math.min(200, valueOfTimeGbpPerHour)
+          ),
+        }),
       setSortKey: (sortKey) => set({ sortKey }),
       setSelectedStationId: (selectedStationId) => set({ selectedStationId }),
       setSidebarOpen: (sidebarOpen) => set({ sidebarOpen }),
@@ -232,12 +252,19 @@ export const usePitstopStore = create<PitstopState>()(
               distanceMiles: 0,
               durationSeconds: 0,
               coordinates: [originCoords, destinationCoords],
-              bounds: {
-                north: Math.max(originCoords.lat, destinationCoords.lat) + 0.08,
-                south: Math.min(originCoords.lat, destinationCoords.lat) - 0.08,
-                east: Math.max(originCoords.lng, destinationCoords.lng) + 0.08,
-                west: Math.min(originCoords.lng, destinationCoords.lng) - 0.08,
-              },
+              bounds: (() => {
+                const pad = corridorPadDegrees();
+                return {
+                  north:
+                    Math.max(originCoords.lat, destinationCoords.lat) + pad,
+                  south:
+                    Math.min(originCoords.lat, destinationCoords.lat) - pad,
+                  east:
+                    Math.max(originCoords.lng, destinationCoords.lng) + pad,
+                  west:
+                    Math.min(originCoords.lng, destinationCoords.lng) - pad,
+                };
+              })(),
             };
           }
 
@@ -254,38 +281,51 @@ export const usePitstopStore = create<PitstopState>()(
             source?: "live" | "mock";
           };
 
-          const ranked = data.stations
-            .map((s) => ({
-              station: s,
-              distToRoute: distanceToRouteMiles(s.location, route.coordinates),
-            }))
-            .sort((a, b) => a.distToRoute - b.distToRoute);
+          const corridor = filterToRouteCorridor(
+            data.stations,
+            route.coordinates
+          );
 
-          const withApprox = ranked.map(({ station: s }) => ({
-            ...s,
-            distanceOffRouteMiles: approximateDetourMiles(
-              s.location,
-              route.coordinates
-            ),
-          }));
+          const withApprox = corridor.map(({ station: s, distToRoute }) => {
+            // Prefer the measured perpendicular distance × 2 until OSRM refines it
+            const miles = Number((distToRoute * 2).toFixed(2));
+            return {
+              ...s,
+              distanceOffRouteMiles: miles,
+              detourExtraSeconds: approximateDetourSeconds(miles, route),
+            };
+          });
 
-          const candidates = withApprox.slice(0, 25);
+          const candidates = withApprox.slice(0, MAX_OSRM_CANDIDATES);
           const detours = await fetchStationDetours(
             originCoords,
             destinationCoords,
             candidates,
-            route.coordinates
+            route.coordinates,
+            route
           );
 
-          const stations: FuelStation[] = withApprox.map((s) => ({
-            ...s,
-            distanceOffRouteMiles:
-              detours[s.id] ??
-              approximateDetourMiles(s.location, route.coordinates),
-          }));
+          const stations: FuelStation[] = withApprox.map((s) => {
+            const metrics = detours[s.id];
+            if (metrics) {
+              return {
+                ...s,
+                distanceOffRouteMiles: metrics.miles,
+                detourExtraSeconds: metrics.extraSeconds,
+              };
+            }
+            return s;
+          });
+
+          const selectedStillVisible =
+            get().selectedStationId != null &&
+            stations.some((s) => s.id === get().selectedStationId);
 
           set({
             stations,
+            selectedStationId: selectedStillVisible
+              ? get().selectedStationId
+              : null,
             dataSource: data.source ?? null,
             loading: false,
             ...(!get().basePriceManual
@@ -313,6 +353,7 @@ export const usePitstopStore = create<PitstopState>()(
           vehicle,
           baseRouteAvgPricePerLitre,
           litresToRefill,
+          valueOfTimeGbpPerHour,
           sortKey,
         } = get();
 
@@ -327,6 +368,8 @@ export const usePitstopStore = create<PitstopState>()(
               baseRouteAvgPricePerLitre,
               distanceOffRouteMiles: station.distanceOffRouteMiles,
               litresToRefill,
+              detourExtraMinutes: station.detourExtraSeconds / 60,
+              valueOfTimeGbpPerHour,
             });
 
             return { station, calculation, pricePerLitre };
@@ -344,10 +387,7 @@ export const usePitstopStore = create<PitstopState>()(
               return a.pricePerLitre - b.pricePerLitre;
             case "netProfit":
             default:
-              return (
-                b.calculation.netFinancialSaving -
-                a.calculation.netFinancialSaving
-              );
+              return b.calculation.netAfterTime - a.calculation.netAfterTime;
           }
         });
 
@@ -359,17 +399,23 @@ export const usePitstopStore = create<PitstopState>()(
       partialize: (state): PersistedSettings => ({
         vehicle: state.vehicle,
         litresToRefill: state.litresToRefill,
+        valueOfTimeGbpPerHour: state.valueOfTimeGbpPerHour,
       }),
       // Drop stale base price from older persisted payloads (£1.429 bug)
       migrate: (persisted) => {
-        if (!persisted || typeof persisted !== "object") return persisted as PersistedSettings;
+        if (!persisted || typeof persisted !== "object")
+          return persisted as PersistedSettings;
         const p = persisted as Record<string, unknown>;
         return {
           vehicle: p.vehicle as VehicleProfile,
           litresToRefill: p.litresToRefill as number,
+          valueOfTimeGbpPerHour:
+            typeof p.valueOfTimeGbpPerHour === "number"
+              ? p.valueOfTimeGbpPerHour
+              : DEFAULT_VALUE_OF_TIME_GBP_PER_HOUR,
         };
       },
-      version: 2,
+      version: 3,
     }
   )
 );

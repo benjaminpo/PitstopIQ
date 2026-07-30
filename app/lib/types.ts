@@ -24,6 +24,8 @@ export interface FuelStation {
   prices: Partial<Record<FuelType, number>>;
   /** Extra miles vs remaining on the direct route */
   distanceOffRouteMiles: number;
+  /** Extra driving time vs the direct route (seconds, from OSRM or estimate) */
+  detourExtraSeconds: number;
 }
 
 export interface MapBounds {
@@ -46,6 +48,13 @@ export interface DetourCalculationInput {
    * tankCapacity × (1 − fillPercentage / 100).
    */
   litresToRefill?: number;
+  /** Extra driving time for the detour (minutes). Defaults to 0. */
+  detourExtraMinutes?: number;
+  /**
+   * Opportunity cost of time (£/hour). Used to convert detour minutes
+   * into a cash-equivalent cost. Defaults to 0 (ignore time).
+   */
+  valueOfTimeGbpPerHour?: number;
 }
 
 export type DetourStatus = "worth" | "neutral" | "false_economy";
@@ -56,7 +65,13 @@ export interface DetourCalculationResult {
   detourFuelCost: number;
   litresToRefill: number;
   grossSavings: number;
+  /** Fuel-only net: gross savings − detour fuel cost */
   netFinancialSaving: number;
+  detourExtraMinutes: number;
+  /** Opportunity cost of the extra driving time */
+  timeCostGbp: number;
+  /** Decision figure: fuel net − time cost */
+  netAfterTime: number;
   status: DetourStatus;
 }
 
@@ -79,4 +94,6 @@ export interface AppCalculationParams {
   vehicle: VehicleProfile;
   baseRouteAvgPricePerLitre: number;
   litresToRefill: number;
+  /** £/hour the driver assigns to their time */
+  valueOfTimeGbpPerHour: number;
 }

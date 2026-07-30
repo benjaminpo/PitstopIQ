@@ -14,8 +14,14 @@ Smart Route Cost Calculator & Detour Planner — decide whether diverting to a c
 - Litres/mile = `4.54609 / MPG`
 - Detour fuel cost = extra miles × litres/mile × station £/L
 - Gross savings = (base route avg £/L − station £/L) × litres to refill
-- **Net** = gross savings − detour fuel cost
+- **Fuel net** = gross savings − detour fuel cost
+- Time cost = (extra detour minutes / 60) × value of time (£/h, default £12)
+- **Net after time** = fuel net − time cost — used for status & ranking
 - Status: green (> £0.50), amber (± £0.50), red (< −£0.50)
+
+Extra minutes come from OSRM (A→station→B vs direct A→B). When routing fails, minutes are estimated from extra miles using the route’s average speed.
+
+Stations are filtered to a **3 mi corridor** along the OSRM driving polyline (not the rectangular map bounds). Only those forecourts are scored and shown.
 
 ## Quick start
 
