@@ -81,6 +81,8 @@ interface PitstopState {
   valueOfTimeGbpPerHour: number;
   stations: FuelStation[];
   dataSource: "live" | "mock" | null;
+  /** Epoch ms when live Fuel Finder prices were last synced; null for mock */
+  pricesFetchedAt: number | null;
   selectedStationId: string | null;
   sortKey: StationSortKey;
   sidebarOpen: boolean;
@@ -168,6 +170,7 @@ export const usePitstopStore = create<PitstopState>()(
       valueOfTimeGbpPerHour: DEFAULT_VALUE_OF_TIME_GBP_PER_HOUR,
       stations: [],
       dataSource: null,
+      pricesFetchedAt: null,
       selectedStationId: null,
       sortKey: "netProfit",
       sidebarOpen: true,
@@ -416,6 +419,7 @@ export const usePitstopStore = create<PitstopState>()(
           const data = (await res.json()) as {
             stations: FuelStation[];
             source?: "live" | "mock";
+            pricesFetchedAt?: number | null;
           };
 
           const corridor = filterToRouteCorridor(
@@ -464,6 +468,10 @@ export const usePitstopStore = create<PitstopState>()(
               ? get().selectedStationId
               : null,
             dataSource: data.source ?? null,
+            pricesFetchedAt:
+              typeof data.pricesFetchedAt === "number"
+                ? data.pricesFetchedAt
+                : null,
             loading: false,
             ...(!get().basePriceManual
               ? {

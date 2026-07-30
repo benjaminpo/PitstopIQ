@@ -36,12 +36,14 @@ function parseBounds(searchParams: URLSearchParams): MapBounds {
 export async function GET(request: NextRequest) {
   try {
     const bounds = parseBounds(request.nextUrl.searchParams);
-    const { stations, source } = await fetchNearbyFuelStations(bounds);
+    const { stations, source, pricesFetchedAt } =
+      await fetchNearbyFuelStations(bounds);
 
     return NextResponse.json({
       source,
       configured: isFuelFinderConfigured(),
       count: stations.length,
+      pricesFetchedAt,
       stations,
     });
   } catch (error) {

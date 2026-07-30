@@ -119,12 +119,21 @@ function generateMockStations(bounds: MapBounds): FuelStation[] {
  */
 export async function fetchNearbyFuelStations(
   bounds: MapBounds
-): Promise<{ stations: FuelStation[]; source: "live" | "mock" }> {
+): Promise<{
+  stations: FuelStation[];
+  source: "live" | "mock";
+  /** Epoch ms when live prices were last synced; null for mock */
+  pricesFetchedAt: number | null;
+}> {
   if (isFuelFinderConfigured()) {
     try {
       const live = await fetchFuelFinderStations(bounds);
-      if (live && live.length > 0) {
-        return { stations: live, source: "live" };
+      if (live && live.stations.length > 0) {
+        return {
+          stations: live.stations,
+          source: "live",
+          pricesFetchedAt: live.pricesFetchedAt,
+        };
       }
       console.warn(
         "[fuelApiAdapter] Live Fuel Finder returned 0 stations in bounds — using mocks"
@@ -134,7 +143,11 @@ export async function fetchNearbyFuelStations(
     }
   }
 
-  return { stations: generateMockStations(bounds), source: "mock" };
+  return {
+    stations: generateMockStations(bounds),
+    source: "mock",
+    pricesFetchedAt: null,
+  };
 }
 
 export const fuelApiAdapter: FuelApiAdapter = {

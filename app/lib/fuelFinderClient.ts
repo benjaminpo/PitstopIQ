@@ -72,7 +72,7 @@ let tokenCache: {
 } | null = null;
 
 let datasetCache: CachedDataset | null = null;
-let inflightRefresh: Promise<FuelStation[]> | null = null;
+let inflightRefresh: Promise<CachedDataset> | null = null;
 let lastRequestAt = 0;
 
 function getConfig() {
@@ -307,7 +307,7 @@ function mapStations(
   return mapped;
 }
 
-async function refreshDataset(): Promise<FuelStation[]> {
+async function refreshDataset(): Promise<CachedDataset> {
   // Sequential on purpose — Fuel Finder requires waiting for each response
   // before the next request (30 rpm Information Recipient limit).
   const stations = await fetchAllBatches<ApiStation>(PFS_PATH);
@@ -338,15 +338,15 @@ async function refreshDataset(): Promise<FuelStation[]> {
   console.info(
     `[fuelFinder] cached ${mapped.length} stations with prices (${stations.length} PFS / ${priceRows.length} price rows)`
   );
-  return mapped;
+  return datasetCache;
 }
 
-async function getAllStationsCached(): Promise<FuelStation[]> {
+async function getAllStationsCached(): Promise<CachedDataset> {
   if (
     datasetCache &&
     Date.now() - datasetCache.fetchedAt < CACHE_TTL_MS
   ) {
-    return datasetCache.stations;
+    return datasetCache;
   }
 
   if (!inflightRefresh) {
@@ -358,6 +358,12 @@ async function getAllStationsCached(): Promise<FuelStation[]> {
   return inflightRefresh;
 }
 
+export interface FuelFinderFetchResult {
+  stations: FuelStation[];
+  /** Epoch ms when the national prices dataset was last pulled from Fuel Finder */
+  pricesFetchedAt: number;
+}
+
 /**
  * Live Fuel Finder stations within map bounds.
  * Returns null when credentials are missing; throws on hard API failures
@@ -365,16 +371,16 @@ async function getAllStationsCached(): Promise<FuelStation[]> {
  */
 export async function fetchFuelFinderStations(
   bounds: MapBounds
-): Promise<FuelStation[] | null> {
+): Promise<FuelFinderFetchResult | null> {
   if (!isFuelFinderConfigured()) return null;
 
-  const all = await getAllStationsCached();
+  const { stations: all, fetchedAt } = await getAllStationsCached();
   const centre: GeoPoint = {
     lat: (bounds.north + bounds.south) / 2,
     lng: (bounds.east + bounds.west) / 2,
   };
 
-  return all
+  const stations = all
     .filter((s) => inBounds(s.location, bounds))
     .map((s) => ({
       ...s,
@@ -383,4 +389,6 @@ export async function fetchFuelFinderStations(
       ),
     }))
     .sort((a, b) => a.distanceOffRouteMiles - b.distanceOffRouteMiles);
+
+  return { stations, pricesFetchedAt: fetchedAt };
 }

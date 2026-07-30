@@ -52,7 +52,7 @@ FUEL_FINDER_CLIENT_SECRET=...
 FUEL_FINDER_BASE_URL=https://www.fuel-finder.service.gov.uk
 ```
 
-Without credentials the app uses mock stations. The first live fetch caches the national PFS + prices dataset in memory (~1 hour TTL).
+Without credentials the app uses mock stations. The first live fetch caches the national PFS + prices dataset in memory (~1 hour TTL). The stations list shows a **freshness badge** (`Updated Xm ago`) from that sync time.
 
 ## CI / Deploy (GitHub Actions)
 

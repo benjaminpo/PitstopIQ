@@ -1,10 +1,12 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { ArrowUpDown } from "lucide-react";
 import { usePitstopStore } from "@/app/lib/store";
 import { CORRIDOR_MAX_DISTANCE_MILES } from "@/app/lib/routing";
 import type { StationSortKey, StationWithCalculation } from "@/app/lib/types";
 import { cn } from "@/app/lib/utils";
+import { FreshnessBadge } from "./FreshnessBadge";
 import { StationCard } from "./StationCard";
 
 const SORT_OPTIONS: { key: StationSortKey; label: string }[] = [
@@ -37,24 +39,41 @@ export function StationList() {
     error,
     stations,
     dataSource,
+    pricesFetchedAt,
     originCoords,
   } = usePitstopStore();
 
   const enriched = getEnrichedStations();
   const bestId = bestStationId(enriched);
 
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (!dataSource) return;
+    const id = window.setInterval(() => setNow(Date.now()), 30_000);
+    return () => window.clearInterval(id);
+  }, [dataSource]);
+
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="mb-3 flex items-center justify-between gap-2">
-        <div>
-          <h2 className="text-sm font-semibold text-slate-100">Stations</h2>
-          <p className="text-xs text-slate-500">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <h2 className="text-sm font-semibold text-slate-100">Stations</h2>
+            {!loading && dataSource && (
+              <FreshnessBadge
+                source={dataSource}
+                pricesFetchedAt={pricesFetchedAt}
+                now={now}
+              />
+            )}
+          </div>
+          <p className="mt-0.5 text-xs text-slate-500">
             {loading
               ? "Fetching Fuel Finder prices (first load can take a minute)…"
-              : `${enriched.length} on corridor (≤${CORRIDOR_MAX_DISTANCE_MILES} mi) · ${dataSource === "live" ? "live GOV data" : dataSource === "mock" ? "mock data" : "—"} · ${SORT_OPTIONS.find((s) => s.key === sortKey)?.label.toLowerCase()}`}
+              : `${enriched.length} on corridor (≤${CORRIDOR_MAX_DISTANCE_MILES} mi) · ${SORT_OPTIONS.find((s) => s.key === sortKey)?.label.toLowerCase()}`}
           </p>
         </div>
-        <div className="flex items-center gap-1 rounded-lg bg-slate-900/80 p-1 ring-1 ring-slate-700/60">
+        <div className="flex shrink-0 items-center gap-1 rounded-lg bg-slate-900/80 p-1 ring-1 ring-slate-700/60">
           <ArrowUpDown className="ml-1 h-3.5 w-3.5 text-slate-500" />
           {SORT_OPTIONS.map((opt) => (
             <button
