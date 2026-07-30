@@ -96,15 +96,61 @@ export function distanceToRouteMiles(
   point: GeoPoint,
   route: GeoPoint[]
 ): number {
-  if (route.length === 0) return Infinity;
-  if (route.length === 1) return haversineMiles(point, route[0]);
+  return nearestOnRoute(point, route).distToRoute;
+}
 
-  let min = Infinity;
-  for (let i = 0; i < route.length - 1; i++) {
-    const d = pointToSegmentMiles(point, route[i], route[i + 1]);
-    if (d < min) min = d;
+/**
+ * Nearest point on a route polyline: perpendicular distance plus miles
+ * along the polyline from the start to that closest point.
+ */
+export function nearestOnRoute(
+  point: GeoPoint,
+  route: GeoPoint[]
+): { distToRoute: number; alongRouteMiles: number } {
+  if (route.length === 0) {
+    return { distToRoute: Infinity, alongRouteMiles: 0 };
   }
-  return min;
+  if (route.length === 1) {
+    return {
+      distToRoute: haversineMiles(point, route[0]),
+      alongRouteMiles: 0,
+    };
+  }
+
+  let bestDist = Infinity;
+  let bestAlong = 0;
+  let walked = 0;
+
+  for (let i = 0; i < route.length - 1; i++) {
+    const a = route[i];
+    const b = route[i + 1];
+    const segLen = haversineMiles(a, b);
+    const { dist, t } = pointToSegmentProjection(point, a, b);
+    if (dist < bestDist) {
+      bestDist = dist;
+      bestAlong = walked + t * segLen;
+    }
+    walked += segLen;
+  }
+
+  return { distToRoute: bestDist, alongRouteMiles: bestAlong };
+}
+
+/**
+ * Estimated driving miles from trip origin to a station: distance along the
+ * route to the nearest point, plus the spur off the route to the forecourt.
+ */
+export function milesFromOriginToStation(
+  station: GeoPoint,
+  route: GeoPoint[],
+  origin?: GeoPoint | null
+): number {
+  if (route.length >= 2) {
+    const { distToRoute, alongRouteMiles } = nearestOnRoute(station, route);
+    return alongRouteMiles + distToRoute;
+  }
+  if (origin) return haversineMiles(origin, station);
+  return Infinity;
 }
 
 /**
@@ -126,7 +172,11 @@ export function filterToRouteCorridor<T extends { location: GeoPoint }>(
     .sort((a, b) => a.distToRoute - b.distToRoute);
 }
 
-function pointToSegmentMiles(p: GeoPoint, a: GeoPoint, b: GeoPoint): number {
+function pointToSegmentProjection(
+  p: GeoPoint,
+  a: GeoPoint,
+  b: GeoPoint
+): { dist: number; t: number } {
   // Equirectangular projection around segment for a local planar estimate
   const midLat = ((a.lat + b.lat) / 2) * (Math.PI / 180);
   const cosLat = Math.cos(midLat);
@@ -146,7 +196,11 @@ function pointToSegmentMiles(p: GeoPoint, a: GeoPoint, b: GeoPoint): number {
   }
   const cx = ax + t * dx;
   const cy = ay + t * dy;
-  return haversineMiles(p, { lat: cy, lng: cosLat === 0 ? a.lng : cx / cosLat });
+  const dist = haversineMiles(p, {
+    lat: cy,
+    lng: cosLat === 0 ? a.lng : cx / cosLat,
+  });
+  return { dist, t };
 }
 
 /**

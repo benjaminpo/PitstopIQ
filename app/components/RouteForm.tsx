@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { PlaceAutocomplete } from "@/app/components/PlaceAutocomplete";
 import { VehiclePresets } from "@/app/components/VehiclePresets";
+import { remainingRangeMiles } from "@/app/lib/detourCalculator";
 import { usePitstopStore } from "@/app/lib/store";
 import { formatPlaceSelection } from "@/app/lib/placeSearch";
 import type { FuelType } from "@/app/lib/types";
@@ -317,6 +318,13 @@ export function RouteForm() {
           />
         </label>
       </div>
+      <p className="-mt-3 text-[10px] leading-snug text-slate-500">
+        Remaining range ≈{" "}
+        <span className="font-mono text-slate-300">
+          {remainingRangeMiles(vehicle).toFixed(0)} mi
+        </span>{" "}
+        — stations farther than that are hidden.
+      </p>
 
       <button
         type="submit"

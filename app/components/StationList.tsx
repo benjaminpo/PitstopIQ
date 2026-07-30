@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { ArrowUpDown } from "lucide-react";
+import { remainingRangeMiles } from "@/app/lib/detourCalculator";
 import {
   BRAND_FILTER_OPTIONS,
   type BrandFilter,
@@ -47,12 +48,14 @@ export function StationList() {
     dataSource,
     pricesFetchedAt,
     originCoords,
+    vehicle,
   } = usePitstopStore();
 
   const enriched = getEnrichedStations();
   const bestId = bestStationId(enriched);
   const filterLabel =
     BRAND_FILTER_OPTIONS.find((o) => o.key === brandFilter)?.label ?? "All";
+  const rangeMiles = remainingRangeMiles(vehicle);
 
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
@@ -78,7 +81,7 @@ export function StationList() {
           <p className="mt-0.5 text-xs text-slate-500">
             {loading
               ? "Fetching Fuel Finder prices (first load can take a minute)…"
-              : `${enriched.length} shown · ${stations.length} on corridor · ${filterLabel} · ${SORT_OPTIONS.find((s) => s.key === sortKey)?.label.toLowerCase()}`}
+              : `${enriched.length} in range (≤${rangeMiles.toFixed(0)} mi) · ${stations.length} on corridor · ${filterLabel} · ${SORT_OPTIONS.find((s) => s.key === sortKey)?.label.toLowerCase()}`}
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-1 rounded-lg bg-slate-900/80 p-1 ring-1 ring-slate-700/60">
@@ -146,8 +149,21 @@ export function StationList() {
         !error &&
         brandFilter !== "all" && (
           <p className="rounded-lg border border-dashed border-slate-700 px-3 py-8 text-center text-sm text-slate-500">
-            No {filterLabel.toLowerCase()} forecourts on this corridor. Try
-            another brand filter.
+            No {filterLabel.toLowerCase()} forecourts within your{" "}
+            {rangeMiles.toFixed(0)} mi remaining range. Try another brand filter
+            or top up the fill %.
+          </p>
+        )}
+
+      {!loading &&
+        stations.length > 0 &&
+        enriched.length === 0 &&
+        !error &&
+        brandFilter === "all" && (
+          <p className="rounded-lg border border-dashed border-slate-700 px-3 py-8 text-center text-sm text-slate-500">
+            No corridor forecourts within your {rangeMiles.toFixed(0)} mi
+            remaining range (from {vehicle.fillPercentage}% fill). Increase fill
+            % or start closer to a station.
           </p>
         )}
 

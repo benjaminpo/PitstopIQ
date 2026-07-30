@@ -37,6 +37,10 @@ Named profiles (fuel grade, MPG, tank size) are stored in `localStorage` via Zus
 
 Stations can be filtered to **Supermarket** (Tesco, Asda, Sainsbury’s…), **Motorway** (Moto, Welcome Break, Roadchef, MSA…), or **Premium** (Shell, BP, Esso…). Classification uses brand + trading-name heuristics.
 
+## Remaining range
+
+Stations beyond the usable range from **current fill %** are hidden. Range = tank litres × fill% × MPG (UK gallon), with a 5% reserve so you don’t plan to arrive empty. Distance to each station is estimated along the OSRM route plus the spur off-route.
+
 ## Quick start
 
 ```bash

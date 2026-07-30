@@ -25,6 +25,40 @@ export function litresPerMile(mpg: number): number {
 }
 
 /**
+ * Litres still in the tank from current fill %.
+ */
+export function remainingFuelLitres(vehicle: {
+  tankCapacityLitres: number;
+  fillPercentage: number;
+}): number {
+  const fill =
+    Math.max(0, Math.min(100, vehicle.fillPercentage)) / 100;
+  return Math.max(0, vehicle.tankCapacityLitres * fill);
+}
+
+/**
+ * Fraction of remaining fuel held back so you don’t plan to arrive on fumes.
+ */
+export const RANGE_RESERVE_FRACTION = 0.05;
+
+/**
+ * Usable driving range (miles) from current fill %, MPG, and a small reserve.
+ */
+export function remainingRangeMiles(
+  vehicle: {
+    mpg: number;
+    tankCapacityLitres: number;
+    fillPercentage: number;
+  },
+  reserveFraction = RANGE_RESERVE_FRACTION
+): number {
+  const usableLitres =
+    remainingFuelLitres(vehicle) * (1 - Math.max(0, Math.min(0.5, reserveFraction)));
+  if (usableLitres <= 0) return 0;
+  return usableLitres / litresPerMile(vehicle.mpg);
+}
+
+/**
  * Resolve how many litres the driver intends to put in the tank.
  */
 export function resolveLitresToRefill(

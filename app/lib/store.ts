@@ -14,6 +14,7 @@ import type {
 import {
   calculateDetourSavings,
   DEFAULT_VALUE_OF_TIME_GBP_PER_HOUR,
+  remainingRangeMiles,
 } from "./detourCalculator";
 import { computeBaselineRoutePrice } from "./baselinePrice";
 import { DEFAULT_BASE_ROUTE_AVG_PRICE } from "./fuelApiAdapter";
@@ -24,9 +25,11 @@ import {
 import {
   approximateDetourSeconds,
   corridorPadDegrees,
+  downsampleRoute,
   filterToRouteCorridor,
   fetchDrivingRoute,
   fetchStationDetours,
+  milesFromOriginToStation,
   type DrivingRoute,
 } from "./routing";
 import type { TripSnapshot } from "./tripUrl";
@@ -511,12 +514,29 @@ export const usePitstopStore = create<PitstopState>()(
           valueOfTimeGbpPerHour,
           sortKey,
           brandFilter,
+          route,
+          originCoords,
         } = get();
+
+        const rangeMiles = remainingRangeMiles(vehicle);
+        const routeLine = downsampleRoute(
+          route?.coordinates?.length
+            ? route.coordinates
+            : [originCoords]
+        );
 
         const enriched: StationWithCalculation[] = stations
           .filter((station) =>
             stationMatchesBrandFilter(station, brandFilter)
           )
+          .filter((station) => {
+            const milesTo = milesFromOriginToStation(
+              station.location,
+              routeLine,
+              originCoords
+            );
+            return milesTo <= rangeMiles;
+          })
           .map((station) => {
             const pricePerLitre = station.prices[vehicle.fuelType];
             if (pricePerLitre === undefined) return null;
