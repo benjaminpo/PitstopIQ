@@ -75,11 +75,19 @@ export function downsampleRoute(
   maxPoints = 250
 ): GeoPoint[] {
   if (route.length <= maxPoints) return route;
+  if (maxPoints < 2) return [route[0]];
+
+  const last = route.length - 1;
   const out: GeoPoint[] = new Array(maxPoints);
-  const step = (route.length - 1) / (maxPoints - 1);
+  const step = last / (maxPoints - 1);
   for (let i = 0; i < maxPoints; i++) {
-    out[i] = route[Math.round(i * step)];
+    // Clamp: floating-point round(i * step) can theoretically land on
+    // route.length for some (n, m) pairs; always stay in [0, last].
+    const idx = Math.min(last, Math.round(i * step));
+    out[i] = route[idx];
   }
+  // Guarantee the final vertex is the true endpoint (not a rounded neighbour).
+  out[maxPoints - 1] = route[last];
   return out;
 }
 

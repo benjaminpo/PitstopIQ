@@ -8,6 +8,7 @@ import type {
   GeoPoint,
   StationSortKey,
   StationWithCalculation,
+  VehiclePreset,
   VehicleProfile,
 } from "./types";
 import {
@@ -36,6 +37,29 @@ const DEFAULT_DESTINATION: GeoPoint = { lat: 51.47, lng: -0.4543 }; // Heathrow
 const SETTINGS_STORAGE_KEY = "pitstopiq-vehicle-settings";
 /** Max stations to refine with live OSRM A→station→B routing. */
 const MAX_OSRM_CANDIDATES = 25;
+const MAX_VEHICLE_PRESETS = 8;
+
+function newPresetId(): string {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+    return crypto.randomUUID();
+  }
+  return `preset-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function normalizePresetName(name: string): string {
+  return name.trim().slice(0, 40) || "My car";
+}
+
+function presetMatchesVehicle(
+  preset: VehiclePreset,
+  vehicle: VehicleProfile
+): boolean {
+  return (
+    preset.fuelType === vehicle.fuelType &&
+    preset.mpg === vehicle.mpg &&
+    preset.tankCapacityLitres === vehicle.tankCapacityLitres
+  );
+}
 
 interface PitstopState {
   origin: string;
@@ -46,6 +70,9 @@ interface PitstopState {
   routing: boolean;
   routeError: string | null;
   vehicle: VehicleProfile;
+  /** Named MPG / tank / fuel profiles kept in localStorage */
+  vehiclePresets: VehiclePreset[];
+  activePresetId: string | null;
   baseRouteAvgPricePerLitre: number;
   /** True when the user has manually edited the base price */
   basePriceManual: boolean;
@@ -77,6 +104,11 @@ interface PitstopState {
   setSortKey: (key: StationSortKey) => void;
   setSelectedStationId: (id: string | null) => void;
   setSidebarOpen: (open: boolean) => void;
+  applyVehiclePreset: (id: string) => void;
+  saveVehiclePreset: (name?: string) => string | null;
+  updateVehiclePreset: (id: string) => void;
+  deleteVehiclePreset: (id: string) => void;
+  renameVehiclePreset: (id: string, name: string) => void;
   locateCurrentPosition: (target?: "origin" | "destination") => Promise<void>;
   loadStations: () => Promise<void>;
   getEnrichedStations: () => StationWithCalculation[];
@@ -91,9 +123,30 @@ const defaultVehicle: VehicleProfile = {
   fillPercentage: 25,
 };
 
+const defaultPresets: VehiclePreset[] = [
+  {
+    id: "preset-petrol-hatch",
+    name: "Petrol hatch",
+    fuelType: "E10",
+    mpg: 45,
+    tankCapacityLitres: 55,
+  },
+  {
+    id: "preset-diesel-estate",
+    name: "Diesel estate",
+    fuelType: "B7_Diesel",
+    mpg: 52,
+    tankCapacityLitres: 65,
+  },
+];
+
 type PersistedSettings = Pick<
   PitstopState,
-  "vehicle" | "litresToRefill" | "valueOfTimeGbpPerHour"
+  | "vehicle"
+  | "litresToRefill"
+  | "valueOfTimeGbpPerHour"
+  | "vehiclePresets"
+  | "activePresetId"
 >;
 
 export const usePitstopStore = create<PitstopState>()(
@@ -107,6 +160,8 @@ export const usePitstopStore = create<PitstopState>()(
       routing: false,
       routeError: null,
       vehicle: defaultVehicle,
+      vehiclePresets: defaultPresets,
+      activePresetId: "preset-petrol-hatch",
       baseRouteAvgPricePerLitre: DEFAULT_BASE_ROUTE_AVG_PRICE,
       basePriceManual: false,
       litresToRefill: defaultVehicle.tankCapacityLitres,
@@ -189,6 +244,85 @@ export const usePitstopStore = create<PitstopState>()(
       setSortKey: (sortKey) => set({ sortKey }),
       setSelectedStationId: (selectedStationId) => set({ selectedStationId }),
       setSidebarOpen: (sidebarOpen) => set({ sidebarOpen }),
+
+      applyVehiclePreset: (id) => {
+        const preset = get().vehiclePresets.find((p) => p.id === id);
+        if (!preset) return;
+        const { stations, basePriceManual, litresToRefill, vehicle } = get();
+        const next: VehicleProfile = {
+          ...vehicle,
+          fuelType: preset.fuelType,
+          mpg: preset.mpg,
+          tankCapacityLitres: preset.tankCapacityLitres,
+        };
+        const auto = computeBaselineRoutePrice(stations, next.fuelType);
+        set({
+          vehicle: next,
+          activePresetId: preset.id,
+          litresToRefill: Math.min(litresToRefill, next.tankCapacityLitres),
+          ...(auto != null && !basePriceManual
+            ? { baseRouteAvgPricePerLitre: auto }
+            : {}),
+        });
+      },
+
+      saveVehiclePreset: (name) => {
+        const { vehicle, vehiclePresets } = get();
+        if (vehiclePresets.length >= MAX_VEHICLE_PRESETS) return null;
+
+        const id = newPresetId();
+        const preset: VehiclePreset = {
+          id,
+          name: normalizePresetName(
+            name ??
+              `${vehicle.fuelType.replace("_", " ")} · ${vehicle.mpg} mpg`
+          ),
+          fuelType: vehicle.fuelType,
+          mpg: vehicle.mpg,
+          tankCapacityLitres: vehicle.tankCapacityLitres,
+        };
+        set({
+          vehiclePresets: [...vehiclePresets, preset],
+          activePresetId: id,
+        });
+        return id;
+      },
+
+      updateVehiclePreset: (id) => {
+        const { vehicle, vehiclePresets } = get();
+        if (!vehiclePresets.some((p) => p.id === id)) return;
+        set({
+          vehiclePresets: vehiclePresets.map((p) =>
+            p.id === id
+              ? {
+                  ...p,
+                  fuelType: vehicle.fuelType,
+                  mpg: vehicle.mpg,
+                  tankCapacityLitres: vehicle.tankCapacityLitres,
+                }
+              : p
+          ),
+          activePresetId: id,
+        });
+      },
+
+      deleteVehiclePreset: (id) => {
+        const { vehiclePresets, activePresetId } = get();
+        const next = vehiclePresets.filter((p) => p.id !== id);
+        set({
+          vehiclePresets: next,
+          activePresetId: activePresetId === id ? null : activePresetId,
+        });
+      },
+
+      renameVehiclePreset: (id, name) => {
+        const trimmed = normalizePresetName(name);
+        set((s) => ({
+          vehiclePresets: s.vehiclePresets.map((p) =>
+            p.id === id ? { ...p, name: trimmed } : p
+          ),
+        }));
+      },
 
       locateCurrentPosition: async (target = "origin") => {
         set({
@@ -470,22 +604,51 @@ export const usePitstopStore = create<PitstopState>()(
         vehicle: state.vehicle,
         litresToRefill: state.litresToRefill,
         valueOfTimeGbpPerHour: state.valueOfTimeGbpPerHour,
+        vehiclePresets: state.vehiclePresets,
+        activePresetId: state.activePresetId,
       }),
-      // Drop stale base price from older persisted payloads (£1.429 bug)
       migrate: (persisted) => {
         if (!persisted || typeof persisted !== "object")
           return persisted as PersistedSettings;
         const p = persisted as Record<string, unknown>;
+        const vehicle = (p.vehicle as VehicleProfile) ?? defaultVehicle;
+        const rawPresets = Array.isArray(p.vehiclePresets)
+          ? (p.vehiclePresets as VehiclePreset[])
+          : defaultPresets;
+        const vehiclePresets = rawPresets
+          .filter(
+            (pr) =>
+              pr &&
+              typeof pr.id === "string" &&
+              typeof pr.name === "string" &&
+              typeof pr.mpg === "number" &&
+              typeof pr.tankCapacityLitres === "number" &&
+              typeof pr.fuelType === "string"
+          )
+          .slice(0, MAX_VEHICLE_PRESETS);
+        const activePresetId =
+          typeof p.activePresetId === "string" &&
+          vehiclePresets.some((pr) => pr.id === p.activePresetId)
+            ? p.activePresetId
+            : vehiclePresets.find((pr) => presetMatchesVehicle(pr, vehicle))
+                ?.id ?? null;
+
         return {
-          vehicle: p.vehicle as VehicleProfile,
-          litresToRefill: p.litresToRefill as number,
+          vehicle,
+          litresToRefill:
+            typeof p.litresToRefill === "number"
+              ? p.litresToRefill
+              : defaultVehicle.tankCapacityLitres,
           valueOfTimeGbpPerHour:
             typeof p.valueOfTimeGbpPerHour === "number"
               ? p.valueOfTimeGbpPerHour
               : DEFAULT_VALUE_OF_TIME_GBP_PER_HOUR,
+          vehiclePresets:
+            vehiclePresets.length > 0 ? vehiclePresets : defaultPresets,
+          activePresetId,
         };
       },
-      version: 3,
+      version: 4,
     }
   )
 );

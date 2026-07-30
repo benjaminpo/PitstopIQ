@@ -10,6 +10,7 @@ import {
   Navigation,
 } from "lucide-react";
 import { PlaceAutocomplete } from "@/app/components/PlaceAutocomplete";
+import { VehiclePresets } from "@/app/components/VehiclePresets";
 import { usePitstopStore } from "@/app/lib/store";
 import { formatPlaceSelection } from "@/app/lib/placeSearch";
 import type { FuelType } from "@/app/lib/types";
@@ -133,6 +134,8 @@ export function RouteForm() {
           )}
         </div>
       </div>
+
+      <VehiclePresets />
 
       <div className="space-y-2">
         <span className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-slate-400">

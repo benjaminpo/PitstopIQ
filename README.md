@@ -29,6 +29,10 @@ The address bar stays in sync with your trip. Copy it, bookmark it, or use **Sha
 
 Query params: `from`, `to` (lat,lng), `fromLabel`, `toLabel`, `fuel`, `mpg`, `tank`, `fill`, `refill`, `vot` (£/h), optional `base` (manual £/L).
 
+## Vehicle presets
+
+Named profiles (fuel grade, MPG, tank size) are stored in `localStorage` via Zustand persist. Switch, save, update, or delete them in the sidebar — they survive reloads on this browser.
+
 ## Quick start
 
 ```bash

@@ -10,6 +10,15 @@ export interface VehicleProfile {
   fillPercentage: number;
 }
 
+/** Named vehicle saved in localStorage for quick switching */
+export interface VehiclePreset {
+  id: string;
+  name: string;
+  fuelType: FuelType;
+  mpg: number;
+  tankCapacityLitres: number;
+}
+
 export interface GeoPoint {
   lat: number;
   lng: number;
