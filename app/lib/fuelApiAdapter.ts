@@ -48,6 +48,16 @@ function generateMockStations(bounds: MapBounds): FuelStation[] {
       prices: { E10: 1.459, E5: 1.559, B7_Diesel: 1.499 },
     },
     {
+      id: "mock-moto-m4",
+      name: "Moto Reading Services M4",
+      brand: "Moto",
+      latOffset: 0.015,
+      lngOffset: -0.02,
+      distanceOffRouteMiles: 0.4,
+      detourExtraSeconds: 45,
+      prices: { E10: 1.489, E5: 1.589, B7_Diesel: 1.529 },
+    },
+    {
       id: "mock-shell-reading",
       name: "Shell Reading West",
       brand: "Shell",

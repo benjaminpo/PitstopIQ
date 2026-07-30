@@ -33,6 +33,10 @@ Query params: `from`, `to` (lat,lng), `fromLabel`, `toLabel`, `fuel`, `mpg`, `ta
 
 Named profiles (fuel grade, MPG, tank size) are stored in `localStorage` via Zustand persist. Switch, save, update, or delete them in the sidebar — they survive reloads on this browser.
 
+## Brand filters
+
+Stations can be filtered to **Supermarket** (Tesco, Asda, Sainsbury’s…), **Motorway** (Moto, Welcome Break, Roadchef, MSA…), or **Premium** (Shell, BP, Esso…). Classification uses brand + trading-name heuristics.
+
 ## Quick start
 
 ```bash

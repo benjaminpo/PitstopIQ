@@ -30,6 +30,10 @@ import {
   type DrivingRoute,
 } from "./routing";
 import type { TripSnapshot } from "./tripUrl";
+import {
+  stationMatchesBrandFilter,
+  type BrandFilter,
+} from "./brandCategory";
 
 const DEFAULT_ORIGIN: GeoPoint = { lat: 51.4543, lng: -0.9781 }; // Reading
 const DEFAULT_DESTINATION: GeoPoint = { lat: 51.47, lng: -0.4543 }; // Heathrow
@@ -85,6 +89,8 @@ interface PitstopState {
   pricesFetchedAt: number | null;
   selectedStationId: string | null;
   sortKey: StationSortKey;
+  /** Forecourt brand bucket filter applied to scored stations */
+  brandFilter: BrandFilter;
   sidebarOpen: boolean;
   loading: boolean;
   locating: boolean;
@@ -104,6 +110,7 @@ interface PitstopState {
   setLitresToRefill: (litres: number) => void;
   setValueOfTimeGbpPerHour: (gbpPerHour: number) => void;
   setSortKey: (key: StationSortKey) => void;
+  setBrandFilter: (filter: BrandFilter) => void;
   setSelectedStationId: (id: string | null) => void;
   setSidebarOpen: (open: boolean) => void;
   applyVehiclePreset: (id: string) => void;
@@ -149,6 +156,7 @@ type PersistedSettings = Pick<
   | "valueOfTimeGbpPerHour"
   | "vehiclePresets"
   | "activePresetId"
+  | "brandFilter"
 >;
 
 export const usePitstopStore = create<PitstopState>()(
@@ -173,6 +181,7 @@ export const usePitstopStore = create<PitstopState>()(
       pricesFetchedAt: null,
       selectedStationId: null,
       sortKey: "netProfit",
+      brandFilter: "all",
       sidebarOpen: true,
       loading: false,
       locating: false,
@@ -245,6 +254,7 @@ export const usePitstopStore = create<PitstopState>()(
           ),
         }),
       setSortKey: (sortKey) => set({ sortKey }),
+      setBrandFilter: (brandFilter) => set({ brandFilter }),
       setSelectedStationId: (selectedStationId) => set({ selectedStationId }),
       setSidebarOpen: (sidebarOpen) => set({ sidebarOpen }),
 
@@ -500,9 +510,13 @@ export const usePitstopStore = create<PitstopState>()(
           litresToRefill,
           valueOfTimeGbpPerHour,
           sortKey,
+          brandFilter,
         } = get();
 
         const enriched: StationWithCalculation[] = stations
+          .filter((station) =>
+            stationMatchesBrandFilter(station, brandFilter)
+          )
           .map((station) => {
             const pricePerLitre = station.prices[vehicle.fuelType];
             if (pricePerLitre === undefined) return null;
@@ -614,6 +628,7 @@ export const usePitstopStore = create<PitstopState>()(
         valueOfTimeGbpPerHour: state.valueOfTimeGbpPerHour,
         vehiclePresets: state.vehiclePresets,
         activePresetId: state.activePresetId,
+        brandFilter: state.brandFilter,
       }),
       migrate: (persisted) => {
         if (!persisted || typeof persisted !== "object")
@@ -641,6 +656,15 @@ export const usePitstopStore = create<PitstopState>()(
             : vehiclePresets.find((pr) => presetMatchesVehicle(pr, vehicle))
                 ?.id ?? null;
 
+        const brandFilterRaw = p.brandFilter;
+        const brandFilter: BrandFilter =
+          brandFilterRaw === "supermarket" ||
+          brandFilterRaw === "motorway" ||
+          brandFilterRaw === "premium" ||
+          brandFilterRaw === "all"
+            ? brandFilterRaw
+            : "all";
+
         return {
           vehicle,
           litresToRefill:
@@ -654,9 +678,10 @@ export const usePitstopStore = create<PitstopState>()(
           vehiclePresets:
             vehiclePresets.length > 0 ? vehiclePresets : defaultPresets,
           activePresetId,
+          brandFilter,
         };
       },
-      version: 4,
+      version: 5,
     }
   )
 );

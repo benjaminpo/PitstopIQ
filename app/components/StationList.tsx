@@ -2,6 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { ArrowUpDown } from "lucide-react";
+import {
+  BRAND_FILTER_OPTIONS,
+  type BrandFilter,
+} from "@/app/lib/brandCategory";
 import { usePitstopStore } from "@/app/lib/store";
 import { CORRIDOR_MAX_DISTANCE_MILES } from "@/app/lib/routing";
 import type { StationSortKey, StationWithCalculation } from "@/app/lib/types";
@@ -32,6 +36,8 @@ export function StationList() {
   const {
     sortKey,
     setSortKey,
+    brandFilter,
+    setBrandFilter,
     selectedStationId,
     setSelectedStationId,
     getEnrichedStations,
@@ -45,6 +51,8 @@ export function StationList() {
 
   const enriched = getEnrichedStations();
   const bestId = bestStationId(enriched);
+  const filterLabel =
+    BRAND_FILTER_OPTIONS.find((o) => o.key === brandFilter)?.label ?? "All";
 
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
@@ -70,7 +78,7 @@ export function StationList() {
           <p className="mt-0.5 text-xs text-slate-500">
             {loading
               ? "Fetching Fuel Finder prices (first load can take a minute)…"
-              : `${enriched.length} on corridor (≤${CORRIDOR_MAX_DISTANCE_MILES} mi) · ${SORT_OPTIONS.find((s) => s.key === sortKey)?.label.toLowerCase()}`}
+              : `${enriched.length} shown · ${stations.length} on corridor · ${filterLabel} · ${SORT_OPTIONS.find((s) => s.key === sortKey)?.label.toLowerCase()}`}
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-1 rounded-lg bg-slate-900/80 p-1 ring-1 ring-slate-700/60">
@@ -93,6 +101,32 @@ export function StationList() {
         </div>
       </div>
 
+      <div
+        className="mb-3 flex flex-wrap gap-1.5"
+        role="group"
+        aria-label="Brand filter"
+      >
+        {BRAND_FILTER_OPTIONS.map((opt) => {
+          const active = brandFilter === opt.key;
+          return (
+            <button
+              key={opt.key}
+              type="button"
+              title={opt.hint}
+              onClick={() => setBrandFilter(opt.key as BrandFilter)}
+              className={cn(
+                "rounded-md px-2.5 py-1 text-[11px] font-semibold transition",
+                active
+                  ? "bg-teal-600 text-white shadow-sm shadow-teal-900/40"
+                  : "bg-slate-900/80 text-slate-400 ring-1 ring-slate-700/60 hover:bg-slate-800 hover:text-slate-200"
+              )}
+            >
+              {opt.label}
+            </button>
+          );
+        })}
+      </div>
+
       {error && (
         <p className="mb-2 rounded-lg bg-rose-950/50 px-3 py-2 text-xs text-rose-300 ring-1 ring-rose-500/30">
           {error}
@@ -105,6 +139,17 @@ export function StationList() {
           route. Try a longer corridor trip or a different origin/destination.
         </p>
       )}
+
+      {!loading &&
+        stations.length > 0 &&
+        enriched.length === 0 &&
+        !error &&
+        brandFilter !== "all" && (
+          <p className="rounded-lg border border-dashed border-slate-700 px-3 py-8 text-center text-sm text-slate-500">
+            No {filterLabel.toLowerCase()} forecourts on this corridor. Try
+            another brand filter.
+          </p>
+        )}
 
       {!loading && stations.length === 0 && !error && !dataSource && (
         <p className="rounded-lg border border-dashed border-slate-700 px-3 py-8 text-center text-sm text-slate-500">
