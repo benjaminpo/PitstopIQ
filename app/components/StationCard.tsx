@@ -1,22 +1,19 @@
 "use client";
 
-import { ArrowRightLeft, Clock, ExternalLink, Fuel, Route } from "lucide-react";
+import { ArrowRightLeft, Clock, Fuel, Route, Sparkles } from "lucide-react";
 import { formatGbp } from "@/app/lib/detourCalculator";
-import type { StationWithCalculation } from "@/app/lib/types";
+import type { GeoPoint, StationWithCalculation } from "@/app/lib/types";
 import { cn } from "@/app/lib/utils";
+import { NavigateHere } from "./NavigateHere";
 import { StatusBadge } from "./StatusBadge";
 
 interface StationCardProps {
   item: StationWithCalculation;
   selected?: boolean;
+  /** Highest net-after-time station — always shows navigate CTAs */
+  isBest?: boolean;
+  origin?: GeoPoint | null;
   onSelect?: () => void;
-}
-
-function googleMapsUrl(lat: number, lng: number, name?: string): string {
-  const query = name
-    ? `${name}@${lat},${lng}`
-    : `${lat},${lng}`;
-  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
 }
 
 function formatExtraMinutes(minutes: number): string {
@@ -25,14 +22,16 @@ function formatExtraMinutes(minutes: number): string {
   return `+${m} min`;
 }
 
-export function StationCard({ item, selected, onSelect }: StationCardProps) {
+export function StationCard({
+  item,
+  selected,
+  isBest,
+  origin,
+  onSelect,
+}: StationCardProps) {
   const { station, calculation, pricePerLitre } = item;
   const net = calculation.netAfterTime;
-  const mapsHref = googleMapsUrl(
-    station.location.lat,
-    station.location.lng,
-    station.name
-  );
+  const showNavigate = Boolean(selected || isBest);
 
   return (
     <div
@@ -49,14 +48,24 @@ export function StationCard({ item, selected, onSelect }: StationCardProps) {
         "w-full cursor-pointer rounded-xl border p-3.5 text-left transition",
         selected
           ? "border-teal-500/60 bg-teal-950/40 shadow-md shadow-teal-950/30"
-          : "border-slate-700/70 bg-slate-900/40 hover:border-slate-600 hover:bg-slate-900/70"
+          : isBest
+            ? "border-teal-700/40 bg-slate-900/50 hover:border-teal-600/50"
+            : "border-slate-700/70 bg-slate-900/40 hover:border-slate-600 hover:bg-slate-900/70"
       )}
     >
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
-          <p className="truncate text-sm font-semibold text-slate-100">
-            {station.name}
-          </p>
+          <div className="flex items-center gap-1.5">
+            <p className="truncate text-sm font-semibold text-slate-100">
+              {station.name}
+            </p>
+            {isBest && (
+              <span className="inline-flex shrink-0 items-center gap-0.5 rounded-md bg-teal-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-teal-300 ring-1 ring-teal-500/35">
+                <Sparkles className="h-2.5 w-2.5" />
+                Best
+              </span>
+            )}
+          </div>
           <p className="text-xs text-slate-400">{station.brand}</p>
         </div>
         <StatusBadge status={calculation.status} />
@@ -113,17 +122,16 @@ export function StationCard({ item, selected, onSelect }: StationCardProps) {
         · Gross {formatGbp(calculation.grossSavings)}
       </p>
 
-      {selected && (
-        <a
-          href={mapsHref}
-          target="_blank"
-          rel="noopener noreferrer"
-          onClick={(e) => e.stopPropagation()}
-          className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg bg-teal-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-teal-500"
-        >
-          <ExternalLink className="h-3.5 w-3.5" />
-          Open in Google Maps
-        </a>
+      {showNavigate && (
+        <NavigateHere
+          className="mt-3"
+          primary={Boolean(isBest)}
+          target={{
+            location: station.location,
+            name: station.name,
+            origin,
+          }}
+        />
       )}
     </div>
   );

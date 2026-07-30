@@ -3,7 +3,7 @@
 import { ArrowUpDown } from "lucide-react";
 import { usePitstopStore } from "@/app/lib/store";
 import { CORRIDOR_MAX_DISTANCE_MILES } from "@/app/lib/routing";
-import type { StationSortKey } from "@/app/lib/types";
+import type { StationSortKey, StationWithCalculation } from "@/app/lib/types";
 import { cn } from "@/app/lib/utils";
 import { StationCard } from "./StationCard";
 
@@ -12,6 +12,19 @@ const SORT_OPTIONS: { key: StationSortKey; label: string }[] = [
   { key: "distance", label: "Distance" },
   { key: "price", label: "Price" },
 ];
+
+function bestStationId(enriched: StationWithCalculation[]): string | null {
+  if (enriched.length === 0) return null;
+  let best = enriched[0];
+  for (let i = 1; i < enriched.length; i++) {
+    if (
+      enriched[i].calculation.netAfterTime > best.calculation.netAfterTime
+    ) {
+      best = enriched[i];
+    }
+  }
+  return best.station.id;
+}
 
 export function StationList() {
   const {
@@ -24,9 +37,11 @@ export function StationList() {
     error,
     stations,
     dataSource,
+    originCoords,
   } = usePitstopStore();
 
   const enriched = getEnrichedStations();
+  const bestId = bestStationId(enriched);
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -83,6 +98,8 @@ export function StationList() {
           <StationCard
             key={item.station.id}
             item={item}
+            isBest={item.station.id === bestId}
+            origin={originCoords}
             selected={selectedStationId === item.station.id}
             onSelect={() => setSelectedStationId(item.station.id)}
           />

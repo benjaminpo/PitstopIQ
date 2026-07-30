@@ -1,0 +1,45 @@
+import type { GeoPoint } from "./types";
+
+export interface NavigateTarget {
+  location: GeoPoint;
+  name?: string;
+  /** Optional trip origin so Maps can plan A → station */
+  origin?: GeoPoint | null;
+}
+
+/**
+ * Google Maps driving directions to the forecourt.
+ * Opens the Maps app on mobile when available.
+ */
+export function googleMapsNavigateUrl(target: NavigateTarget): string {
+  const { location, origin } = target;
+  const params = new URLSearchParams({
+    api: "1",
+    destination: `${location.lat},${location.lng}`,
+    travelmode: "driving",
+  });
+  if (origin && Number.isFinite(origin.lat) && Number.isFinite(origin.lng)) {
+    params.set("origin", `${origin.lat},${origin.lng}`);
+  }
+  return `https://www.google.com/maps/dir/?${params.toString()}`;
+}
+
+/**
+ * Apple Maps driving directions to the forecourt.
+ * On iOS/macOS this opens Apple Maps; elsewhere it falls back to maps.apple.com.
+ */
+export function appleMapsNavigateUrl(target: NavigateTarget): string {
+  const { location, name, origin } = target;
+  const params = new URLSearchParams({
+    daddr: `${location.lat},${location.lng}`,
+    dirflg: "d",
+  });
+  if (name) {
+    // Helps Apple Maps label the destination when it resolves the pin
+    params.set("q", name);
+  }
+  if (origin && Number.isFinite(origin.lat) && Number.isFinite(origin.lng)) {
+    params.set("saddr", `${origin.lat},${origin.lng}`);
+  }
+  return `https://maps.apple.com/?${params.toString()}`;
+}

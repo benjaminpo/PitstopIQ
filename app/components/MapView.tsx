@@ -15,6 +15,7 @@ import "leaflet/dist/leaflet.css";
 import { usePitstopStore } from "@/app/lib/store";
 import { formatGbp } from "@/app/lib/detourCalculator";
 import type { DetourStatus, GeoPoint } from "@/app/lib/types";
+import { NavigateHere } from "./NavigateHere";
 import { StatusBadge } from "./StatusBadge";
 
 function statusColor(status: DetourStatus): string {
@@ -199,16 +200,16 @@ export default function MapView() {
                 <p className="font-mono text-sm font-bold">
                   Net {formatGbp(item.calculation.netAfterTime)}
                 </p>
-                <a
-                  href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
-                    `${item.station.name}@${item.station.location.lat},${item.station.location.lng}`
-                  )}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="mt-1 inline-flex items-center gap-1 text-xs font-semibold text-teal-700 underline"
-                >
-                  Open in Google Maps
-                </a>
+                <NavigateHere
+                  className="mt-2"
+                  primary
+                  tone="light"
+                  target={{
+                    location: item.station.location,
+                    name: item.station.name,
+                    origin: originCoords,
+                  }}
+                />
               </div>
             </Popup>
           </Marker>
