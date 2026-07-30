@@ -50,6 +50,11 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000).
 
+```bash
+npm test        # unit tests (Vitest)
+npm run lint
+```
+
 ## Live Fuel Finder API
 
 Copy `.env.example` → `.env.local` and set your Information Recipient OAuth credentials from the [Fuel Finder developer portal](https://www.developer.fuel-finder.service.gov.uk/):
