@@ -1,0 +1,50 @@
+# PitstopIQ
+
+Smart Route Cost Calculator & Detour Planner — decide whether diverting to a cheaper fuel station is a **net financial gain**.
+
+## Stack
+
+- Next.js 16 (App Router) + TypeScript + Tailwind CSS
+- Zustand state · Lucide icons · Leaflet / OpenStreetMap
+- Modular API routes with mock Fuel Finder fallback
+
+## Math (UK units)
+
+- 1 UK gallon = **4.54609** litres
+- Litres/mile = `4.54609 / MPG`
+- Detour fuel cost = extra miles × litres/mile × station £/L
+- Gross savings = (base route avg £/L − station £/L) × litres to refill
+- **Net** = gross savings − detour fuel cost
+- Status: green (> £0.50), amber (± £0.50), red (< −£0.50)
+
+## Quick start
+
+```bash
+npm install
+npm run dev
+```
+
+Open [http://localhost:3000](http://localhost:3000).
+
+## Live Fuel Finder API
+
+Copy `.env.example` → `.env.local` and set your Information Recipient OAuth credentials from the [Fuel Finder developer portal](https://www.developer.fuel-finder.service.gov.uk/):
+
+```bash
+FUEL_FINDER_CLIENT_ID=...
+FUEL_FINDER_CLIENT_SECRET=...
+FUEL_FINDER_BASE_URL=https://www.fuel-finder.service.gov.uk
+```
+
+Without credentials the app uses mock stations. The first live fetch caches the national PFS + prices dataset in memory (~1 hour TTL).
+
+## Project layout
+
+```
+app/
+  api/fuel-finder/route.ts
+  api/calculate-detour/route.ts
+  components/   # MapView, RouteForm, StationCard, StationList
+  lib/          # types, detourCalculator, fuelApiAdapter, store
+  page.tsx
+```
