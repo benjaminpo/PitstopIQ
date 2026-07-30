@@ -38,6 +38,17 @@ FUEL_FINDER_BASE_URL=https://www.fuel-finder.service.gov.uk
 
 Without credentials the app uses mock stations. The first live fetch caches the national PFS + prices dataset in memory (~1 hour TTL).
 
+## CI / Deploy (GitHub Actions)
+
+Workflows in `.github/workflows/`:
+
+- **CI** — lint + build on push/PR to `main`
+- **Deploy to Vercel** — production deploy on push to `main` (and manual `workflow_dispatch`)
+
+Required GitHub secrets: `VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID`.
+
+Fuel Finder credentials stay on the Vercel project env (pulled during deploy). Git auto-deploys from Vercel are disabled so only Actions ships production.
+
 ## Project layout
 
 ```

@@ -67,7 +67,7 @@ interface PitstopState {
   setSortKey: (key: StationSortKey) => void;
   setSelectedStationId: (id: string | null) => void;
   setSidebarOpen: (open: boolean) => void;
-  useCurrentLocation: (target?: "origin" | "destination") => Promise<void>;
+  locateCurrentPosition: (target?: "origin" | "destination") => Promise<void>;
   loadStations: () => Promise<void>;
   getEnrichedStations: () => StationWithCalculation[];
 }
@@ -167,7 +167,7 @@ export const usePitstopStore = create<PitstopState>()(
       setSelectedStationId: (selectedStationId) => set({ selectedStationId }),
       setSidebarOpen: (sidebarOpen) => set({ sidebarOpen }),
 
-      useCurrentLocation: async (target = "origin") => {
+      locateCurrentPosition: async (target = "origin") => {
         set({
           locating: true,
           locatingTarget: target,
@@ -254,16 +254,20 @@ export const usePitstopStore = create<PitstopState>()(
             source?: "live" | "mock";
           };
 
-          const withApprox = data.stations
+          const ranked = data.stations
             .map((s) => ({
-              ...s,
-              distanceOffRouteMiles: approximateDetourMiles(
-                s.location,
-                route.coordinates
-              ),
-              _distToRoute: distanceToRouteMiles(s.location, route.coordinates),
+              station: s,
+              distToRoute: distanceToRouteMiles(s.location, route.coordinates),
             }))
-            .sort((a, b) => a._distToRoute - b._distToRoute);
+            .sort((a, b) => a.distToRoute - b.distToRoute);
+
+          const withApprox = ranked.map(({ station: s }) => ({
+            ...s,
+            distanceOffRouteMiles: approximateDetourMiles(
+              s.location,
+              route.coordinates
+            ),
+          }));
 
           const candidates = withApprox.slice(0, 25);
           const detours = await fetchStationDetours(
@@ -273,14 +277,12 @@ export const usePitstopStore = create<PitstopState>()(
             route.coordinates
           );
 
-          const stations: FuelStation[] = withApprox.map(
-            ({ _distToRoute: _, ...s }) => ({
-              ...s,
-              distanceOffRouteMiles:
-                detours[s.id] ??
-                approximateDetourMiles(s.location, route.coordinates),
-            })
-          );
+          const stations: FuelStation[] = withApprox.map((s) => ({
+            ...s,
+            distanceOffRouteMiles:
+              detours[s.id] ??
+              approximateDetourMiles(s.location, route.coordinates),
+          }));
 
           set({
             stations,

@@ -23,7 +23,7 @@ export default function HomePage() {
     sidebarOpen,
     setSidebarOpen,
     loadStations,
-    useCurrentLocation,
+    locateCurrentPosition,
     locating,
     route,
     routing,
@@ -106,7 +106,7 @@ export default function HomePage() {
           </button>
           <button
             type="button"
-            onClick={() => void useCurrentLocation("origin")}
+            onClick={() => void locateCurrentPosition("origin")}
             disabled={locating}
             className="flex items-center gap-2 rounded-lg border border-teal-700/50 bg-slate-950/90 px-3 py-2 text-sm font-medium text-teal-300 shadow-lg backdrop-blur hover:bg-teal-950/50 disabled:cursor-not-allowed disabled:opacity-60"
             aria-label="Use current location as origin"

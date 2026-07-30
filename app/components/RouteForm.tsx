@@ -38,7 +38,7 @@ export function RouteForm() {
     resetBaseRouteAvgPrice,
     setLitresToRefill,
     loadStations,
-    useCurrentLocation,
+    locateCurrentPosition,
     loading,
     locating,
     locatingTarget,
@@ -68,7 +68,7 @@ export function RouteForm() {
             </span>
             <button
               type="button"
-              onClick={() => void useCurrentLocation("origin")}
+              onClick={() => void locateCurrentPosition("origin")}
               disabled={locating}
               className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-[11px] font-semibold text-teal-300 transition hover:bg-teal-950/60 hover:text-teal-200 disabled:cursor-not-allowed disabled:opacity-60"
             >
@@ -102,7 +102,7 @@ export function RouteForm() {
             </span>
             <button
               type="button"
-              onClick={() => void useCurrentLocation("destination")}
+              onClick={() => void locateCurrentPosition("destination")}
               disabled={locating}
               className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-[11px] font-semibold text-teal-300 transition hover:bg-teal-950/60 hover:text-teal-200 disabled:cursor-not-allowed disabled:opacity-60"
             >

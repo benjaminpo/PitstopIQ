@@ -42,24 +42,21 @@ export function PlaceAutocomplete({
   useEffect(() => {
     if (skipSearchRef.current) {
       skipSearchRef.current = false;
-      setSuggestions([]);
-      setLoading(false);
-      setError(null);
       return;
     }
 
     abortRef.current?.abort();
-
-    if (value.trim().length < 2) {
-      setSuggestions([]);
-      setLoading(false);
-      setError(null);
-      return;
-    }
-
     const controller = new AbortController();
     abortRef.current = controller;
+
     const handle = window.setTimeout(() => {
+      if (value.trim().length < 2) {
+        setSuggestions([]);
+        setLoading(false);
+        setError(null);
+        return;
+      }
+
       setLoading(true);
       setError(null);
       void searchPlaces(value, { signal: controller.signal })
