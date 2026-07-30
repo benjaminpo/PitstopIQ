@@ -1,8 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  formatPriceAge,
-  freshnessTone,
-} from "@/app/components/FreshnessBadge";
+import { formatPriceAge, freshnessTone } from "./freshness";
 
 describe("formatPriceAge", () => {
   const now = Date.UTC(2026, 6, 30, 12, 0, 0);
@@ -12,6 +9,7 @@ describe("formatPriceAge", () => {
     expect(formatPriceAge(now - 5 * 60_000, now)).toBe("5m ago");
     expect(formatPriceAge(now - 90 * 60_000, now)).toBe("1h 30m ago");
     expect(formatPriceAge(now - 2 * 60 * 60_000, now)).toBe("2h ago");
+    expect(formatPriceAge(now - 26 * 60 * 60_000, now)).toBe("1d ago");
   });
 });
 

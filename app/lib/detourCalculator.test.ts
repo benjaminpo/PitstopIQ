@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   calculateDetourSavings,
+  formatGbp,
   litresPerMile,
   remainingFuelLitres,
   remainingRangeMiles,
@@ -150,5 +151,13 @@ describe("calculateDetourSavings", () => {
     });
     expect(result.netAfterTime).toBeLessThan(-0.5);
     expect(result.status).toBe("false_economy");
+  });
+});
+
+describe("formatGbp", () => {
+  it("formats signed GBP amounts", () => {
+    expect(formatGbp(1.5)).toBe("+£1.50");
+    expect(formatGbp(-2.25)).toBe("−£2.25");
+    expect(formatGbp(0)).toBe("£0.00");
   });
 });

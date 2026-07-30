@@ -51,9 +51,12 @@ npm run dev
 Open [http://localhost:3000](http://localhost:3000).
 
 ```bash
-npm test        # unit tests (Vitest)
+npm test           # unit tests (Vitest)
+npm run test:coverage
 npm run lint
 ```
+
+Coverage targets the pure domain modules under `app/lib/` (detour math, routing helpers, trip URL, brand filters, freshness, maps links) with ≥90% line/function thresholds.
 
 ## Live Fuel Finder API
 

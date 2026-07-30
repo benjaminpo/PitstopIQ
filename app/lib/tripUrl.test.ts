@@ -62,6 +62,12 @@ describe("trip URL round-trip", () => {
     expect(parsed?.destinationCoords).toEqual({ lat: 51.4, lng: -0.4 });
     expect(parsed?.vehicle?.mpg).toBe(40);
   });
+
+  it("synthesizes labels from coordinates when omitted", () => {
+    const parsed = parseTripSearchParams("?from=51.45,-0.97&to=51.47,-0.45");
+    expect(parsed?.origin).toContain("51.4500");
+    expect(parsed?.destination).toContain("51.4700");
+  });
 });
 
 describe("tripFieldsEqual / tripToShareUrl", () => {
@@ -72,6 +78,12 @@ describe("tripFieldsEqual / tripToShareUrl", () => {
         ...sample,
         vehicle: { ...sample.vehicle, mpg: 50 },
       })
+    ).toBe(false);
+    expect(
+      tripFieldsEqual(
+        { ...sample, basePriceManual: true, baseRouteAvgPricePerLitre: 1.3 },
+        { ...sample, basePriceManual: true, baseRouteAvgPricePerLitre: 1.4 }
+      )
     ).toBe(false);
   });
 
