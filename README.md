@@ -23,6 +23,12 @@ Extra minutes come from OSRM (A→station→B vs direct A→B). When routing fai
 
 Stations are filtered to a **3 mi corridor** along the OSRM driving polyline (not the rectangular map bounds). Only those forecourts are scored and shown.
 
+## Share / bookmark a trip
+
+The address bar stays in sync with your trip. Copy it, bookmark it, or use **Share** in the header.
+
+Query params: `from`, `to` (lat,lng), `fromLabel`, `toLabel`, `fuel`, `mpg`, `tank`, `fill`, `refill`, `vot` (£/h), optional `base` (manual £/L).
+
 ## Quick start
 
 ```bash

@@ -1,12 +1,15 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { Crosshair, Loader2, Menu, PanelLeftClose, Sparkles } from "lucide-react";
 import { RouteForm } from "@/app/components/RouteForm";
+import { ShareTripButton } from "@/app/components/ShareTripButton";
 import { StationList } from "@/app/components/StationList";
+import { TripUrlSync } from "@/app/components/TripUrlSync";
 import { usePitstopStore } from "@/app/lib/store";
 import { formatDuration } from "@/app/lib/routing";
+import { parseTripSearchParams } from "@/app/lib/tripUrl";
 import { cn } from "@/app/lib/utils";
 
 const MapView = dynamic(() => import("@/app/components/MapView"), {
@@ -30,12 +33,23 @@ export default function HomePage() {
     routeError,
   } = usePitstopStore();
 
+  const bootstrapped = useRef(false);
+
   useEffect(() => {
+    // TripUrlSync applies shared links and triggers loadStations.
+    // Only auto-load here when the URL has no trip params.
+    if (bootstrapped.current) return;
+    bootstrapped.current = true;
+    if (typeof window !== "undefined" && parseTripSearchParams(window.location.search)) {
+      return;
+    }
     void loadStations();
   }, [loadStations]);
 
   return (
     <div className="relative flex h-[100dvh] w-full overflow-hidden bg-slate-950 text-slate-100">
+      <TripUrlSync />
+
       {/* Atmospheric backdrop behind map */}
       <div
         aria-hidden
@@ -60,6 +74,7 @@ export default function HomePage() {
               <h1 className="text-lg font-bold tracking-tight text-white">
                 PitstopIQ
               </h1>
+              <ShareTripButton />
             </div>
             <p className="mt-1.5 text-xs leading-relaxed text-slate-400">
               Smart route cost calculator — know when a cheaper forecourt is

@@ -28,6 +28,7 @@ import {
   fetchStationDetours,
   type DrivingRoute,
 } from "./routing";
+import type { TripSnapshot } from "./tripUrl";
 
 const DEFAULT_ORIGIN: GeoPoint = { lat: 51.4543, lng: -0.9781 }; // Reading
 const DEFAULT_DESTINATION: GeoPoint = { lat: 51.47, lng: -0.4543 }; // Heathrow
@@ -79,6 +80,8 @@ interface PitstopState {
   locateCurrentPosition: (target?: "origin" | "destination") => Promise<void>;
   loadStations: () => Promise<void>;
   getEnrichedStations: () => StationWithCalculation[];
+  getTripSnapshot: () => TripSnapshot;
+  applyTripSnapshot: (snap: Partial<TripSnapshot>) => void;
 }
 
 const defaultVehicle: VehicleProfile = {
@@ -392,6 +395,73 @@ export const usePitstopStore = create<PitstopState>()(
         });
 
         return enriched;
+      },
+
+      getTripSnapshot: () => {
+        const s = get();
+        return {
+          origin: s.origin,
+          destination: s.destination,
+          originCoords: s.originCoords,
+          destinationCoords: s.destinationCoords,
+          vehicle: s.vehicle,
+          litresToRefill: s.litresToRefill,
+          valueOfTimeGbpPerHour: s.valueOfTimeGbpPerHour,
+          baseRouteAvgPricePerLitre: s.baseRouteAvgPricePerLitre,
+          basePriceManual: s.basePriceManual,
+        };
+      },
+
+      applyTripSnapshot: (snap) => {
+        const current = get();
+        const vehicle: VehicleProfile = snap.vehicle
+          ? {
+              fuelType: snap.vehicle.fuelType,
+              mpg: Math.max(1, snap.vehicle.mpg),
+              tankCapacityLitres: Math.max(1, snap.vehicle.tankCapacityLitres),
+              fillPercentage: Math.max(
+                0,
+                Math.min(100, snap.vehicle.fillPercentage)
+              ),
+            }
+          : current.vehicle;
+
+        const tank = vehicle.tankCapacityLitres;
+        const litresToRefill = Math.min(
+          snap.litresToRefill ?? current.litresToRefill,
+          tank
+        );
+
+        set({
+          ...(snap.origin != null ? { origin: snap.origin } : {}),
+          ...(snap.destination != null
+            ? { destination: snap.destination }
+            : {}),
+          ...(snap.originCoords ? { originCoords: snap.originCoords } : {}),
+          ...(snap.destinationCoords
+            ? { destinationCoords: snap.destinationCoords }
+            : {}),
+          vehicle,
+          litresToRefill,
+          ...(snap.valueOfTimeGbpPerHour != null
+            ? {
+                valueOfTimeGbpPerHour: Math.max(
+                  0,
+                  Math.min(200, snap.valueOfTimeGbpPerHour)
+                ),
+              }
+            : {}),
+          ...(snap.basePriceManual && snap.baseRouteAvgPricePerLitre != null
+            ? {
+                basePriceManual: true,
+                baseRouteAvgPricePerLitre: snap.baseRouteAvgPricePerLitre,
+              }
+            : {}),
+          locationError: null,
+          destinationLocationError: null,
+        });
+
+        void get().loadStations();
       },
     }),
     {
