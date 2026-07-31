@@ -32,6 +32,9 @@ export default function HomePage() {
     route,
     routing,
     routeError,
+    detourRoute,
+    detourRouting,
+    detourRouteError,
   } = usePitstopStore();
 
   const bootstrapped = useRef(false);
@@ -144,9 +147,11 @@ export default function HomePage() {
           <LegendDot color="bg-emerald-400" label="Worth it" />
           <LegendDot color="bg-amber-400" label="Break-even ±£0.50" />
           <LegendDot color="bg-rose-400" label="False economy" />
+          <LegendDot color="bg-teal-400" label="Direct" />
+          <LegendDot color="bg-amber-300" label="Detour" />
         </div>
 
-        <div className="absolute bottom-4 right-3 z-[500] md:right-4">
+        <div className="absolute bottom-4 right-3 z-[500] flex flex-col items-end gap-2 md:right-4">
           {routing && (
             <div className="rounded-lg border border-slate-700/80 bg-slate-950/90 px-3 py-2 text-xs text-slate-300 shadow-lg backdrop-blur">
               Calculating driving route…
@@ -154,11 +159,48 @@ export default function HomePage() {
           )}
           {!routing && route && (
             <div className="rounded-lg border border-teal-800/50 bg-slate-950/90 px-3 py-2 text-xs shadow-lg backdrop-blur">
-              <p className="font-semibold text-teal-300">Driving route</p>
+              <p className="font-semibold text-teal-300">
+                {detourRoute ? "Direct route" : "Driving route"}
+              </p>
               <p className="font-mono text-slate-300">
                 {route.distanceMiles.toFixed(1)} mi ·{" "}
                 {formatDuration(route.durationSeconds)}
               </p>
+            </div>
+          )}
+          {detourRouting && (
+            <div className="rounded-lg border border-amber-800/50 bg-slate-950/90 px-3 py-2 text-xs text-amber-200 shadow-lg backdrop-blur">
+              Drawing detour via station…
+            </div>
+          )}
+          {!detourRouting && detourRoute && (
+            <div className="rounded-lg border border-amber-700/50 bg-slate-950/90 px-3 py-2 text-xs shadow-lg backdrop-blur">
+              <p className="font-semibold text-amber-300">Detour via station</p>
+              <p className="font-mono text-slate-300">
+                {detourRoute.distanceMiles.toFixed(1)} mi ·{" "}
+                {formatDuration(detourRoute.durationSeconds)}
+              </p>
+              {route && (
+                <p className="mt-0.5 font-mono text-[10px] text-slate-500">
+                  +
+                  {(
+                    detourRoute.distanceMiles - route.distanceMiles
+                  ).toFixed(1)}{" "}
+                  mi · +
+                  {Math.max(
+                    0,
+                    Math.round(
+                      (detourRoute.durationSeconds - route.durationSeconds) / 60
+                    )
+                  )}{" "}
+                  min vs direct
+                </p>
+              )}
+            </div>
+          )}
+          {!detourRouting && detourRouteError && (
+            <div className="max-w-[240px] rounded-lg border border-rose-800/50 bg-slate-950/90 px-3 py-2 text-xs text-rose-300 shadow-lg backdrop-blur">
+              Detour route unavailable — {detourRouteError}
             </div>
           )}
           {!routing && routeError && (

@@ -251,7 +251,8 @@ export function formatDuration(seconds: number): string {
 /** Client helper: fetch driving route from our OSRM proxy. */
 export async function fetchDrivingRoute(
   origin: GeoPoint,
-  destination: GeoPoint
+  destination: GeoPoint,
+  via?: GeoPoint | null
 ): Promise<DrivingRoute> {
   const params = new URLSearchParams({
     fromLat: String(origin.lat),
@@ -259,6 +260,10 @@ export async function fetchDrivingRoute(
     toLat: String(destination.lat),
     toLng: String(destination.lng),
   });
+  if (via && Number.isFinite(via.lat) && Number.isFinite(via.lng)) {
+    params.set("viaLat", String(via.lat));
+    params.set("viaLng", String(via.lng));
+  }
   const res = await fetch(`/api/osrm/route?${params}`);
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));

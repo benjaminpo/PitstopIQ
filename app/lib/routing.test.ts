@@ -126,20 +126,35 @@ describe("fetchDrivingRoute / fetchStationDetours", () => {
   });
 
   it("parses a successful driving route response", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockResolvedValue({
-        ok: true,
-        json: async () => ({
-          distanceMiles: 42,
-          durationSeconds: 3600,
-          coordinates: route,
-          bounds: { north: 1, south: 0, east: 1, west: 0 },
-        }),
-      })
-    );
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        distanceMiles: 42,
+        durationSeconds: 3600,
+        coordinates: route,
+        bounds: { north: 1, south: 0, east: 1, west: 0 },
+      }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
     const result = await fetchDrivingRoute(origin, dest);
     expect(result.distanceMiles).toBe(42);
+    expect(String(fetchMock.mock.calls[0][0])).not.toContain("viaLat");
+  });
+
+  it("requests a via waypoint for detour routes", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        distanceMiles: 48,
+        durationSeconds: 4000,
+        coordinates: route,
+        bounds: { north: 1, south: 0, east: 1, west: 0 },
+      }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    await fetchDrivingRoute(origin, dest, mid);
+    expect(String(fetchMock.mock.calls[0][0])).toContain("viaLat=");
+    expect(String(fetchMock.mock.calls[0][0])).toContain("viaLng=");
   });
 
   it("throws when the route API fails", async () => {

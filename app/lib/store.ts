@@ -76,6 +76,10 @@ interface PitstopState {
   route: DrivingRoute | null;
   routing: boolean;
   routeError: string | null;
+  /** A→selected station→B geometry when a forecourt is selected */
+  detourRoute: DrivingRoute | null;
+  detourRouting: boolean;
+  detourRouteError: string | null;
   vehicle: VehicleProfile;
   /** Named MPG / tank / fuel profiles kept in localStorage */
   vehiclePresets: VehiclePreset[];
@@ -115,6 +119,7 @@ interface PitstopState {
   setSortKey: (key: StationSortKey) => void;
   setBrandFilter: (filter: BrandFilter) => void;
   setSelectedStationId: (id: string | null) => void;
+  loadDetourRoute: (stationId: string) => Promise<void>;
   setSidebarOpen: (open: boolean) => void;
   applyVehiclePreset: (id: string) => void;
   saveVehiclePreset: (name?: string) => string | null;
@@ -172,6 +177,9 @@ export const usePitstopStore = create<PitstopState>()(
       route: null,
       routing: false,
       routeError: null,
+      detourRoute: null,
+      detourRouting: false,
+      detourRouteError: null,
       vehicle: defaultVehicle,
       vehiclePresets: defaultPresets,
       activePresetId: "preset-petrol-hatch",
@@ -258,8 +266,60 @@ export const usePitstopStore = create<PitstopState>()(
         }),
       setSortKey: (sortKey) => set({ sortKey }),
       setBrandFilter: (brandFilter) => set({ brandFilter }),
-      setSelectedStationId: (selectedStationId) => set({ selectedStationId }),
+      setSelectedStationId: (selectedStationId) => {
+        set({
+          selectedStationId,
+          detourRoute: null,
+          detourRouteError: null,
+          detourRouting: false,
+        });
+        if (selectedStationId) {
+          void get().loadDetourRoute(selectedStationId);
+        }
+      },
       setSidebarOpen: (sidebarOpen) => set({ sidebarOpen }),
+
+      loadDetourRoute: async (stationId) => {
+        const {
+          stations,
+          originCoords,
+          destinationCoords,
+          selectedStationId,
+        } = get();
+        if (selectedStationId !== stationId) return;
+
+        const station = stations.find((s) => s.id === stationId);
+        if (!station) {
+          set({
+            detourRoute: null,
+            detourRouting: false,
+            detourRouteError: "Station not found",
+          });
+          return;
+        }
+
+        set({ detourRouting: true, detourRouteError: null });
+        try {
+          const detourRoute = await fetchDrivingRoute(
+            originCoords,
+            destinationCoords,
+            station.location
+          );
+          // Ignore stale responses if the user picked another station
+          if (get().selectedStationId !== stationId) return;
+          set({ detourRoute, detourRouting: false, detourRouteError: null });
+        } catch (e) {
+          if (get().selectedStationId !== stationId) return;
+          set({
+            detourRoute: null,
+            detourRouting: false,
+            detourRouteError:
+              e instanceof Error
+                ? e.message
+                : "Could not calculate detour route",
+          });
+        }
+      },
 
       applyVehiclePreset: (id) => {
         const preset = get().vehiclePresets.find((p) => p.id === id);
@@ -384,7 +444,15 @@ export const usePitstopStore = create<PitstopState>()(
       },
 
       loadStations: async () => {
-        set({ loading: true, routing: true, error: null, routeError: null });
+        set({
+          loading: true,
+          routing: true,
+          error: null,
+          routeError: null,
+          detourRoute: null,
+          detourRouting: false,
+          detourRouteError: null,
+        });
         try {
           const { originCoords, destinationCoords } = get();
 
@@ -475,11 +543,13 @@ export const usePitstopStore = create<PitstopState>()(
             get().selectedStationId != null &&
             stations.some((s) => s.id === get().selectedStationId);
 
+          const selectedId = selectedStillVisible
+            ? get().selectedStationId
+            : null;
+
           set({
             stations,
-            selectedStationId: selectedStillVisible
-              ? get().selectedStationId
-              : null,
+            selectedStationId: selectedId,
             dataSource: data.source ?? null,
             pricesFetchedAt:
               typeof data.pricesFetchedAt === "number"
@@ -496,6 +566,10 @@ export const usePitstopStore = create<PitstopState>()(
                 }
               : {}),
           });
+
+          if (selectedId) {
+            void get().loadDetourRoute(selectedId);
+          }
         } catch (e) {
           set({
             loading: false,

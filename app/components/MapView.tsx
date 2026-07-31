@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo } from "react";
+import { useMemo } from "react";
 import {
   MapContainer,
   TileLayer,
@@ -10,6 +10,7 @@ import {
   CircleMarker,
   useMap,
 } from "react-leaflet";
+import { useEffect } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { usePitstopStore } from "@/app/lib/store";
@@ -60,6 +61,16 @@ function endpointIcon(label: string, hue: string) {
   });
 }
 
+function toLatLngs(coords: GeoPoint[]): [number, number][] {
+  return coords.map((p) => [p.lat, p.lng]);
+}
+
+function sampleRoute(coords: GeoPoint[], maxSamples = 40): GeoPoint[] {
+  if (coords.length <= maxSamples) return coords;
+  const step = Math.max(1, Math.floor(coords.length / maxSamples));
+  return coords.filter((_, i) => i % step === 0);
+}
+
 function FitBounds({ points }: { points: GeoPoint[] }) {
   const map = useMap();
   const key = points.map((p) => `${p.lat.toFixed(5)},${p.lng.toFixed(5)}`).join("|");
@@ -81,36 +92,57 @@ export default function MapView() {
     originCoords,
     destinationCoords,
     route,
+    detourRoute,
     getEnrichedStations,
     selectedStationId,
     setSelectedStationId,
   } = usePitstopStore();
 
   const enriched = getEnrichedStations();
+  const selected = enriched.find((e) => e.station.id === selectedStationId);
+  const showingDetour = Boolean(
+    selected && detourRoute && detourRoute.coordinates.length > 1
+  );
 
-  const routeLine = useMemo(() => {
+  const baseLine = useMemo(() => {
     const coords =
       route?.coordinates?.length && route.coordinates.length > 1
         ? route.coordinates
         : [originCoords, destinationCoords];
-    return coords.map((p) => [p.lat, p.lng] as [number, number]);
+    return toLatLngs(coords);
   }, [route, originCoords, destinationCoords]);
+
+  const detourLine = useMemo(() => {
+    if (!detourRoute?.coordinates?.length) return null;
+    return toLatLngs(detourRoute.coordinates);
+  }, [detourRoute]);
 
   const isDrivingRoute = Boolean(route && route.coordinates.length > 2);
 
   const fitPoints = useMemo(() => {
-    if (route?.coordinates?.length) {
-      // Sample route points so fitBounds stays cheap
-      const step = Math.max(1, Math.floor(route.coordinates.length / 40));
-      const sampled = route.coordinates.filter((_, i) => i % step === 0);
-      return [...sampled, originCoords, destinationCoords];
-    }
     const pts: GeoPoint[] = [originCoords, destinationCoords];
+    if (showingDetour && detourRoute?.coordinates?.length) {
+      pts.push(...sampleRoute(detourRoute.coordinates));
+      if (selected) pts.push(selected.station.location);
+      return pts;
+    }
+    if (route?.coordinates?.length) {
+      pts.push(...sampleRoute(route.coordinates));
+      return pts;
+    }
     for (const item of enriched) {
       pts.push(item.station.location);
     }
     return pts;
-  }, [route, enriched, originCoords, destinationCoords]);
+  }, [
+    route,
+    detourRoute,
+    showingDetour,
+    selected,
+    enriched,
+    originCoords,
+    destinationCoords,
+  ]);
 
   return (
     <MapContainer
@@ -125,28 +157,58 @@ export default function MapView() {
         url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
       />
 
-      {/* Soft underlay for visibility on dark tiles */}
+      {/* Direct route — muted when a detour is active */}
       <Polyline
-        positions={routeLine}
+        positions={baseLine}
         pathOptions={{
-          color: "#042f2e",
-          weight: 8,
-          opacity: 0.55,
+          color: showingDetour ? "#0f172a" : "#042f2e",
+          weight: showingDetour ? 5 : 8,
+          opacity: showingDetour ? 0.35 : 0.55,
           lineCap: "round",
           lineJoin: "round",
         }}
       />
       <Polyline
-        positions={routeLine}
+        positions={baseLine}
         pathOptions={{
-          color: "#2dd4bf",
-          weight: 4,
-          opacity: 0.95,
-          dashArray: isDrivingRoute ? undefined : "10 8",
+          color: showingDetour ? "#64748b" : "#2dd4bf",
+          weight: showingDetour ? 2.5 : 4,
+          opacity: showingDetour ? 0.55 : 0.95,
+          dashArray: showingDetour
+            ? "6 10"
+            : isDrivingRoute
+              ? undefined
+              : "10 8",
           lineCap: "round",
           lineJoin: "round",
         }}
       />
+
+      {/* Selected station detour: A → pit stop → B */}
+      {detourLine && (
+        <>
+          <Polyline
+            positions={detourLine}
+            pathOptions={{
+              color: "#422006",
+              weight: 9,
+              opacity: 0.5,
+              lineCap: "round",
+              lineJoin: "round",
+            }}
+          />
+          <Polyline
+            positions={detourLine}
+            pathOptions={{
+              color: "#fbbf24",
+              weight: 4.5,
+              opacity: 0.95,
+              lineCap: "round",
+              lineJoin: "round",
+            }}
+          />
+        </>
+      )}
 
       <CircleMarker
         center={[originCoords.lat, originCoords.lng]}
@@ -175,15 +237,16 @@ export default function MapView() {
       </Marker>
 
       {enriched.map((item) => {
-        const selected = selectedStationId === item.station.id;
+        const isSelected = selectedStationId === item.station.id;
         return (
           <Marker
             key={item.station.id}
             position={[item.station.location.lat, item.station.location.lng]}
-            icon={makePinIcon(item.calculation.status, selected)}
+            icon={makePinIcon(item.calculation.status, isSelected)}
             eventHandlers={{
               click: () => setSelectedStationId(item.station.id),
             }}
+            zIndexOffset={isSelected ? 1000 : 0}
           >
             <Popup>
               <div className="min-w-[180px] space-y-1.5 text-slate-900">

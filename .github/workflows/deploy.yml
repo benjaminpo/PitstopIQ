@@ -42,6 +42,9 @@ jobs:
         env:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+          # NEXT_PUBLIC_ vars are inlined at build time; the Vercel env pull
+          # returns empty strings for sensitive vars, so inject it here.
+          NEXT_PUBLIC_ADSENSE_CLIENT: ${{ vars.NEXT_PUBLIC_ADSENSE_CLIENT }}
 
       - name: Deploy
         id: deploy
