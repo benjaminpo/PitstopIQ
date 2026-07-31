@@ -41,6 +41,7 @@ export function StationList() {
     setBrandFilter,
     selectedStationId,
     setSelectedStationId,
+    setSidebarOpen,
     getEnrichedStations,
     loading,
     error,
@@ -56,6 +57,15 @@ export function StationList() {
   const filterLabel =
     BRAND_FILTER_OPTIONS.find((o) => o.key === brandFilter)?.label ?? "All";
   const rangeMiles = remainingRangeMiles(vehicle);
+
+  const handleSelect = (stationId: string) => {
+    setSelectedStationId(stationId);
+    // Below the md breakpoint the sidebar overlays the map, so close it to
+    // reveal the selected station and its detour route.
+    if (window.matchMedia("(max-width: 767px)").matches) {
+      setSidebarOpen(false);
+    }
+  };
 
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
@@ -181,7 +191,7 @@ export function StationList() {
             isBest={item.station.id === bestId}
             origin={originCoords}
             selected={selectedStationId === item.station.id}
-            onSelect={() => setSelectedStationId(item.station.id)}
+            onSelect={() => handleSelect(item.station.id)}
           />
         ))}
       </div>
