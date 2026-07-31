@@ -95,8 +95,8 @@ export default function HomePage() {
           </button>
         </header>
 
-        <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-hidden px-5 py-4">
-          <div className="shrink-0 overflow-y-auto max-h-[48%] pr-1">
+        <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-5 py-4 md:overflow-hidden">
+          <div className="shrink-0 md:max-h-[48%] md:overflow-y-auto md:pr-1">
             <RouteForm />
           </div>
           <div className="h-px shrink-0 bg-slate-800/80" />

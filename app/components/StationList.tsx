@@ -75,7 +75,7 @@ export function StationList() {
   }, [dataSource]);
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
+    <div className="flex shrink-0 flex-col md:min-h-0 md:flex-1 md:shrink">
       <div className="mb-3 flex items-center justify-between gap-2">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
@@ -183,7 +183,7 @@ export function StationList() {
         </p>
       )}
 
-      <div className="min-h-0 flex-1 space-y-2.5 overflow-y-auto pr-1">
+      <div className="space-y-2.5 md:min-h-0 md:flex-1 md:overflow-y-auto md:pr-1">
         {enriched.map((item) => (
           <StationCard
             key={item.station.id}
