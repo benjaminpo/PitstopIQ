@@ -8,7 +8,7 @@ import {
   useState,
   type KeyboardEvent,
 } from "react";
-import { Loader2, MapPin } from "lucide-react";
+import { History, Loader2, MapPin } from "lucide-react";
 import { searchPlaces, type PlaceSuggestion } from "@/app/lib/placeSearch";
 import { cn } from "@/app/lib/utils";
 
@@ -16,6 +16,9 @@ interface PlaceAutocompleteProps {
   value: string;
   onChange: (value: string) => void;
   onSelect: (place: PlaceSuggestion) => void;
+  /** Saved past selections, shown before the user types a query */
+  recentPlaces?: PlaceSuggestion[];
+  onClearRecent?: () => void;
   placeholder?: string;
   ariaLabel?: string;
   disabled?: boolean;
@@ -25,6 +28,8 @@ export function PlaceAutocomplete({
   value,
   onChange,
   onSelect,
+  recentPlaces,
+  onClearRecent,
   placeholder,
   ariaLabel,
   disabled,
@@ -38,6 +43,16 @@ export function PlaceAutocomplete({
   const [suggestions, setSuggestions] = useState<PlaceSuggestion[]>([]);
   const [highlight, setHighlight] = useState(-1);
   const [error, setError] = useState<string | null>(null);
+
+  const recents = recentPlaces ?? [];
+  const query = value.trim();
+  // With no usable query yet, the dropdown offers saved history instead.
+  const recentMode = query.length < 2 && recents.length > 0;
+  const displayed = recentMode ? recents : suggestions;
+
+  useEffect(() => {
+    setHighlight(-1);
+  }, [recentMode]);
 
   useEffect(() => {
     if (skipSearchRef.current) {
@@ -104,26 +119,27 @@ export function PlaceAutocomplete({
   );
 
   function onKeyDown(e: KeyboardEvent<HTMLInputElement>) {
-    if (!open || suggestions.length === 0) {
-      if (e.key === "ArrowDown" && suggestions.length > 0) setOpen(true);
+    if (!open || displayed.length === 0) {
+      if (e.key === "ArrowDown" && displayed.length > 0) setOpen(true);
       return;
     }
 
     if (e.key === "ArrowDown") {
       e.preventDefault();
-      setHighlight((h) => (h + 1) % suggestions.length);
+      setHighlight((h) => (h + 1) % displayed.length);
     } else if (e.key === "ArrowUp") {
       e.preventDefault();
-      setHighlight((h) => (h <= 0 ? suggestions.length - 1 : h - 1));
+      setHighlight((h) => (h <= 0 ? displayed.length - 1 : h - 1));
     } else if (e.key === "Enter" && highlight >= 0) {
       e.preventDefault();
-      pick(suggestions[highlight]);
+      pick(displayed[highlight]);
     } else if (e.key === "Escape") {
       setOpen(false);
     }
   }
 
-  const showList = open && (suggestions.length > 0 || loading || !!error);
+  const showList =
+    open && (displayed.length > 0 || (!recentMode && (loading || !!error)));
 
   return (
     <div ref={rootRef} className="relative">
@@ -147,7 +163,9 @@ export function PlaceAutocomplete({
             setOpen(true);
           }}
           onFocus={() => {
-            if (suggestions.length > 0 || value.trim().length >= 2) setOpen(true);
+            if (recentMode || suggestions.length > 0 || query.length >= 2) {
+              setOpen(true);
+            }
           }}
           onKeyDown={onKeyDown}
           className="w-full rounded-lg border border-slate-700/80 bg-slate-900/60 px-3 py-2 pr-9 text-sm text-slate-100 placeholder:text-slate-500 outline-none ring-teal-500/40 transition focus:border-teal-500/60 focus:ring-2 disabled:opacity-60"
@@ -163,21 +181,38 @@ export function PlaceAutocomplete({
           role="listbox"
           className="absolute z-50 mt-1 max-h-56 w-full overflow-y-auto rounded-lg border border-slate-700 bg-slate-900 py-1 shadow-xl shadow-black/40"
         >
-          {error && (
+          {recentMode && (
+            <li className="flex items-center justify-between px-3 pb-1 pt-1.5">
+              <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                Recent searches
+              </span>
+              {onClearRecent && (
+                <button
+                  type="button"
+                  onClick={onClearRecent}
+                  className="text-[10px] font-semibold text-slate-500 transition hover:text-slate-300"
+                >
+                  Clear
+                </button>
+              )}
+            </li>
+          )}
+          {!recentMode && error && (
             <li className="px-3 py-2 text-xs text-rose-400">{error}</li>
           )}
-          {!error && loading && suggestions.length === 0 && (
+          {!recentMode && !error && loading && suggestions.length === 0 && (
             <li className="px-3 py-2 text-xs text-slate-400">Searching…</li>
           )}
-          {!error &&
+          {!recentMode &&
+            !error &&
             !loading &&
             suggestions.length === 0 &&
-            value.trim().length >= 2 && (
+            query.length >= 2 && (
               <li className="px-3 py-2 text-xs text-slate-400">
                 No places found
               </li>
             )}
-          {suggestions.map((place, index) => (
+          {displayed.map((place, index) => (
             <li
               key={place.id}
               id={`${listId}-opt-${index}`}
@@ -195,7 +230,11 @@ export function PlaceAutocomplete({
                 onMouseEnter={() => setHighlight(index)}
                 onClick={() => pick(place)}
               >
-                <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-teal-400" />
+                {recentMode ? (
+                  <History className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-400" />
+                ) : (
+                  <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-teal-400" />
+                )}
                 <span className="min-w-0 flex-1">
                   <span className="flex items-baseline justify-between gap-2">
                     <span className="truncate text-sm font-medium">

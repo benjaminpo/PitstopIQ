@@ -19,6 +19,7 @@ export default defineConfig({
         "app/lib/utils.ts",
         "app/lib/freshness.ts",
         "app/lib/adsense.ts",
+        "app/lib/locationHistory.ts",
       ],
       thresholds: {
         lines: 90,

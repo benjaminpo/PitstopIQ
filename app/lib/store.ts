@@ -37,6 +37,11 @@ import {
   stationMatchesBrandFilter,
   type BrandFilter,
 } from "./brandCategory";
+import {
+  addToRecentPlaces,
+  sanitizeRecentPlaces,
+} from "./locationHistory";
+import type { PlaceSuggestion } from "./placeSearch";
 
 const DEFAULT_ORIGIN: GeoPoint = { lat: 51.4543, lng: -0.9781 }; // Reading
 const DEFAULT_DESTINATION: GeoPoint = { lat: 51.47, lng: -0.4543 }; // Heathrow
@@ -98,6 +103,8 @@ interface PitstopState {
   sortKey: StationSortKey;
   /** Forecourt brand bucket filter applied to scored stations */
   brandFilter: BrandFilter;
+  /** Previously selected origin/destination places, most recent first */
+  recentPlaces: PlaceSuggestion[];
   sidebarOpen: boolean;
   loading: boolean;
   locating: boolean;
@@ -119,6 +126,8 @@ interface PitstopState {
   setSortKey: (key: StationSortKey) => void;
   setBrandFilter: (filter: BrandFilter) => void;
   setSelectedStationId: (id: string | null) => void;
+  addRecentPlace: (place: PlaceSuggestion) => void;
+  clearRecentPlaces: () => void;
   loadDetourRoute: (stationId: string) => Promise<void>;
   setSidebarOpen: (open: boolean) => void;
   applyVehiclePreset: (id: string) => void;
@@ -165,6 +174,7 @@ type PersistedSettings = Pick<
   | "vehiclePresets"
   | "activePresetId"
   | "brandFilter"
+  | "recentPlaces"
 >;
 
 export const usePitstopStore = create<PitstopState>()(
@@ -193,6 +203,7 @@ export const usePitstopStore = create<PitstopState>()(
       selectedStationId: null,
       sortKey: "netProfit",
       brandFilter: "all",
+      recentPlaces: [],
       sidebarOpen: true,
       loading: false,
       locating: false,
@@ -278,6 +289,12 @@ export const usePitstopStore = create<PitstopState>()(
         }
       },
       setSidebarOpen: (sidebarOpen) => set({ sidebarOpen }),
+
+      addRecentPlace: (place) =>
+        set((s) => ({
+          recentPlaces: addToRecentPlaces(s.recentPlaces, place),
+        })),
+      clearRecentPlaces: () => set({ recentPlaces: [] }),
 
       loadDetourRoute: async (stationId) => {
         const {
@@ -723,6 +740,7 @@ export const usePitstopStore = create<PitstopState>()(
         vehiclePresets: state.vehiclePresets,
         activePresetId: state.activePresetId,
         brandFilter: state.brandFilter,
+        recentPlaces: state.recentPlaces,
       }),
       migrate: (persisted) => {
         if (!persisted || typeof persisted !== "object")
@@ -773,9 +791,10 @@ export const usePitstopStore = create<PitstopState>()(
             vehiclePresets.length > 0 ? vehiclePresets : defaultPresets,
           activePresetId,
           brandFilter,
+          recentPlaces: sanitizeRecentPlaces(p.recentPlaces),
         };
       },
-      version: 5,
+      version: 6,
     }
   )
 );

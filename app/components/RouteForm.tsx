@@ -32,6 +32,9 @@ export function RouteForm() {
     basePriceManual,
     litresToRefill,
     valueOfTimeGbpPerHour,
+    recentPlaces,
+    addRecentPlace,
+    clearRecentPlaces,
     setOrigin,
     setDestination,
     setOriginPlace,
@@ -89,8 +92,11 @@ export function RouteForm() {
             value={origin}
             onChange={setOrigin}
             onSelect={(place) => {
+              addRecentPlace(place);
               setOriginPlace(formatPlaceSelection(place), place.location);
             }}
+            recentPlaces={recentPlaces}
+            onClearRecent={clearRecentPlaces}
             placeholder="Type a place, address, or postcode…"
             ariaLabel="Origin"
           />
@@ -123,8 +129,11 @@ export function RouteForm() {
             value={destination}
             onChange={setDestination}
             onSelect={(place) => {
+              addRecentPlace(place);
               setDestinationPlace(formatPlaceSelection(place), place.location);
             }}
+            recentPlaces={recentPlaces}
+            onClearRecent={clearRecentPlaces}
             placeholder="Type a place, address, or postcode…"
             ariaLabel="Destination"
           />
