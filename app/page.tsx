@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { useEffect, useRef } from "react";
-import { Crosshair, Loader2, Menu, PanelLeftClose, Sparkles } from "lucide-react";
+import { Coffee, Crosshair, Loader2, Menu, PanelLeftClose, Sparkles } from "lucide-react";
 import { RouteForm } from "@/app/components/RouteForm";
 import { SidebarAd } from "@/app/components/AdUnit";
 import { ShareTripButton } from "@/app/components/ShareTripButton";
@@ -105,9 +105,21 @@ export default function HomePage() {
 
         <SidebarAd />
 
-        <footer className="border-t border-slate-800/80 px-5 py-3 text-[10px] text-slate-500">
-          UK gallon = 4.54609 L · Net = gross savings − detour fuel cost · ±£0.50
-          break-even band
+        <footer className="flex items-center justify-between gap-3 border-t border-slate-800/80 px-5 py-3 text-[10px] text-slate-500">
+          <span>
+            UK gallon = 4.54609 L · Net = gross savings − detour fuel cost ·
+            ±£0.50 break-even band
+          </span>
+          <a
+            href="https://buymeacoffee.com/benjaminpo"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-amber-700/50 bg-amber-950/40 px-2.5 py-1 text-[11px] font-medium text-amber-300 transition hover:bg-amber-900/50 hover:text-amber-200"
+            aria-label="Buy me a coffee"
+          >
+            <Coffee className="h-3.5 w-3.5" />
+            Buy me a coffee
+          </a>
         </footer>
       </aside>
 
