@@ -122,8 +122,11 @@ async function fuelFinderFetch(
     cache: "no-store",
   });
 
-  // One retry on 401 with forced token refresh
-  if (response.status === 401 && !skipAuth) {
+  // One retry on 401/403 with forced token refresh. The API allows a single
+  // active token per client, so a concurrent token generation (e.g. another
+  // server instance) revokes ours mid-run and requests start returning
+  // 403 "Token revoked or expired".
+  if ((response.status === 401 || response.status === 403) && !skipAuth) {
     tokenCache = null;
     const token = await getAccessToken(true);
     headers.set("Authorization", `Bearer ${token}`);
@@ -355,7 +358,21 @@ async function getAllStationsCached(): Promise<CachedDataset> {
     });
   }
 
-  return inflightRefresh;
+  try {
+    return await inflightRefresh;
+  } catch (error) {
+    // A failed refresh (e.g. token revoked mid-batch) shouldn't wipe out
+    // real data — serve the stale dataset rather than falling back to mocks.
+    if (datasetCache) {
+      console.warn(
+        "[fuelFinder] refresh failed, serving stale dataset from",
+        new Date(datasetCache.fetchedAt).toISOString(),
+        error
+      );
+      return datasetCache;
+    }
+    throw error;
+  }
 }
 
 export interface FuelFinderFetchResult {
