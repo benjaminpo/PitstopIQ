@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   MapContainer,
   TileLayer,
@@ -10,12 +10,18 @@ import {
   CircleMarker,
   useMap,
 } from "react-leaflet";
-import { useEffect } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { usePitstopStore } from "@/app/lib/store";
 import { formatGbp } from "@/app/lib/detourCalculator";
+import {
+  formatPriceAge,
+  stationPriceAgeTitle,
+  stationPriceTone,
+  STATION_AGE_TEXT_CLASSES_LIGHT,
+} from "@/app/lib/freshness";
 import type { DetourStatus, GeoPoint } from "@/app/lib/types";
+import { cn } from "@/app/lib/utils";
 import { NavigateHere } from "./NavigateHere";
 import { StatusBadge } from "./StatusBadge";
 
@@ -99,6 +105,13 @@ export default function MapView() {
   } = usePitstopStore();
 
   const enriched = getEnrichedStations();
+
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = window.setInterval(() => setNow(Date.now()), 30_000);
+    return () => window.clearInterval(id);
+  }, []);
+
   const selected = enriched.find((e) => e.station.id === selectedStationId);
   const showingDetour = Boolean(
     selected && detourRoute && detourRoute.coordinates.length > 1
@@ -238,6 +251,8 @@ export default function MapView() {
 
       {enriched.map((item) => {
         const isSelected = selectedStationId === item.station.id;
+        const priceUpdatedAt = item.station.pricesLastUpdatedAt;
+        const priceTone = stationPriceTone(priceUpdatedAt, now);
         return (
           <Marker
             key={item.station.id}
@@ -259,6 +274,17 @@ export default function MapView() {
                   {item.calculation.detourExtraMinutes < 0.5
                     ? "<1 min"
                     : `+${Math.round(item.calculation.detourExtraMinutes)} min`}
+                </p>
+                <p
+                  className={cn(
+                    "font-mono text-xs",
+                    STATION_AGE_TEXT_CLASSES_LIGHT[priceTone]
+                  )}
+                  title={stationPriceAgeTitle(priceUpdatedAt, priceTone)}
+                >
+                  {priceUpdatedAt != null
+                    ? `Price updated ${formatPriceAge(priceUpdatedAt, now)}`
+                    : "Price update time unknown"}
                 </p>
                 <p className="font-mono text-sm font-bold">
                   Net {formatGbp(item.calculation.netAfterTime)}

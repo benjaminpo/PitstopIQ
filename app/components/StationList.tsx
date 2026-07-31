@@ -190,6 +190,7 @@ export function StationList() {
             item={item}
             isBest={item.station.id === bestId}
             origin={originCoords}
+            now={now}
             selected={selectedStationId === item.station.id}
             onSelect={() => handleSelect(item.station.id)}
           />

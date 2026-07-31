@@ -26,6 +26,8 @@ function generateMockStations(bounds: MapBounds): FuelStation[] {
     /** Rough detour minutes at ~35 mph for mock demos */
     detourExtraSeconds: number;
     prices: Partial<Record<FuelType, number>>;
+    /** Simulated age of the price report, for demo realism */
+    priceAgeMinutes: number;
   }> = [
     {
       id: "mock-tesco-slough",
@@ -36,6 +38,7 @@ function generateMockStations(bounds: MapBounds): FuelStation[] {
       distanceOffRouteMiles: 1.2,
       detourExtraSeconds: 120,
       prices: { E10: 1.329, E5: 1.429, B7_Diesel: 1.389 },
+      priceAgeMinutes: 45,
     },
     {
       id: "mock-bp-heathrow",
@@ -46,6 +49,7 @@ function generateMockStations(bounds: MapBounds): FuelStation[] {
       distanceOffRouteMiles: 3.8,
       detourExtraSeconds: 390,
       prices: { E10: 1.459, E5: 1.559, B7_Diesel: 1.499 },
+      priceAgeMinutes: 130,
     },
     {
       id: "mock-moto-m4",
@@ -56,6 +60,7 @@ function generateMockStations(bounds: MapBounds): FuelStation[] {
       distanceOffRouteMiles: 0.4,
       detourExtraSeconds: 45,
       prices: { E10: 1.489, E5: 1.589, B7_Diesel: 1.529 },
+      priceAgeMinutes: 25,
     },
     {
       id: "mock-shell-reading",
@@ -66,6 +71,7 @@ function generateMockStations(bounds: MapBounds): FuelStation[] {
       distanceOffRouteMiles: 2.4,
       detourExtraSeconds: 250,
       prices: { E10: 1.389, E5: 1.489, B7_Diesel: 1.419 },
+      priceAgeMinutes: 310,
     },
     {
       id: "mock-asda-bracknell",
@@ -76,6 +82,7 @@ function generateMockStations(bounds: MapBounds): FuelStation[] {
       distanceOffRouteMiles: 0.6,
       detourExtraSeconds: 60,
       prices: { E10: 1.299, E5: 1.399, B7_Diesel: 1.349 },
+      priceAgeMinutes: 75,
     },
     {
       id: "mock-esso-maidenhead",
@@ -86,6 +93,7 @@ function generateMockStations(bounds: MapBounds): FuelStation[] {
       distanceOffRouteMiles: 4.5,
       detourExtraSeconds: 460,
       prices: { E10: 1.279, E5: 1.379, B7_Diesel: 1.329 },
+      priceAgeMinutes: 220,
     },
     {
       id: "mock-sainsburys-windsor",
@@ -96,6 +104,7 @@ function generateMockStations(bounds: MapBounds): FuelStation[] {
       distanceOffRouteMiles: 1.9,
       detourExtraSeconds: 195,
       prices: { E10: 1.349, E5: 1.449, B7_Diesel: 1.379 },
+      priceAgeMinutes: 15,
     },
     {
       id: "mock-morrisons-uxbridge",
@@ -106,9 +115,11 @@ function generateMockStations(bounds: MapBounds): FuelStation[] {
       distanceOffRouteMiles: 5.2,
       detourExtraSeconds: 535,
       prices: { E10: 1.319, E5: 1.419, B7_Diesel: 1.359 },
+      priceAgeMinutes: 480,
     },
   ];
 
+  const now = Date.now();
   return templates.map((t) => ({
     id: t.id,
     name: t.name,
@@ -118,6 +129,7 @@ function generateMockStations(bounds: MapBounds): FuelStation[] {
       lng: centreLng + t.lngOffset,
     },
     prices: t.prices,
+    pricesLastUpdatedAt: now - t.priceAgeMinutes * 60_000,
     distanceOffRouteMiles: t.distanceOffRouteMiles,
     detourExtraSeconds: t.detourExtraSeconds,
   }));

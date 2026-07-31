@@ -31,6 +31,11 @@ export interface FuelStation {
   location: GeoPoint;
   /** Price per litre in GBP for each available fuel grade */
   prices: Partial<Record<FuelType, number>>;
+  /**
+   * Epoch ms when the station last reported a price update
+   * (latest across grades); null when the API didn't provide it.
+   */
+  pricesLastUpdatedAt?: number | null;
   /** Extra miles vs remaining on the direct route */
   distanceOffRouteMiles: number;
   /** Extra driving time vs the direct route (seconds, from OSRM or estimate) */

@@ -220,6 +220,31 @@ async function requestToken(
   return access;
 }
 
+/**
+ * Parse the API's price_last_updated string to epoch ms.
+ * Handles ISO 8601 and the legacy CMA "dd/MM/yyyy HH:mm:ss" format.
+ */
+export function parsePriceLastUpdated(
+  raw: string | null | undefined
+): number | undefined {
+  if (!raw) return undefined;
+  const trimmed = raw.trim();
+  if (!trimmed) return undefined;
+
+  const ukFormat =
+    /^(\d{2})\/(\d{2})\/(\d{4})[ T](\d{2}):(\d{2})(?::(\d{2}))?$/.exec(
+      trimmed
+    );
+  if (ukFormat) {
+    const [, dd, mm, yyyy, hh, min, ss] = ukFormat;
+    const t = Date.UTC(+yyyy, +mm - 1, +dd, +hh, +min, ss ? +ss : 0);
+    return Number.isFinite(t) ? t : undefined;
+  }
+
+  const t = Date.parse(trimmed);
+  return Number.isFinite(t) ? t : undefined;
+}
+
 /** Convert API price (usually pence, sometimes £) to £/litre */
 export function parsePriceToGbpPerLitre(
   raw: string | number | null | undefined
@@ -280,6 +305,7 @@ async function fetchAllBatches<T>(path: string): Promise<T[]> {
 function mapStations(
   stations: ApiStation[],
   pricesByNode: Map<string, Partial<Record<FuelType, number>>>,
+  updatedByNode: Map<string, number>,
   routeCentre: GeoPoint
 ): FuelStation[] {
   const mapped: FuelStation[] = [];
@@ -300,6 +326,7 @@ function mapStations(
       brand: s.brand_name?.trim() || s.trading_name?.trim() || "Unknown",
       location,
       prices,
+      pricesLastUpdatedAt: updatedByNode.get(s.node_id) ?? null,
       distanceOffRouteMiles: Number(
         haversineMiles(routeCentre, location).toFixed(2)
       ),
@@ -310,32 +337,62 @@ function mapStations(
   return mapped;
 }
 
+/**
+ * Merge one API fuel price into the station's price map (keeping the
+ * cheapest per grade) and return its last-updated timestamp, if usable.
+ */
+function mergeFuelPrice(
+  prices: Partial<Record<FuelType, number>>,
+  fp: ApiFuelPrice
+): number | undefined {
+  const mapped = FUEL_TYPE_MAP[fp.fuel_type];
+  if (!mapped) return undefined;
+  const gbp = parsePriceToGbpPerLitre(fp.price);
+  if (gbp === undefined) return undefined;
+  const existing = prices[mapped];
+  if (existing === undefined || gbp < existing) {
+    prices[mapped] = gbp;
+  }
+  return parsePriceLastUpdated(fp.price_last_updated);
+}
+
+function aggregatePriceRows(priceRows: ApiPriceStation[]): {
+  pricesByNode: Map<string, Partial<Record<FuelType, number>>>;
+  updatedByNode: Map<string, number>;
+} {
+  const pricesByNode = new Map<string, Partial<Record<FuelType, number>>>();
+  const updatedByNode = new Map<string, number>();
+
+  for (const row of priceRows) {
+    const prices: Partial<Record<FuelType, number>> = {};
+    let latestUpdatedAt = 0;
+    for (const fp of row.fuel_prices ?? []) {
+      const updatedAt = mergeFuelPrice(prices, fp);
+      if (updatedAt !== undefined && updatedAt > latestUpdatedAt) {
+        latestUpdatedAt = updatedAt;
+      }
+    }
+    if (Object.keys(prices).length > 0) {
+      pricesByNode.set(row.node_id, prices);
+    }
+    if (latestUpdatedAt > 0) {
+      updatedByNode.set(row.node_id, latestUpdatedAt);
+    }
+  }
+
+  return { pricesByNode, updatedByNode };
+}
+
 async function refreshDataset(): Promise<CachedDataset> {
   // Sequential on purpose — Fuel Finder requires waiting for each response
   // before the next request (30 rpm Information Recipient limit).
   const stations = await fetchAllBatches<ApiStation>(PFS_PATH);
   const priceRows = await fetchAllBatches<ApiPriceStation>(PRICES_PATH);
 
-  const pricesByNode = new Map<string, Partial<Record<FuelType, number>>>();
-  for (const row of priceRows) {
-    const prices: Partial<Record<FuelType, number>> = {};
-    for (const fp of row.fuel_prices ?? []) {
-      const mapped = FUEL_TYPE_MAP[fp.fuel_type];
-      if (!mapped) continue;
-      const gbp = parsePriceToGbpPerLitre(fp.price);
-      if (gbp === undefined) continue;
-      const existing = prices[mapped];
-      if (existing === undefined || gbp < existing) {
-        prices[mapped] = gbp;
-      }
-    }
-    if (Object.keys(prices).length > 0) {
-      pricesByNode.set(row.node_id, prices);
-    }
-  }
+  const { pricesByNode, updatedByNode } = aggregatePriceRows(priceRows);
 
   const UK_CENTRE: GeoPoint = { lat: 54.0, lng: -2.5 };
-  const mapped = mapStations(stations, pricesByNode, UK_CENTRE);
+  const mapped = mapStations(stations, pricesByNode, updatedByNode, UK_CENTRE);
 
   datasetCache = { fetchedAt: Date.now(), stations: mapped };
   console.info(

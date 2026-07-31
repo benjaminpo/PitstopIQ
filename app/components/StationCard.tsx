@@ -2,6 +2,13 @@
 
 import { ArrowRightLeft, Clock, Fuel, Route, Sparkles } from "lucide-react";
 import { formatGbp } from "@/app/lib/detourCalculator";
+import {
+  formatPriceAge,
+  stationPriceAgeTitle,
+  stationPriceTone,
+  FRESHNESS_DOT_CLASSES,
+  STATION_AGE_TEXT_CLASSES,
+} from "@/app/lib/freshness";
 import type { GeoPoint, StationWithCalculation } from "@/app/lib/types";
 import { cn } from "@/app/lib/utils";
 import { NavigateHere } from "./NavigateHere";
@@ -13,6 +20,8 @@ interface StationCardProps {
   /** Highest net-after-time station — always shows navigate CTAs */
   isBest?: boolean;
   origin?: GeoPoint | null;
+  /** Current clock (epoch ms) for rendering price update age */
+  now?: number;
   onSelect?: () => void;
 }
 
@@ -27,9 +36,12 @@ export function StationCard({
   selected,
   isBest,
   origin,
+  now,
   onSelect,
 }: StationCardProps) {
   const { station, calculation, pricePerLitre } = item;
+  const priceUpdatedAt = station.pricesLastUpdatedAt;
+  const priceTone = now != null ? stationPriceTone(priceUpdatedAt, now) : null;
   const net = calculation.netAfterTime;
   const showNavigate = Boolean(selected || isBest);
 
@@ -80,6 +92,25 @@ export function StationCard({
           <p className="mt-0.5 font-mono text-sm font-semibold text-slate-100">
             £{pricePerLitre.toFixed(3)}
           </p>
+          {now != null && priceTone != null && (
+            <p
+              className={cn(
+                "mt-0.5 flex items-center gap-1 font-mono text-[10px]",
+                STATION_AGE_TEXT_CLASSES[priceTone]
+              )}
+              title={stationPriceAgeTitle(priceUpdatedAt, priceTone)}
+            >
+              <span
+                className={cn(
+                  "h-1.5 w-1.5 shrink-0 rounded-full",
+                  FRESHNESS_DOT_CLASSES[priceTone]
+                )}
+              />
+              {priceUpdatedAt != null
+                ? formatPriceAge(priceUpdatedAt, now)
+                : "age unknown"}
+            </p>
+          )}
         </div>
         <div className="rounded-lg bg-slate-950/50 px-2 py-1.5">
           <div className="flex items-center gap-1 text-[10px] uppercase tracking-wide text-slate-500">
