@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   DEFAULT_BOUNDS,
   fetchNearbyFuelStations,
+  FuelDataUnavailableError,
 } from "@/app/lib/fuelApiAdapter";
 import { isFuelFinderConfigured } from "@/app/lib/fuelFinderClient";
 import type { MapBounds } from "@/app/lib/types";
@@ -48,6 +49,9 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     console.error("[fuel-finder]", error);
+    if (error instanceof FuelDataUnavailableError) {
+      return NextResponse.json({ error: error.message }, { status: 503 });
+    }
     return NextResponse.json(
       { error: "Failed to fetch fuel stations" },
       { status: 500 }

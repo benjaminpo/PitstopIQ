@@ -6,7 +6,7 @@ Smart Route Cost Calculator & Detour Planner — decide whether diverting to a c
 
 - Next.js 16 (App Router) + TypeScript + Tailwind CSS
 - Zustand state · Lucide icons · Leaflet / OpenStreetMap
-- Modular API routes with mock Fuel Finder fallback
+- Modular API routes with mock Fuel Finder fallback (development only)
 
 ## Math (UK units)
 
@@ -85,7 +85,7 @@ FUEL_FINDER_CLIENT_SECRET=...
 FUEL_FINDER_BASE_URL=https://www.fuel-finder.service.gov.uk
 ```
 
-Without credentials the app uses mock stations. The first live fetch caches the national PFS + prices dataset in memory (~1 hour TTL). The stations list shows a **freshness badge** (`Updated Xm ago`) from that sync time.
+Without credentials the app uses mock stations **in development only** (clearly labelled as demo data). In production, missing credentials or a failed live fetch return an error with a retry button instead of fake stations — set `FUEL_FINDER_ALLOW_MOCKS=true` to opt a preview deployment into mock data. The first live fetch caches the national PFS + prices dataset in memory (~1 hour TTL). The stations list shows a **freshness badge** (`Updated Xm ago`) from that sync time.
 
 ## CI / Deploy (GitHub Actions)
 

@@ -9,6 +9,7 @@ import {
   MapPinned,
   Navigation,
 } from "lucide-react";
+import { NumberInput } from "@/app/components/NumberInput";
 import { PlaceAutocomplete } from "@/app/components/PlaceAutocomplete";
 import { VehiclePresets } from "@/app/components/VehiclePresets";
 import { remainingRangeMiles } from "@/app/lib/detourCalculator";
@@ -190,22 +191,19 @@ export function RouteForm() {
         </div>
       </div>
 
-      <label className="block space-y-1.5">
+      <label htmlFor="vehicle-mpg" className="block space-y-1.5">
         <span className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-slate-400">
           <Gauge className="h-3.5 w-3.5" />
           Vehicle MPG
         </span>
         <div className="relative">
-          <input
-            type="number"
+          <NumberInput
+            id="vehicle-mpg"
             min={1}
             max={150}
             step={0.1}
             value={vehicle.mpg}
-            onChange={(e) => {
-              const next = Number(e.target.value);
-              if (Number.isFinite(next)) setVehicle({ mpg: next });
-            }}
+            onCommit={(mpg) => setVehicle({ mpg })}
             className="w-full rounded-lg border border-slate-700/80 bg-slate-900/60 px-3 py-2 pr-12 font-mono text-sm text-slate-100 outline-none ring-teal-500/40 transition focus:border-teal-500/60 focus:ring-2"
             aria-label="Vehicle MPG"
           />
@@ -269,7 +267,7 @@ export function RouteForm() {
         </p>
       </label>
 
-      <label className="block space-y-1.5">
+      <label htmlFor="base-route-price" className="block space-y-1.5">
         <div className="flex items-center justify-between gap-2">
           <span className="text-xs font-medium uppercase tracking-wide text-slate-400">
             Base route avg price (£/L)
@@ -286,14 +284,15 @@ export function RouteForm() {
             <span className="text-[10px] text-slate-500">auto from corridor</span>
           )}
         </div>
-        <input
-          type="number"
+        <NumberInput
+          id="base-route-price"
           min={0.8}
           max={2.5}
           step={0.001}
           value={baseRouteAvgPricePerLitre}
-          onChange={(e) => setBaseRouteAvgPrice(Number(e.target.value))}
+          onCommit={setBaseRouteAvgPrice}
           className="w-full rounded-lg border border-slate-700/80 bg-slate-900/60 px-3 py-2 font-mono text-sm text-slate-100 outline-none ring-teal-500/40 transition focus:border-teal-500/60 focus:ring-2"
+          aria-label="Base route average price in pounds per litre"
         />
         <p className="text-[10px] leading-snug text-slate-500">
           Compared against the median £/L of stations near your route — not a
@@ -302,34 +301,36 @@ export function RouteForm() {
       </label>
 
       <div className="grid grid-cols-2 gap-2">
-        <label className="block space-y-1.5">
+        <label htmlFor="tank-capacity" className="block space-y-1.5">
           <span className="text-xs font-medium uppercase tracking-wide text-slate-400">
             Tank (L)
           </span>
-          <input
-            type="number"
-            min={20}
-            max={100}
+          <NumberInput
+            id="tank-capacity"
+            min={10}
+            max={200}
+            step={1}
             value={vehicle.tankCapacityLitres}
-            onChange={(e) =>
-              setVehicle({ tankCapacityLitres: Number(e.target.value) })
+            onCommit={(tankCapacityLitres) =>
+              setVehicle({ tankCapacityLitres })
             }
             className="w-full rounded-lg border border-slate-700/80 bg-slate-900/60 px-3 py-2 font-mono text-sm text-slate-100 outline-none focus:border-teal-500/60 focus:ring-2 focus:ring-teal-500/40"
+            aria-label="Tank capacity in litres"
           />
         </label>
-        <label className="block space-y-1.5">
+        <label htmlFor="fill-percentage" className="block space-y-1.5">
           <span className="text-xs font-medium uppercase tracking-wide text-slate-400">
             Fill %
           </span>
-          <input
-            type="number"
+          <NumberInput
+            id="fill-percentage"
             min={0}
             max={100}
+            step={1}
             value={vehicle.fillPercentage}
-            onChange={(e) =>
-              setVehicle({ fillPercentage: Number(e.target.value) })
-            }
+            onCommit={(fillPercentage) => setVehicle({ fillPercentage })}
             className="w-full rounded-lg border border-slate-700/80 bg-slate-900/60 px-3 py-2 font-mono text-sm text-slate-100 outline-none focus:border-teal-500/60 focus:ring-2 focus:ring-teal-500/40"
+            aria-label="Current fill percentage"
           />
         </label>
       </div>

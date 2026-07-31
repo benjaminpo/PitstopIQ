@@ -48,6 +48,16 @@ const SETTINGS_STORAGE_KEY = "pitstopiq-vehicle-settings";
 const MAX_OSRM_CANDIDATES = 25;
 const MAX_VEHICLE_PRESETS = 8;
 
+async function readApiErrorMessage(res: Response): Promise<string> {
+  try {
+    const body = (await res.json()) as { error?: string };
+    if (body.error) return body.error;
+  } catch {
+    // non-JSON error body — fall through to the generic message
+  }
+  return "Failed to load stations";
+}
+
 function newPresetId(): string {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
     return crypto.randomUUID();
@@ -514,7 +524,9 @@ export const usePitstopStore = create<PitstopState>()(
             west: String(route.bounds.west),
           });
           const res = await fetch(`/api/fuel-finder?${params}`);
-          if (!res.ok) throw new Error("Failed to load stations");
+          if (!res.ok) {
+            throw new Error(await readApiErrorMessage(res));
+          }
           const data = (await res.json()) as {
             stations: FuelStation[];
             source?: "live" | "mock";

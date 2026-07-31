@@ -135,9 +135,29 @@ function generateMockStations(bounds: MapBounds): FuelStation[] {
   }));
 }
 
+/** Thrown when live data is unavailable and mock fallback is not allowed. */
+export class FuelDataUnavailableError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "FuelDataUnavailableError";
+  }
+}
+
 /**
- * Prefers live UK Fuel Finder API when OAuth client credentials are set;
- * falls back to mocks on missing config or empty/failed responses.
+ * Mock stations are demo data with made-up names and positions — never
+ * serve them to real users. Dev builds (or an explicit env override for
+ * preview deployments) may use them so the app works without credentials.
+ */
+function mockDataAllowed(): boolean {
+  if (process.env.FUEL_FINDER_ALLOW_MOCKS === "true") return true;
+  return process.env.NODE_ENV !== "production";
+}
+
+/**
+ * Live UK Fuel Finder stations when OAuth client credentials are set.
+ * Outside production, falls back to mock demo stations on missing config
+ * or failure; in production it throws FuelDataUnavailableError instead so
+ * users are never shown fabricated forecourts.
  */
 export async function fetchNearbyFuelStations(
   bounds: MapBounds
@@ -150,19 +170,28 @@ export async function fetchNearbyFuelStations(
   if (isFuelFinderConfigured()) {
     try {
       const live = await fetchFuelFinderStations(bounds);
-      if (live && live.stations.length > 0) {
+      if (live) {
+        // An empty list is an honest answer ("no forecourts here") —
+        // never replace it with fake stations.
         return {
           stations: live.stations,
           source: "live",
           pricesFetchedAt: live.pricesFetchedAt,
         };
       }
-      console.warn(
-        "[fuelApiAdapter] Live Fuel Finder returned 0 stations in bounds — using mocks"
-      );
     } catch (error) {
-      console.warn("[fuelApiAdapter] Live Fuel Finder failed, using mocks:", error);
+      console.warn("[fuelApiAdapter] Live Fuel Finder failed:", error);
+      if (!mockDataAllowed()) {
+        throw new FuelDataUnavailableError(
+          "Live fuel prices are temporarily unavailable. Please try again in a minute."
+        );
+      }
+      console.warn("[fuelApiAdapter] Falling back to mock demo stations (non-production)");
     }
+  } else if (!mockDataAllowed()) {
+    throw new FuelDataUnavailableError(
+      "Live fuel prices are not configured on this server."
+    );
   }
 
   return {
