@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { formatPriceAge, freshnessTone, stationPriceTone } from "./freshness";
+import {
+  formatPriceAge,
+  freshnessTone,
+  stationPriceAgeTitle,
+  stationPriceTone,
+} from "./freshness";
 
 describe("formatPriceAge", () => {
   const now = Date.UTC(2026, 6, 30, 12, 0, 0);
@@ -46,5 +51,30 @@ describe("stationPriceTone", () => {
     expect(stationPriceTone(now - 6 * DAY, now)).toBe("aging");
     expect(stationPriceTone(now - 8 * DAY, now)).toBe("stale");
     expect(stationPriceTone(now - 60 * DAY, now)).toBe("stale");
+  });
+});
+
+describe("stationPriceAgeTitle", () => {
+  const reportedAt = Date.UTC(2026, 6, 30, 12, 0, 0);
+
+  it("warns when no update time was reported", () => {
+    expect(stationPriceAgeTitle(null, "unknown")).toContain(
+      "has not reported"
+    );
+    expect(stationPriceAgeTitle(undefined, "unknown")).toContain(
+      "treat the price with caution"
+    );
+  });
+
+  it("includes the report timestamp and tone-specific caveats", () => {
+    expect(stationPriceAgeTitle(reportedAt, "fresh")).toMatch(
+      /^Price last reported .+/
+    );
+    expect(stationPriceAgeTitle(reportedAt, "aging")).toContain(
+      "more than a day old"
+    );
+    expect(stationPriceAgeTitle(reportedAt, "stale")).toContain(
+      "over a week old"
+    );
   });
 });

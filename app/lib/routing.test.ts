@@ -1,13 +1,17 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  CORRIDOR_MAX_DISTANCE_MILES,
   approximateDetourMiles,
   approximateDetourSeconds,
+  boundsFromCoordinates,
+  corridorPadDegrees,
   downsampleRoute,
   fetchDrivingRoute,
   fetchStationDetours,
   filterToRouteCorridor,
   formatDuration,
   haversineMiles,
+  metersToMiles,
   milesFromOriginToStation,
   nearestOnRoute,
 } from "./routing";
@@ -17,6 +21,43 @@ const origin: GeoPoint = { lat: 51.45, lng: -1.0 };
 const mid: GeoPoint = { lat: 51.46, lng: -0.7 };
 const dest: GeoPoint = { lat: 51.47, lng: -0.4 };
 const route: GeoPoint[] = [origin, mid, dest];
+
+describe("unit conversions", () => {
+  it("converts meters to miles", () => {
+    expect(metersToMiles(1609.344)).toBeCloseTo(1, 6);
+    expect(metersToMiles(0)).toBe(0);
+  });
+
+  it("pads the corridor bbox beyond the corridor half-width", () => {
+    const pad = corridorPadDegrees();
+    expect(pad).toBeGreaterThan(CORRIDOR_MAX_DISTANCE_MILES / 69);
+    expect(corridorPadDegrees(6.9)).toBeCloseTo(0.1 + 0.015, 6);
+  });
+});
+
+describe("boundsFromCoordinates", () => {
+  it("returns a zero box for an empty path", () => {
+    expect(boundsFromCoordinates([])).toEqual({
+      north: 0,
+      south: 0,
+      east: 0,
+      west: 0,
+    });
+  });
+
+  it("wraps all points with the given padding", () => {
+    const bounds = boundsFromCoordinates(route, 0.1);
+    expect(bounds.north).toBeCloseTo(dest.lat + 0.1, 6);
+    expect(bounds.south).toBeCloseTo(origin.lat - 0.1, 6);
+    expect(bounds.east).toBeCloseTo(dest.lng + 0.1, 6);
+    expect(bounds.west).toBeCloseTo(origin.lng - 0.1, 6);
+  });
+
+  it("defaults padding to the corridor pad", () => {
+    const bounds = boundsFromCoordinates(route);
+    expect(bounds.north).toBeCloseTo(dest.lat + corridorPadDegrees(), 6);
+  });
+});
 
 describe("downsampleRoute", () => {
   it("returns the original route when already short enough", () => {
@@ -71,6 +112,12 @@ describe("nearestOnRoute / milesFromOriginToStation", () => {
   it("returns Infinity with no route and no origin", () => {
     expect(milesFromOriginToStation(mid, [], null)).toBe(Infinity);
     expect(nearestOnRoute(mid, []).distToRoute).toBe(Infinity);
+  });
+
+  it("measures straight-line distance to a single-point route", () => {
+    const near = nearestOnRoute(mid, [origin]);
+    expect(near.alongRouteMiles).toBe(0);
+    expect(near.distToRoute).toBeCloseTo(haversineMiles(mid, origin), 6);
   });
 });
 
