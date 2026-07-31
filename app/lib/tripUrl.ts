@@ -5,8 +5,9 @@ const FUEL_TYPES: readonly FuelType[] = ["E10", "E5", "B7_Diesel"];
 export interface TripSnapshot {
   origin: string;
   destination: string;
-  originCoords: GeoPoint;
-  destinationCoords: GeoPoint;
+  /** Null when the user hasn't picked that end of the trip yet */
+  originCoords: GeoPoint | null;
+  destinationCoords: GeoPoint | null;
   vehicle: VehicleProfile;
   litresToRefill: number;
   valueOfTimeGbpPerHour: number;
@@ -113,17 +114,20 @@ export function parseTripSearchParams(
 export function buildTripSearchParams(trip: TripSnapshot): URLSearchParams {
   const params = new URLSearchParams();
 
-  params.set(
-    "from",
-    `${trip.originCoords.lat.toFixed(5)},${trip.originCoords.lng.toFixed(5)}`
-  );
-  params.set(
-    "to",
-    `${trip.destinationCoords.lat.toFixed(5)},${trip.destinationCoords.lng.toFixed(5)}`
-  );
-
-  if (trip.origin.trim()) params.set("fromLabel", trip.origin.trim());
-  if (trip.destination.trim()) params.set("toLabel", trip.destination.trim());
+  if (trip.originCoords) {
+    params.set(
+      "from",
+      `${trip.originCoords.lat.toFixed(5)},${trip.originCoords.lng.toFixed(5)}`
+    );
+    if (trip.origin.trim()) params.set("fromLabel", trip.origin.trim());
+  }
+  if (trip.destinationCoords) {
+    params.set(
+      "to",
+      `${trip.destinationCoords.lat.toFixed(5)},${trip.destinationCoords.lng.toFixed(5)}`
+    );
+    if (trip.destination.trim()) params.set("toLabel", trip.destination.trim());
+  }
 
   params.set("fuel", trip.vehicle.fuelType);
   params.set("mpg", String(Number(trip.vehicle.mpg.toFixed(1))));
@@ -152,14 +156,17 @@ export function tripToShareUrl(
   return url.toString();
 }
 
+function coordsEqual(a: GeoPoint | null, b: GeoPoint | null): boolean {
+  if (a === null || b === null) return a === b;
+  return a.lat === b.lat && a.lng === b.lng;
+}
+
 export function tripFieldsEqual(a: TripSnapshot, b: TripSnapshot): boolean {
   return (
     a.origin === b.origin &&
     a.destination === b.destination &&
-    a.originCoords.lat === b.originCoords.lat &&
-    a.originCoords.lng === b.originCoords.lng &&
-    a.destinationCoords.lat === b.destinationCoords.lat &&
-    a.destinationCoords.lng === b.destinationCoords.lng &&
+    coordsEqual(a.originCoords, b.originCoords) &&
+    coordsEqual(a.destinationCoords, b.destinationCoords) &&
     a.vehicle.fuelType === b.vehicle.fuelType &&
     a.vehicle.mpg === b.vehicle.mpg &&
     a.vehicle.tankCapacityLitres === b.vehicle.tankCapacityLitres &&

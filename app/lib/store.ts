@@ -43,9 +43,6 @@ import {
 } from "./locationHistory";
 import type { PlaceSuggestion } from "./placeSearch";
 
-const DEFAULT_ORIGIN: GeoPoint = { lat: 51.4543, lng: -0.9781 }; // Reading
-const DEFAULT_DESTINATION: GeoPoint = { lat: 51.47, lng: -0.4543 }; // Heathrow
-
 const SETTINGS_STORAGE_KEY = "pitstopiq-vehicle-settings";
 /** Max stations to refine with live OSRM A→station→B routing. */
 const MAX_OSRM_CANDIDATES = 25;
@@ -76,8 +73,9 @@ function presetMatchesVehicle(
 interface PitstopState {
   origin: string;
   destination: string;
-  originCoords: GeoPoint;
-  destinationCoords: GeoPoint;
+  /** Null until the user picks a place, uses their location, or opens a shared link */
+  originCoords: GeoPoint | null;
+  destinationCoords: GeoPoint | null;
   route: DrivingRoute | null;
   routing: boolean;
   routeError: string | null;
@@ -180,10 +178,10 @@ type PersistedSettings = Pick<
 export const usePitstopStore = create<PitstopState>()(
   persist(
     (set, get) => ({
-      origin: "Reading, UK",
-      destination: "Heathrow Airport, UK",
-      originCoords: DEFAULT_ORIGIN,
-      destinationCoords: DEFAULT_DESTINATION,
+      origin: "",
+      destination: "",
+      originCoords: null,
+      destinationCoords: null,
       route: null,
       routing: false,
       routeError: null,
@@ -304,6 +302,7 @@ export const usePitstopStore = create<PitstopState>()(
           selectedStationId,
         } = get();
         if (selectedStationId !== stationId) return;
+        if (!originCoords || !destinationCoords) return;
 
         const station = stations.find((s) => s.id === stationId);
         if (!station) {
@@ -461,6 +460,10 @@ export const usePitstopStore = create<PitstopState>()(
       },
 
       loadStations: async () => {
+        const { originCoords, destinationCoords } = get();
+        // Nothing to search until both ends of the trip are chosen
+        if (!originCoords || !destinationCoords) return;
+
         set({
           loading: true,
           routing: true,
@@ -471,8 +474,6 @@ export const usePitstopStore = create<PitstopState>()(
           detourRouteError: null,
         });
         try {
-          const { originCoords, destinationCoords } = get();
-
           let route: DrivingRoute;
           try {
             route = await fetchDrivingRoute(originCoords, destinationCoords);
@@ -608,6 +609,8 @@ export const usePitstopStore = create<PitstopState>()(
           route,
           originCoords,
         } = get();
+
+        if (!originCoords) return [];
 
         const rangeMiles = remainingRangeMiles(vehicle);
         const routeLine = downsampleRoute(

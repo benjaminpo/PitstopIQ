@@ -77,6 +77,10 @@ function sampleRoute(coords: GeoPoint[], maxSamples = 40): GeoPoint[] {
   return coords.filter((_, i) => i % step === 0);
 }
 
+/** Roughly centres the UK before any trip is entered */
+const FALLBACK_CENTER: GeoPoint = { lat: 53.0, lng: -1.8 };
+const FALLBACK_ZOOM = 6;
+
 function FitBounds({ points }: { points: GeoPoint[] }) {
   const map = useMap();
   const key = points.map((p) => `${p.lat.toFixed(5)},${p.lng.toFixed(5)}`).join("|");
@@ -118,11 +122,13 @@ export default function MapView() {
   );
 
   const baseLine = useMemo(() => {
-    const coords =
-      route?.coordinates?.length && route.coordinates.length > 1
-        ? route.coordinates
-        : [originCoords, destinationCoords];
-    return toLatLngs(coords);
+    if (route?.coordinates?.length && route.coordinates.length > 1) {
+      return toLatLngs(route.coordinates);
+    }
+    if (originCoords && destinationCoords) {
+      return toLatLngs([originCoords, destinationCoords]);
+    }
+    return null;
   }, [route, originCoords, destinationCoords]);
 
   const detourLine = useMemo(() => {
@@ -133,7 +139,9 @@ export default function MapView() {
   const isDrivingRoute = Boolean(route && route.coordinates.length > 2);
 
   const fitPoints = useMemo(() => {
-    const pts: GeoPoint[] = [originCoords, destinationCoords];
+    const pts: GeoPoint[] = [];
+    if (originCoords) pts.push(originCoords);
+    if (destinationCoords) pts.push(destinationCoords);
     if (showingDetour && detourRoute?.coordinates?.length) {
       pts.push(...sampleRoute(detourRoute.coordinates));
       if (selected) pts.push(selected.station.location);
@@ -159,8 +167,12 @@ export default function MapView() {
 
   return (
     <MapContainer
-      center={[originCoords.lat, originCoords.lng]}
-      zoom={10}
+      center={
+        originCoords
+          ? [originCoords.lat, originCoords.lng]
+          : [FALLBACK_CENTER.lat, FALLBACK_CENTER.lng]
+      }
+      zoom={originCoords ? 10 : FALLBACK_ZOOM}
       className="h-full w-full"
       zoomControl={false}
       attributionControl
@@ -171,31 +183,35 @@ export default function MapView() {
       />
 
       {/* Direct route — muted when a detour is active */}
-      <Polyline
-        positions={baseLine}
-        pathOptions={{
-          color: showingDetour ? "#0f172a" : "#042f2e",
-          weight: showingDetour ? 5 : 8,
-          opacity: showingDetour ? 0.35 : 0.55,
-          lineCap: "round",
-          lineJoin: "round",
-        }}
-      />
-      <Polyline
-        positions={baseLine}
-        pathOptions={{
-          color: showingDetour ? "#64748b" : "#2dd4bf",
-          weight: showingDetour ? 2.5 : 4,
-          opacity: showingDetour ? 0.55 : 0.95,
-          dashArray: showingDetour
-            ? "6 10"
-            : isDrivingRoute
-              ? undefined
-              : "10 8",
-          lineCap: "round",
-          lineJoin: "round",
-        }}
-      />
+      {baseLine && (
+        <>
+          <Polyline
+            positions={baseLine}
+            pathOptions={{
+              color: showingDetour ? "#0f172a" : "#042f2e",
+              weight: showingDetour ? 5 : 8,
+              opacity: showingDetour ? 0.35 : 0.55,
+              lineCap: "round",
+              lineJoin: "round",
+            }}
+          />
+          <Polyline
+            positions={baseLine}
+            pathOptions={{
+              color: showingDetour ? "#64748b" : "#2dd4bf",
+              weight: showingDetour ? 2.5 : 4,
+              opacity: showingDetour ? 0.55 : 0.95,
+              dashArray: showingDetour
+                ? "6 10"
+                : isDrivingRoute
+                  ? undefined
+                  : "10 8",
+              lineCap: "round",
+              lineJoin: "round",
+            }}
+          />
+        </>
+      )}
 
       {/* Selected station detour: A → pit stop → B */}
       {detourLine && (
@@ -223,31 +239,37 @@ export default function MapView() {
         </>
       )}
 
-      <CircleMarker
-        center={[originCoords.lat, originCoords.lng]}
-        radius={10}
-        pathOptions={{
-          color: "#5eead4",
-          fillColor: "#14b8a6",
-          fillOpacity: 0.85,
-          weight: 3,
-        }}
-      >
-        <Popup>You / origin · {origin}</Popup>
-      </CircleMarker>
+      {originCoords && (
+        <>
+          <CircleMarker
+            center={[originCoords.lat, originCoords.lng]}
+            radius={10}
+            pathOptions={{
+              color: "#5eead4",
+              fillColor: "#14b8a6",
+              fillOpacity: 0.85,
+              weight: 3,
+            }}
+          >
+            <Popup>You / origin · {origin}</Popup>
+          </CircleMarker>
 
-      <Marker
-        position={[originCoords.lat, originCoords.lng]}
-        icon={endpointIcon("A", "#0d9488")}
-      >
-        <Popup>Origin · {origin}</Popup>
-      </Marker>
-      <Marker
-        position={[destinationCoords.lat, destinationCoords.lng]}
-        icon={endpointIcon("B", "#0369a1")}
-      >
-        <Popup>Destination · {destination}</Popup>
-      </Marker>
+          <Marker
+            position={[originCoords.lat, originCoords.lng]}
+            icon={endpointIcon("A", "#0d9488")}
+          >
+            <Popup>Origin · {origin}</Popup>
+          </Marker>
+        </>
+      )}
+      {destinationCoords && (
+        <Marker
+          position={[destinationCoords.lat, destinationCoords.lng]}
+          icon={endpointIcon("B", "#0369a1")}
+        >
+          <Popup>Destination · {destination}</Popup>
+        </Marker>
+      )}
 
       {enriched.map((item) => {
         const isSelected = selectedStationId === item.station.id;

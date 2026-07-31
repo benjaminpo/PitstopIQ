@@ -50,9 +50,13 @@ export function PlaceAutocomplete({
   const recentMode = query.length < 2 && recents.length > 0;
   const displayed = recentMode ? recents : suggestions;
 
-  useEffect(() => {
+  // Reset the keyboard highlight when the list switches between recents and
+  // live suggestions (adjust-state-during-render, not an effect).
+  const [prevRecentMode, setPrevRecentMode] = useState(recentMode);
+  if (prevRecentMode !== recentMode) {
+    setPrevRecentMode(recentMode);
     setHighlight(-1);
-  }, [recentMode]);
+  }
 
   useEffect(() => {
     if (skipSearchRef.current) {

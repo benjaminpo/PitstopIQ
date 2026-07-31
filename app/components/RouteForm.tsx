@@ -27,6 +27,8 @@ export function RouteForm() {
   const {
     origin,
     destination,
+    originCoords,
+    destinationCoords,
     vehicle,
     baseRouteAvgPricePerLitre,
     basePriceManual,
@@ -56,6 +58,10 @@ export function RouteForm() {
 
   const maxRefill = vehicle.tankCapacityLitres;
   const refillPct = Math.round((litresToRefill / maxRefill) * 100);
+  const tripReady = originCoords !== null && destinationCoords !== null;
+  let submitLabel = "Find cheaper pit stops";
+  if (loading) submitLabel = "Loading Fuel Finder…";
+  else if (!tripReady) submitLabel = "Choose origin & destination";
   const locatingOrigin = locating && locatingTarget === "origin";
   const locatingDestination = locating && locatingTarget === "destination";
 
@@ -337,10 +343,11 @@ export function RouteForm() {
 
       <button
         type="submit"
-        disabled={loading}
+        disabled={loading || !tripReady}
+        title={tripReady ? undefined : "Choose an origin and destination first"}
         className="flex w-full items-center justify-center gap-2 rounded-lg bg-teal-600 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-teal-950/40 transition hover:bg-teal-500 disabled:cursor-not-allowed disabled:opacity-60"
       >
-        {loading ? "Loading Fuel Finder…" : "Find cheaper pit stops"}
+        {submitLabel}
       </button>
     </form>
   );
