@@ -56,7 +56,24 @@ npm run test:coverage
 npm run lint
 ```
 
-Coverage targets the pure domain modules under `app/lib/` (detour math, routing helpers, trip URL, brand filters, freshness, maps links) with ≥90% line/function thresholds.
+## Google AdSense
+
+Optional monetization. Ads load only when `NEXT_PUBLIC_ADSENSE_CLIENT` is set.
+
+1. Create an [AdSense](https://www.google.com/adsense/) account and add your live site URL.
+2. Set env (local + Vercel):
+
+```bash
+NEXT_PUBLIC_ADSENSE_CLIENT=ca-pub-XXXXXXXXXXXXXXXX
+# After creating a Display ad unit in AdSense:
+NEXT_PUBLIC_ADSENSE_SLOT_SIDEBAR=1234567890
+```
+
+3. Deploy, then confirm `https://your-domain/ads.txt` lists your publisher ID.
+4. In AdSense you can also enable **Auto ads**; the script in the root layout supports that even without a sidebar slot.
+5. Ads typically do **not** fill on `localhost` — test on the production domain after approval.
+
+UK/EU: enable AdSense’s consent messaging (or your own CMP) for personalized ads.
 
 ## Live Fuel Finder API
 

@@ -18,6 +18,7 @@ export default defineConfig({
         "app/lib/mapsLinks.ts",
         "app/lib/utils.ts",
         "app/lib/freshness.ts",
+        "app/lib/adsense.ts",
       ],
       thresholds: {
         lines: 90,

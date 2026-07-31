@@ -4,6 +4,7 @@ import dynamic from "next/dynamic";
 import { useEffect, useRef } from "react";
 import { Crosshair, Loader2, Menu, PanelLeftClose, Sparkles } from "lucide-react";
 import { RouteForm } from "@/app/components/RouteForm";
+import { SidebarAd } from "@/app/components/AdUnit";
 import { ShareTripButton } from "@/app/components/ShareTripButton";
 import { StationList } from "@/app/components/StationList";
 import { TripUrlSync } from "@/app/components/TripUrlSync";
@@ -98,6 +99,8 @@ export default function HomePage() {
           <div className="h-px shrink-0 bg-slate-800/80" />
           <StationList />
         </div>
+
+        <SidebarAd />
 
         <footer className="border-t border-slate-800/80 px-5 py-3 text-[10px] text-slate-500">
           UK gallon = 4.54609 L · Net = gross savings − detour fuel cost · ±£0.50
