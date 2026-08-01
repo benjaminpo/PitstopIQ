@@ -1,8 +1,9 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Coffee, Crosshair, Loader2, Menu, PanelLeftClose, Sparkles } from "lucide-react";
+import { FreshnessBadge } from "@/app/components/FreshnessBadge";
 import { RouteForm } from "@/app/components/RouteForm";
 import { SidebarAd } from "@/app/components/AdUnit";
 import { ShareTripButton } from "@/app/components/ShareTripButton";
@@ -37,9 +38,19 @@ export default function HomePage() {
     detourRouteError,
     selectedStationId,
     setSelectedStationId,
+    dataSource,
+    pricesFetchedAt,
   } = usePitstopStore();
 
   const bootstrapped = useRef(false);
+
+  // Ticking clock so the "Updated X ago" badge stays current
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (!dataSource) return;
+    const id = window.setInterval(() => setNow(Date.now()), 30_000);
+    return () => window.clearInterval(id);
+  }, [dataSource]);
 
   useEffect(() => {
     // TripUrlSync applies shared links and triggers loadStations.
@@ -113,7 +124,16 @@ export default function HomePage() {
             <Coffee className="h-3.5 w-3.5" />
             Buy me a coffee
           </a>
-          <ShareTripButton />
+          <div className="flex min-w-0 items-center gap-2">
+            {dataSource && (
+              <FreshnessBadge
+                source={dataSource}
+                pricesFetchedAt={pricesFetchedAt}
+                now={now}
+              />
+            )}
+            <ShareTripButton />
+          </div>
         </footer>
       </aside>
 

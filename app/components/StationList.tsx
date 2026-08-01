@@ -18,7 +18,6 @@ import { usePitstopStore } from "@/app/lib/store";
 import { CORRIDOR_MAX_DISTANCE_MILES } from "@/app/lib/routing";
 import type { StationSortKey, StationWithCalculation } from "@/app/lib/types";
 import { cn } from "@/app/lib/utils";
-import { FreshnessBadge } from "./FreshnessBadge";
 import { StationCard } from "./StationCard";
 
 const SORT_OPTIONS: { key: StationSortKey; label: string }[] = [
@@ -58,7 +57,6 @@ export function StationList() {
     error,
     stations,
     dataSource,
-    pricesFetchedAt,
     originCoords,
     destinationCoords,
     vehicle,
@@ -102,16 +100,7 @@ export function StationList() {
     <div className="flex shrink-0 flex-col md:min-h-0 md:flex-1 md:shrink">
       <div className="mb-3 flex items-center justify-between gap-2">
         <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-2">
-            <h2 className="text-sm font-semibold text-slate-100">Stations</h2>
-            {!loading && dataSource && (
-              <FreshnessBadge
-                source={dataSource}
-                pricesFetchedAt={pricesFetchedAt}
-                now={now}
-              />
-            )}
-          </div>
+          <h2 className="text-sm font-semibold text-slate-100">Stations</h2>
           <p className="mt-0.5 text-xs text-slate-500">
             {loading
               ? "Fetching Fuel Finder prices (first load can take a minute)…"
