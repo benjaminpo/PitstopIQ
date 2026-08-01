@@ -82,6 +82,26 @@ function sampleRoute(coords: GeoPoint[], maxSamples = 40): GeoPoint[] {
 const FALLBACK_CENTER: GeoPoint = { lat: 53.0, lng: -1.8 };
 const FALLBACK_ZOOM = 6;
 
+/**
+ * Leaflet only measures its container on mount, so when the sidebar is
+ * toggled the map keeps its stale size and leaves blank space. Watch the
+ * container and tell Leaflet to re-measure whenever it resizes.
+ */
+function InvalidateOnResize() {
+  const map = useMap();
+
+  useEffect(() => {
+    const container = map.getContainer();
+    const observer = new ResizeObserver(() => {
+      map.invalidateSize();
+    });
+    observer.observe(container);
+    return () => observer.disconnect();
+  }, [map]);
+
+  return null;
+}
+
 function FitBounds({ points }: { points: GeoPoint[] }) {
   const map = useMap();
   const key = points.map((p) => `${p.lat.toFixed(5)},${p.lng.toFixed(5)}`).join("|");
@@ -178,6 +198,7 @@ export default function MapView() {
       zoomControl={false}
       attributionControl
     >
+      <InvalidateOnResize />
       <ZoomControl position="topright" />
       <TileLayer
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> · Routing © <a href="http://project-osrm.org">OSRM</a>'
