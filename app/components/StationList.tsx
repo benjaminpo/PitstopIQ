@@ -78,6 +78,11 @@ export function StationList() {
       : ` · ${excludedBrands.length} ${excludedBrands.length === 1 ? "brand" : "brands"} hidden`;
 
   const handleSelect = (stationId: string) => {
+    // Tapping the selected card again deselects it, restoring the direct route
+    if (selectedStationId === stationId) {
+      setSelectedStationId(null);
+      return;
+    }
     setSelectedStationId(stationId);
     // Below the md breakpoint the sidebar overlays the map, so close it to
     // reveal the selected station and its detour route.

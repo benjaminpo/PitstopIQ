@@ -35,6 +35,8 @@ export default function HomePage() {
     detourRoute,
     detourRouting,
     detourRouteError,
+    selectedStationId,
+    setSelectedStationId,
   } = usePitstopStore();
 
   const bootstrapped = useRef(false);
@@ -161,16 +163,31 @@ export default function HomePage() {
               Calculating driving route…
             </div>
           )}
-          {!routing && route && (
+          {!routing && route && selectedStationId === null && (
             <div className="rounded-lg border border-teal-800/50 bg-slate-950/90 px-3 py-2 text-xs shadow-lg backdrop-blur">
-              <p className="font-semibold text-teal-300">
-                {detourRoute ? "Direct route" : "Driving route"}
-              </p>
+              <p className="font-semibold text-teal-300">Driving route</p>
               <p className="font-mono text-slate-300">
                 {route.distanceMiles.toFixed(1)} mi ·{" "}
                 {formatDuration(route.durationSeconds)}
               </p>
             </div>
+          )}
+          {!routing && route && selectedStationId !== null && (
+            <button
+              type="button"
+              onClick={() => setSelectedStationId(null)}
+              className="rounded-lg border border-teal-800/50 bg-slate-950/90 px-3 py-2 text-left text-xs shadow-lg backdrop-blur transition hover:border-teal-600/70 hover:bg-teal-950/40"
+              aria-label="Switch back to the direct route"
+            >
+              <p className="font-semibold text-teal-300">Direct route</p>
+              <p className="font-mono text-slate-300">
+                {route.distanceMiles.toFixed(1)} mi ·{" "}
+                {formatDuration(route.durationSeconds)}
+              </p>
+              <p className="mt-0.5 text-[10px] text-teal-400/80">
+                Tap to switch back
+              </p>
+            </button>
           )}
           {detourRouting && (
             <div className="rounded-lg border border-amber-800/50 bg-slate-950/90 px-3 py-2 text-xs text-amber-200 shadow-lg backdrop-blur">
