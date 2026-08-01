@@ -69,25 +69,34 @@ function makePinIcon(status: DetourStatus, selected: boolean, best = false) {
   });
 }
 
-function makeClusterIcon(cluster: { getChildCount: () => number }) {
-  const count = cluster.getChildCount();
-  let size = 34;
-  if (count >= 50) size = 46;
-  else if (count >= 20) size = 40;
+/**
+ * Cluster icons are per rating: each status gets its own cluster group, so a
+ * bubble only ever counts stations sharing that verdict and wears its color.
+ */
+function makeClusterIconFor(status: DetourStatus) {
+  const color = statusColor(status);
+  return (cluster: { getChildCount: () => number }) => {
+    const count = cluster.getChildCount();
+    let size = 34;
+    if (count >= 50) size = 46;
+    else if (count >= 20) size = 40;
 
-  return L.divIcon({
-    className: "",
-    iconSize: [size, size],
-    iconAnchor: [size / 2, size / 2],
-    html: `<div style="
-      width:${size}px;height:${size}px;border-radius:9999px;
-      background:#0f172a;border:2px solid #2dd4bf;
-      display:flex;align-items:center;justify-content:center;
-      color:#5eead4;font:700 ${count >= 100 ? 12 : 13}px/1 ui-sans-serif,system-ui;
-      box-shadow:0 0 0 5px #2dd4bf26, 0 8px 16px rgba(0,0,0,.45);
-    ">${count}</div>`,
-  });
+    return L.divIcon({
+      className: "",
+      iconSize: [size, size],
+      iconAnchor: [size / 2, size / 2],
+      html: `<div style="
+        width:${size}px;height:${size}px;border-radius:9999px;
+        background:#0f172a;border:2px solid ${color};
+        display:flex;align-items:center;justify-content:center;
+        color:${color};font:700 ${count >= 100 ? 12 : 13}px/1 ui-sans-serif,system-ui;
+        box-shadow:0 0 0 5px ${color}26, 0 8px 16px rgba(0,0,0,.45);
+      ">${count}</div>`,
+    });
+  };
 }
+
+const CLUSTER_STATUSES: DetourStatus[] = ["worth", "neutral", "false_economy"];
 
 function endpointIcon(label: string, hue: string) {
   return L.divIcon({
@@ -487,24 +496,30 @@ export default function MapView() {
       )}
 
       {/* Cluster the rest of the pins so long corridors (100+ stations) stay
-          readable. The selected and best stations render outside the cluster
-          group below, so they never collapse into a cluster bubble. */}
-      <MarkerClusterGroup
-        chunkedLoading
-        showCoverageOnHover={false}
-        spiderfyOnMaxZoom
-        maxClusterRadius={55}
-        disableClusteringAtZoom={12}
-        iconCreateFunction={makeClusterIcon}
-      >
-        {enriched
-          .filter(
-            (item) =>
-              item.station.id !== selectedStationId &&
-              item.station.id !== bestId
-          )
-          .map((item) => renderStationMarker(item))}
-      </MarkerClusterGroup>
+          readable. One cluster group per rating, so pins only merge with
+          others sharing the same verdict and the bubble wears that color.
+          The selected and best stations render outside the cluster groups
+          below, so they never collapse into a cluster bubble. */}
+      {CLUSTER_STATUSES.map((status) => (
+        <MarkerClusterGroup
+          key={status}
+          chunkedLoading
+          showCoverageOnHover={false}
+          spiderfyOnMaxZoom
+          maxClusterRadius={55}
+          disableClusteringAtZoom={12}
+          iconCreateFunction={makeClusterIconFor(status)}
+        >
+          {enriched
+            .filter(
+              (item) =>
+                item.calculation.status === status &&
+                item.station.id !== selectedStationId &&
+                item.station.id !== bestId
+            )
+            .map((item) => renderStationMarker(item))}
+        </MarkerClusterGroup>
+      ))}
       {best && best.station.id !== selectedStationId && renderStationMarker(best)}
       {selected && renderStationMarker(selected)}
 
