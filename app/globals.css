@@ -28,6 +28,33 @@ code,
   font: inherit;
 }
 
+.leaflet-control-zoom {
+  border: 1px solid rgba(94, 234, 212, 0.25) !important;
+  border-radius: 10px !important;
+  overflow: hidden;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45) !important;
+}
+
+.leaflet-control-zoom a {
+  background: rgba(2, 6, 23, 0.85) !important;
+  color: #5eead4 !important;
+  border-bottom-color: rgba(94, 234, 212, 0.2) !important;
+  width: 34px !important;
+  height: 34px !important;
+  line-height: 34px !important;
+  font-size: 18px !important;
+}
+
+.leaflet-control-zoom a:hover {
+  background: rgba(13, 148, 136, 0.35) !important;
+  color: #ccfbf1 !important;
+}
+
+.leaflet-control-zoom a.leaflet-disabled {
+  background: rgba(2, 6, 23, 0.6) !important;
+  color: #475569 !important;
+}
+
 .leaflet-control-attribution {
   background: rgba(2, 6, 23, 0.75) !important;
   color: #94a3b8 !important;
