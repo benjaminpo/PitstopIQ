@@ -129,6 +129,7 @@ interface PitstopState {
   setDestination: (v: string) => void;
   setOriginPlace: (label: string, coords: GeoPoint) => void;
   setDestinationPlace: (label: string, coords: GeoPoint) => void;
+  swapEnds: () => void;
   setVehicle: (patch: Partial<VehicleProfile>) => void;
   setFuelType: (fuelType: FuelType) => void;
   setBaseRouteAvgPrice: (price: number) => void;
@@ -254,6 +255,18 @@ export const usePitstopStore = create<PitstopState>()(
         set({
           destination: label,
           destinationCoords: coords,
+          destinationLocationError: null,
+        });
+        void get().loadStations();
+      },
+      swapEnds: () => {
+        const s = get();
+        set({
+          origin: s.destination,
+          destination: s.origin,
+          originCoords: s.destinationCoords,
+          destinationCoords: s.originCoords,
+          locationError: null,
           destinationLocationError: null,
         });
         void get().loadStations();

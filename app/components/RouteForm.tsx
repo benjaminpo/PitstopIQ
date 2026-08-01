@@ -1,13 +1,19 @@
 "use client";
 
 import {
+  useRef,
+  useState,
+  type DragEvent,
+  type KeyboardEvent,
+} from "react";
+import {
+  ArrowUpDown,
   Crosshair,
   Clock,
   Fuel,
   Gauge,
+  GripVertical,
   Loader2,
-  MapPinned,
-  Navigation,
 } from "lucide-react";
 import { NumberInput } from "@/app/components/NumberInput";
 import { PlaceAutocomplete } from "@/app/components/PlaceAutocomplete";
@@ -23,6 +29,8 @@ const FUEL_OPTIONS: { value: FuelType; label: string; hint: string }[] = [
   { value: "E5", label: "E5 Petrol", hint: "Premium" },
   { value: "B7_Diesel", label: "B7 Diesel", hint: "Diesel" },
 ];
+
+type RouteEnd = "origin" | "destination";
 
 export function RouteForm() {
   const {
@@ -42,6 +50,7 @@ export function RouteForm() {
     setDestination,
     setOriginPlace,
     setDestinationPlace,
+    swapEnds,
     setVehicle,
     setFuelType,
     setBaseRouteAvgPrice,
@@ -57,6 +66,10 @@ export function RouteForm() {
     destinationLocationError,
   } = usePitstopStore();
 
+  const dragEndRef = useRef<RouteEnd | null>(null);
+  const [dragging, setDragging] = useState<RouteEnd | null>(null);
+  const [dropTarget, setDropTarget] = useState<RouteEnd | null>(null);
+
   const maxRefill = vehicle.tankCapacityLitres;
   const refillPct = Math.round((litresToRefill / maxRefill) * 100);
   const tripReady = originCoords !== null && destinationCoords !== null;
@@ -65,6 +78,54 @@ export function RouteForm() {
   else if (!tripReady) submitLabel = "Choose origin & destination";
   const locatingOrigin = locating && locatingTarget === "origin";
   const locatingDestination = locating && locatingTarget === "destination";
+  const canSwap = Boolean(origin || destination);
+
+  const clearDrag = () => {
+    dragEndRef.current = null;
+    setDragging(null);
+    setDropTarget(null);
+  };
+
+  const onDragStart = (end: RouteEnd) => (e: DragEvent) => {
+    if (!canSwap) {
+      e.preventDefault();
+      return;
+    }
+    dragEndRef.current = end;
+    setDragging(end);
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("text/plain", end);
+  };
+
+  const onDragOver = (end: RouteEnd) => (e: DragEvent) => {
+    if (!dragEndRef.current || dragEndRef.current === end) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    setDropTarget(end);
+  };
+
+  const onDragLeave = (end: RouteEnd) => () => {
+    setDropTarget((current) => (current === end ? null : current));
+  };
+
+  const onDrop = (end: RouteEnd) => (e: DragEvent) => {
+    e.preventDefault();
+    const from = dragEndRef.current;
+    clearDrag();
+    if (from && from !== end) swapEnds();
+  };
+
+  const onDragEnd = () => {
+    clearDrag();
+  };
+
+  const onGripKeyDown = (e: KeyboardEvent) => {
+    if (!canSwap) return;
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      swapEnds();
+    }
+  };
 
   return (
     <form
@@ -74,81 +135,175 @@ export function RouteForm() {
         void loadStations();
       }}
     >
-      <div className="space-y-3">
-        <div className="space-y-1.5">
-          <div className="flex items-center justify-between gap-2">
-            <span className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-slate-400">
-              <MapPinned className="h-3.5 w-3.5" />
-              Origin
-            </span>
-            <button
-              type="button"
-              onClick={() => void locateCurrentPosition("origin")}
-              disabled={locating}
-              className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-[11px] font-semibold text-teal-300 transition hover:bg-teal-950/60 hover:text-teal-200 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {locatingOrigin ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              ) : (
-                <Crosshair className="h-3.5 w-3.5" />
-              )}
-              {locatingOrigin ? "Locating…" : "Use my location"}
-            </button>
-          </div>
-          <PlaceAutocomplete
-            value={origin}
-            onChange={setOrigin}
-            onSelect={(place) => {
-              addRecentPlace(place);
-              setOriginPlace(formatPlaceSelection(place), place.location);
-            }}
-            recentPlaces={recentPlaces}
-            onClearRecent={clearRecentPlaces}
-            placeholder="Type a place, address, or postcode…"
-            ariaLabel="Origin"
-          />
-          {locationError && (
-            <p className="text-[11px] leading-snug text-rose-400">{locationError}</p>
-          )}
+      <div className="relative">
+        {/* Shared Google Maps–style marker rail */}
+        <div
+          aria-hidden
+          className="pointer-events-none absolute bottom-3 left-[22px] top-9 flex w-2.5 flex-col items-center"
+        >
+          <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-teal-400 ring-2 ring-teal-400/30" />
+          <span className="w-px flex-1 bg-slate-600" />
+          <span className="h-2.5 w-2.5 shrink-0 rounded-sm bg-rose-400 ring-2 ring-rose-400/30" />
         </div>
 
-        <div className="space-y-1.5">
-          <div className="flex items-center justify-between gap-2">
-            <span className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-slate-400">
-              <Navigation className="h-3.5 w-3.5" />
-              Destination
-            </span>
-            <button
-              type="button"
-              onClick={() => void locateCurrentPosition("destination")}
-              disabled={locating}
-              className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-[11px] font-semibold text-teal-300 transition hover:bg-teal-950/60 hover:text-teal-200 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {locatingDestination ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              ) : (
-                <Crosshair className="h-3.5 w-3.5" />
-              )}
-              {locatingDestination ? "Locating…" : "Use my location"}
-            </button>
-          </div>
-          <PlaceAutocomplete
-            value={destination}
-            onChange={setDestination}
-            onSelect={(place) => {
-              addRecentPlace(place);
-              setDestinationPlace(formatPlaceSelection(place), place.location);
-            }}
-            recentPlaces={recentPlaces}
-            onClearRecent={clearRecentPlaces}
-            placeholder="Type a place, address, or postcode…"
-            ariaLabel="Destination"
-          />
-          {destinationLocationError && (
-            <p className="text-[11px] leading-snug text-rose-400">
-              {destinationLocationError}
-            </p>
+        {/* Floating swap control */}
+        <div className="pointer-events-none absolute right-1 top-1/2 z-10 -translate-y-1/2">
+          <button
+            type="button"
+            onClick={() => swapEnds()}
+            disabled={!canSwap}
+            className="pointer-events-auto flex h-8 w-8 items-center justify-center rounded-full border border-slate-700/80 bg-slate-900 text-slate-300 shadow-lg shadow-slate-950/50 transition hover:border-teal-600/50 hover:bg-teal-950/70 hover:text-teal-200 disabled:cursor-not-allowed disabled:opacity-40"
+            aria-label="Swap origin and destination"
+            title="Swap origin and destination"
+          >
+            <ArrowUpDown className="h-3.5 w-3.5" />
+          </button>
+        </div>
+
+        {/* Origin row */}
+        <div
+          onDragOver={onDragOver("origin")}
+          onDragLeave={onDragLeave("origin")}
+          onDrop={onDrop("origin")}
+          className={cn(
+            "rounded-xl transition",
+            dropTarget === "origin" && "bg-teal-950/40 ring-1 ring-teal-600/50",
+            dragging === "origin" && "opacity-40"
           )}
+        >
+          <div className="flex items-start gap-1">
+            <span
+              draggable={canSwap}
+              onDragStart={onDragStart("origin")}
+              onDragEnd={onDragEnd}
+              onKeyDown={onGripKeyDown}
+              tabIndex={canSwap ? 0 : -1}
+              role="button"
+              aria-label="Drag to swap with destination"
+              title="Drag to reorder"
+              className={cn(
+                "mt-7 shrink-0 rounded p-0.5 text-slate-500 outline-none ring-teal-500/40 focus-visible:ring-2",
+                canSwap
+                  ? "cursor-grab active:cursor-grabbing hover:text-slate-300"
+                  : "cursor-default opacity-40"
+              )}
+            >
+              <GripVertical className="h-4 w-4" />
+            </span>
+            <div className="w-4 shrink-0" />
+            <div className="min-w-0 flex-1 space-y-1.5 py-1 pr-10">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-xs font-medium uppercase tracking-wide text-slate-400">
+                  Origin
+                </span>
+                <button
+                  type="button"
+                  onClick={() => void locateCurrentPosition("origin")}
+                  disabled={locating}
+                  className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-[11px] font-semibold text-teal-300 transition hover:bg-teal-950/60 hover:text-teal-200 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {locatingOrigin ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Crosshair className="h-3.5 w-3.5" />
+                  )}
+                  {locatingOrigin ? "Locating…" : "Use my location"}
+                </button>
+              </div>
+              <PlaceAutocomplete
+                value={origin}
+                onChange={setOrigin}
+                onSelect={(place) => {
+                  addRecentPlace(place);
+                  setOriginPlace(formatPlaceSelection(place), place.location);
+                }}
+                recentPlaces={recentPlaces}
+                onClearRecent={clearRecentPlaces}
+                placeholder="Type a place, address, or postcode…"
+                ariaLabel="Origin"
+              />
+              {locationError && (
+                <p className="text-[11px] leading-snug text-rose-400">
+                  {locationError}
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Destination row */}
+        <div
+          onDragOver={onDragOver("destination")}
+          onDragLeave={onDragLeave("destination")}
+          onDrop={onDrop("destination")}
+          className={cn(
+            "rounded-xl transition",
+            dropTarget === "destination" &&
+              "bg-teal-950/40 ring-1 ring-teal-600/50",
+            dragging === "destination" && "opacity-40"
+          )}
+        >
+          <div className="flex items-start gap-1">
+            <span
+              draggable={canSwap}
+              onDragStart={onDragStart("destination")}
+              onDragEnd={onDragEnd}
+              onKeyDown={onGripKeyDown}
+              tabIndex={canSwap ? 0 : -1}
+              role="button"
+              aria-label="Drag to swap with origin"
+              title="Drag to reorder"
+              className={cn(
+                "mt-7 shrink-0 rounded p-0.5 text-slate-500 outline-none ring-teal-500/40 focus-visible:ring-2",
+                canSwap
+                  ? "cursor-grab active:cursor-grabbing hover:text-slate-300"
+                  : "cursor-default opacity-40"
+              )}
+            >
+              <GripVertical className="h-4 w-4" />
+            </span>
+            <div className="w-4 shrink-0" />
+            <div className="min-w-0 flex-1 space-y-1.5 py-1 pr-10">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-xs font-medium uppercase tracking-wide text-slate-400">
+                  Destination
+                </span>
+                <button
+                  type="button"
+                  onClick={() => void locateCurrentPosition("destination")}
+                  disabled={locating}
+                  className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-[11px] font-semibold text-teal-300 transition hover:bg-teal-950/60 hover:text-teal-200 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {locatingDestination ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Crosshair className="h-3.5 w-3.5" />
+                  )}
+                  {locatingDestination ? "Locating…" : "Use my location"}
+                </button>
+              </div>
+              <PlaceAutocomplete
+                value={destination}
+                onChange={setDestination}
+                onSelect={(place) => {
+                  addRecentPlace(place);
+                  setDestinationPlace(
+                    formatPlaceSelection(place),
+                    place.location
+                  );
+                }}
+                recentPlaces={recentPlaces}
+                onClearRecent={clearRecentPlaces}
+                placeholder="Type a place, address, or postcode…"
+                ariaLabel="Destination"
+              />
+              {destinationLocationError && (
+                <p className="text-[11px] leading-snug text-rose-400">
+                  {destinationLocationError}
+                </p>
+              )}
+            </div>
+          </div>
         </div>
       </div>
 
