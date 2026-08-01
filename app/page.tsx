@@ -102,10 +102,6 @@ export default function HomePage() {
         <SidebarAd />
 
         <footer className="flex items-center justify-between gap-3 border-t border-slate-800/80 px-5 py-3 text-[10px] text-slate-500">
-          <span>
-            UK gallon = 4.54609 L · Net = gross savings − detour fuel cost ·
-            ±£0.50 break-even band
-          </span>
           <a
             href="https://buymeacoffee.com/benjaminpo"
             target="_blank"

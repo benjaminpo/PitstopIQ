@@ -6,7 +6,6 @@ import {
   ArrowUpDown,
   Ban,
   ChevronDown,
-  Loader2,
   RefreshCw,
 } from "lucide-react";
 import { remainingRangeMiles } from "@/app/lib/detourCalculator";
@@ -115,24 +114,6 @@ export function StationList() {
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-1.5">
-          <button
-            type="button"
-            onClick={() => void loadStations()}
-            disabled={loading || !tripReady}
-            title={
-              tripReady
-                ? "Reload stations and prices for this trip"
-                : "Choose an origin and destination first"
-            }
-            aria-label="Refresh stations and prices"
-            className="rounded-lg bg-slate-900/80 p-2 text-slate-400 ring-1 ring-slate-700/60 transition hover:bg-slate-800 hover:text-teal-300 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {loading ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            ) : (
-              <RefreshCw className="h-3.5 w-3.5" />
-            )}
-          </button>
           <div className="flex items-center gap-1 rounded-lg bg-slate-900/80 p-1 ring-1 ring-slate-700/60">
             <ArrowUpDown className="ml-1 h-3.5 w-3.5 text-slate-500" />
             {SORT_OPTIONS.map((opt) => (
