@@ -45,12 +45,12 @@ function statusColor(status: DetourStatus): string {
 
 function makePinIcon(status: DetourStatus, selected: boolean, best = false) {
   const color = statusColor(status);
-  const size = selected ? 34 : best ? 30 : 26;
-  const ring = selected
-    ? "3px solid #2dd4bf"
-    : best
-      ? "2.5px solid #2dd4bf"
-      : "2px solid #0f172a";
+  let size = 26;
+  if (selected) size = 34;
+  else if (best) size = 30;
+  let ring = "2px solid #0f172a";
+  if (selected) ring = "3px solid #2dd4bf";
+  else if (best) ring = "2.5px solid #2dd4bf";
   // Star marks the highest net-after-time forecourt, matching the "Best" card
   const star = best
     ? `<span style="color:#042f2e;font:700 ${Math.round(size * 0.55)}px/1 ui-sans-serif,system-ui;">★</span>`
@@ -72,7 +72,9 @@ function makePinIcon(status: DetourStatus, selected: boolean, best = false) {
 
 function makeClusterIcon(cluster: { getChildCount: () => number }) {
   const count = cluster.getChildCount();
-  const size = count >= 50 ? 46 : count >= 20 ? 40 : 34;
+  let size = 34;
+  if (count >= 50) size = 46;
+  else if (count >= 20) size = 40;
 
   return L.divIcon({
     className: "",
@@ -111,9 +113,48 @@ function sampleRoute(coords: GeoPoint[], maxSamples = 40): GeoPoint[] {
   return coords.filter((_, i) => i % step === 0);
 }
 
+function computeFitPoints(args: {
+  originCoords: GeoPoint | null;
+  destinationCoords: GeoPoint | null;
+  showingDetour: boolean;
+  detourRoute: { coordinates: GeoPoint[] } | null;
+  selected: StationWithCalculation | undefined;
+  route: { coordinates: GeoPoint[] } | null;
+  enriched: StationWithCalculation[];
+}): GeoPoint[] {
+  const {
+    originCoords,
+    destinationCoords,
+    showingDetour,
+    detourRoute,
+    selected,
+    route,
+    enriched,
+  } = args;
+  const pts: GeoPoint[] = [];
+  if (originCoords) pts.push(originCoords);
+  if (destinationCoords) pts.push(destinationCoords);
+  if (showingDetour && detourRoute?.coordinates?.length) {
+    pts.push(...sampleRoute(detourRoute.coordinates));
+    if (selected) pts.push(selected.station.location);
+    return pts;
+  }
+  if (route?.coordinates?.length) {
+    pts.push(...sampleRoute(route.coordinates));
+    return pts;
+  }
+  for (const item of enriched) {
+    pts.push(item.station.location);
+  }
+  return pts;
+}
+
 /** Roughly centres the UK before any trip is entered */
 const FALLBACK_CENTER: GeoPoint = { lat: 53.0, lng: -1.8 };
 const FALLBACK_ZOOM = 6;
+
+/** Monotonic id so each MapView mount gets a unique container key. */
+let nextMapInstanceId = 0;
 
 /**
  * Leaflet only measures its container on mount, so when the sidebar is
@@ -197,19 +238,18 @@ export default function MapView() {
   // Leaflet map attached to the old DOM node, and Leaflet throws "Map
   // container is being reused by another instance" if it re-initialises on
   // that node. A per-mount key guarantees a brand-new container element.
-  const [mapInstanceKey] = useState(
-    () => `map-${Math.random().toString(36).slice(2)}`
-  );
+  const [mapInstanceKey] = useState(() => `map-${nextMapInstanceId++}`);
 
   const selected = enriched.find((e) => e.station.id === selectedStationId);
 
   // Same rule as the sidebar's "Best" badge: highest net after time
-  let best: StationWithCalculation | undefined;
-  for (const item of enriched) {
-    if (!best || item.calculation.netAfterTime > best.calculation.netAfterTime) {
-      best = item;
-    }
-  }
+  const best = enriched.reduce<StationWithCalculation | undefined>(
+    (top, item) =>
+      !top || item.calculation.netAfterTime > top.calculation.netAfterTime
+        ? item
+        : top,
+    undefined
+  );
   const bestId = best?.station.id ?? null;
   const showingDetour = Boolean(
     selected && detourRoute && detourRoute.coordinates.length > 1
@@ -232,38 +272,32 @@ export default function MapView() {
 
   const isDrivingRoute = Boolean(route && route.coordinates.length > 2);
 
-  const fitPoints = useMemo(() => {
-    const pts: GeoPoint[] = [];
-    if (originCoords) pts.push(originCoords);
-    if (destinationCoords) pts.push(destinationCoords);
-    if (showingDetour && detourRoute?.coordinates?.length) {
-      pts.push(...sampleRoute(detourRoute.coordinates));
-      if (selected) pts.push(selected.station.location);
-      return pts;
-    }
-    if (route?.coordinates?.length) {
-      pts.push(...sampleRoute(route.coordinates));
-      return pts;
-    }
-    for (const item of enriched) {
-      pts.push(item.station.location);
-    }
-    return pts;
-  }, [
-    route,
-    detourRoute,
-    showingDetour,
-    selected,
-    enriched,
+  // Dashed when muted behind a detour, or when it's just a straight
+  // A→B line rather than a real driving route.
+  let baseLineDashArray: string | undefined;
+  if (showingDetour) baseLineDashArray = "6 10";
+  else if (!isDrivingRoute) baseLineDashArray = "10 8";
+
+  // No useMemo needed: FitBounds keys its effect on the serialized
+  // coordinates, so this list doesn't need referential stability.
+  const fitPoints = computeFitPoints({
     originCoords,
     destinationCoords,
-  ]);
+    showingDetour,
+    detourRoute,
+    selected,
+    route,
+    enriched,
+  });
 
   const renderStationMarker = (item: StationWithCalculation) => {
     const isSelected = selectedStationId === item.station.id;
     const isBest = bestId === item.station.id;
     const priceUpdatedAt = item.station.pricesLastUpdatedAt;
     const priceTone = stationPriceTone(priceUpdatedAt, now);
+    let zIndexOffset = 0;
+    if (isSelected) zIndexOffset = 1000;
+    else if (isBest) zIndexOffset = 500;
     return (
       <Marker
         key={item.station.id}
@@ -272,7 +306,7 @@ export default function MapView() {
         eventHandlers={{
           click: () => setSelectedStationId(item.station.id),
         }}
-        zIndexOffset={isSelected ? 1000 : isBest ? 500 : 0}
+        zIndexOffset={zIndexOffset}
       >
         <Popup>
           <div className="min-w-[180px] space-y-1.5 text-slate-900">
@@ -362,11 +396,7 @@ export default function MapView() {
               color: showingDetour ? "#64748b" : "#2dd4bf",
               weight: showingDetour ? 2.5 : 4,
               opacity: showingDetour ? 0.55 : 0.95,
-              dashArray: showingDetour
-                ? "6 10"
-                : isDrivingRoute
-                  ? undefined
-                  : "10 8",
+              dashArray: baseLineDashArray,
               lineCap: "round",
               lineJoin: "round",
             }}
