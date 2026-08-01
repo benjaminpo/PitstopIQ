@@ -37,7 +37,11 @@ export function PlaceAutocomplete({
   const listId = useId();
   const rootRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
-  const skipSearchRef = useRef(false);
+  // True only when the latest value change came from the user typing in the
+  // input, as opposed to programmatic updates (shared-link hydration, swap,
+  // geolocation, preset selection). Programmatic changes must not trigger a
+  // search or open the dropdown.
+  const typedRef = useRef(false);
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [suggestions, setSuggestions] = useState<PlaceSuggestion[]>([]);
@@ -59,8 +63,15 @@ export function PlaceAutocomplete({
   }
 
   useEffect(() => {
-    if (skipSearchRef.current) {
-      skipSearchRef.current = false;
+    const typed = typedRef.current;
+    typedRef.current = false;
+
+    if (!typed) {
+      abortRef.current?.abort();
+      setSuggestions([]);
+      setLoading(false);
+      setError(null);
+      setOpen(false);
       return;
     }
 
@@ -113,7 +124,6 @@ export function PlaceAutocomplete({
 
   const pick = useCallback(
     (place: PlaceSuggestion) => {
-      skipSearchRef.current = true;
       onSelect(place);
       setOpen(false);
       setSuggestions([]);
@@ -163,6 +173,7 @@ export function PlaceAutocomplete({
           aria-label={ariaLabel}
           placeholder={placeholder}
           onChange={(e) => {
+            typedRef.current = true;
             onChange(e.target.value);
             setOpen(true);
           }}
