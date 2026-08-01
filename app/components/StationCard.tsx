@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRightLeft, Clock, Fuel, Route, Sparkles } from "lucide-react";
+import { ArrowRightLeft, Clock, Fuel, Route, Sparkles, Star, Users } from "lucide-react";
 import { formatGbp } from "@/app/lib/detourCalculator";
 import {
   formatPriceAge,
@@ -9,9 +9,10 @@ import {
   FRESHNESS_DOT_CLASSES,
   STATION_AGE_TEXT_CLASSES,
 } from "@/app/lib/freshness";
-import type { GeoPoint, StationWithCalculation } from "@/app/lib/types";
+import type { FuelType, GeoPoint, StationWithCalculation } from "@/app/lib/types";
 import { cn } from "@/app/lib/utils";
 import { NavigateHere } from "./NavigateHere";
+import { StationContribute } from "./StationContribute";
 import { StatusBadge } from "./StatusBadge";
 
 interface StationCardProps {
@@ -22,6 +23,7 @@ interface StationCardProps {
   origin?: GeoPoint | null;
   /** Current clock (epoch ms) for rendering price update age */
   now?: number;
+  fuelType?: FuelType;
   onSelect?: () => void;
 }
 
@@ -37,13 +39,20 @@ export function StationCard({
   isBest,
   origin,
   now,
+  fuelType,
   onSelect,
 }: StationCardProps) {
-  const { station, calculation, pricePerLitre } = item;
-  const priceUpdatedAt = station.pricesLastUpdatedAt;
+  const { station, calculation, pricePerLitre, priceFromCommunity, community } =
+    item;
+  const priceUpdatedAt = priceFromCommunity
+    ? community?.communityPriceUpdatedAt[fuelType ?? "E10"] ?? null
+    : station.pricesLastUpdatedAt;
   const priceTone = now != null ? stationPriceTone(priceUpdatedAt, now) : null;
   const net = calculation.netAfterTime;
   const showNavigate = Boolean(selected || isBest);
+  const officialPrice = fuelType ? station.prices[fuelType] : undefined;
+  const avgRating = community?.avgRating;
+  const ratingCount = community?.ratingCount ?? 0;
 
   return (
     <div
@@ -78,7 +87,16 @@ export function StationCard({
               </span>
             )}
           </div>
-          <p className="text-xs text-slate-400">{station.brand}</p>
+          <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5">
+            <p className="text-xs text-slate-400">{station.brand}</p>
+            {ratingCount > 0 && avgRating != null && (
+              <span className="inline-flex items-center gap-0.5 text-[10px] text-amber-300/90">
+                <Star className="h-2.5 w-2.5 fill-amber-400 text-amber-400" />
+                {avgRating.toFixed(1)}
+                <span className="text-slate-500">({ratingCount})</span>
+              </span>
+            )}
+          </div>
         </div>
         <StatusBadge status={calculation.status} />
       </div>
@@ -92,24 +110,32 @@ export function StationCard({
           <p className="mt-0.5 font-mono text-sm font-semibold text-slate-100">
             £{pricePerLitre.toFixed(3)}
           </p>
-          {now != null && priceTone != null && (
-            <p
-              className={cn(
-                "mt-0.5 flex items-center gap-1 font-mono text-[10px]",
-                STATION_AGE_TEXT_CLASSES[priceTone]
-              )}
-              title={stationPriceAgeTitle(priceUpdatedAt, priceTone)}
-            >
-              <span
-                className={cn(
-                  "h-1.5 w-1.5 shrink-0 rounded-full",
-                  FRESHNESS_DOT_CLASSES[priceTone]
-                )}
-              />
-              {priceUpdatedAt != null
-                ? formatPriceAge(priceUpdatedAt, now)
-                : "age unknown"}
+          {priceFromCommunity ? (
+            <p className="mt-0.5 flex items-center gap-1 font-mono text-[10px] text-teal-400/90">
+              <Users className="h-2.5 w-2.5" />
+              members
             </p>
+          ) : (
+            now != null &&
+            priceTone != null && (
+              <p
+                className={cn(
+                  "mt-0.5 flex items-center gap-1 font-mono text-[10px]",
+                  STATION_AGE_TEXT_CLASSES[priceTone]
+                )}
+                title={stationPriceAgeTitle(priceUpdatedAt, priceTone)}
+              >
+                <span
+                  className={cn(
+                    "h-1.5 w-1.5 shrink-0 rounded-full",
+                    FRESHNESS_DOT_CLASSES[priceTone]
+                  )}
+                />
+                {priceUpdatedAt != null
+                  ? formatPriceAge(priceUpdatedAt, now)
+                  : "age unknown"}
+              </p>
+            )
           )}
         </div>
         <div className="rounded-lg bg-slate-950/50 px-2 py-1.5">
@@ -162,6 +188,17 @@ export function StationCard({
             name: station.name,
             origin,
           }}
+        />
+      )}
+
+      {selected && fuelType && (
+        <StationContribute
+          key={station.id}
+          stationId={station.id}
+          stationName={station.name}
+          fuelType={fuelType}
+          officialPrice={officialPrice}
+          community={community}
         />
       )}
     </div>

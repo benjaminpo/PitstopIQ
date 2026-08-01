@@ -84,6 +84,10 @@ DATABASE_URL='postgresql://…?sslmode=require' \
 
 Redeploy after adding or changing env vars so serverless functions pick them up.
 
+### Member station updates
+
+Signed-in members can report a pump price, leave a 1–5 rating, and comment on a selected station. Reports are stored in Neon (or local SQLite) in `station_contribution` (one row per user per station). The most recent member price for the active fuel grade is used for detour scoring when present; guests see a sign-in prompt instead of the form.
+
 ## Google AdSense
 
 Optional monetization. Ads load only when `NEXT_PUBLIC_ADSENSE_CLIENT` is set.

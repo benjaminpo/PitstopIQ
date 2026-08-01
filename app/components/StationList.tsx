@@ -322,6 +322,7 @@ export function StationList() {
             isBest={item.station.id === bestId}
             origin={originCoords}
             now={now}
+            fuelType={vehicle.fuelType}
             selected={selectedStationId === item.station.id}
             onSelect={() => handleSelect(item.station.id)}
           />

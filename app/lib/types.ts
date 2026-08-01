@@ -89,10 +89,31 @@ export interface DetourCalculationResult {
   status: DetourStatus;
 }
 
+/** Member-reported price / rating / comment aggregates for a forecourt */
+export interface StationCommunitySummary {
+  stationId: string;
+  avgRating: number | null;
+  ratingCount: number;
+  commentCount: number;
+  communityPrices: Partial<Record<FuelType, number>>;
+  communityPriceUpdatedAt: Partial<Record<FuelType, number>>;
+  recentComments: Array<{
+    userName: string;
+    comment: string;
+    rating: number | null;
+    fuelType: FuelType;
+    pricePerLitre: number | null;
+    updatedAt: number;
+  }>;
+}
+
 export interface StationWithCalculation {
   station: FuelStation;
   calculation: DetourCalculationResult;
   pricePerLitre: number;
+  /** True when pricePerLitre comes from a member report */
+  priceFromCommunity?: boolean;
+  community?: StationCommunitySummary;
 }
 
 export type StationSortKey = "netProfit" | "distance" | "price";

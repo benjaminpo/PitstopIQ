@@ -6,6 +6,7 @@ import type {
   FuelStation,
   FuelType,
   GeoPoint,
+  StationCommunitySummary,
   StationSortKey,
   StationWithCalculation,
   VehiclePreset,
@@ -109,6 +110,8 @@ interface PitstopState {
   dataSource: "live" | "mock" | null;
   /** Epoch ms when live Fuel Finder prices were last synced; null for mock */
   pricesFetchedAt: number | null;
+  /** Member ratings / prices / comments keyed by station id */
+  communityByStationId: Record<string, StationCommunitySummary>;
   selectedStationId: string | null;
   sortKey: StationSortKey;
   /** Forecourt brand bucket filter applied to scored stations */
@@ -152,6 +155,11 @@ interface PitstopState {
   renameVehiclePreset: (id: string, name: string) => void;
   locateCurrentPosition: (target?: "origin" | "destination") => Promise<void>;
   loadStations: () => Promise<void>;
+  loadCommunitySummaries: (stationIds?: string[]) => Promise<void>;
+  setCommunitySummary: (
+    stationId: string,
+    summary: StationCommunitySummary
+  ) => void;
   getEnrichedStations: () => StationWithCalculation[];
   getTripSnapshot: () => TripSnapshot;
   applyTripSnapshot: (snap: Partial<TripSnapshot>) => void;
@@ -228,6 +236,7 @@ export const usePitstopStore = create<PitstopState>()(
       stations: [],
       dataSource: null,
       pricesFetchedAt: null,
+      communityByStationId: {},
       selectedStationId: null,
       sortKey: "netProfit",
       brandFilter: "all",
@@ -640,6 +649,7 @@ export const usePitstopStore = create<PitstopState>()(
           if (selectedId) {
             void get().loadDetourRoute(selectedId);
           }
+          void get().loadCommunitySummaries(stations.map((s) => s.id));
         } catch (e) {
           set({
             loading: false,
@@ -647,6 +657,37 @@ export const usePitstopStore = create<PitstopState>()(
             error: e instanceof Error ? e.message : "Unknown error",
           });
         }
+      },
+
+      loadCommunitySummaries: async (stationIds) => {
+        const ids = stationIds ?? get().stations.map((s) => s.id);
+        if (ids.length === 0) {
+          set({ communityByStationId: {} });
+          return;
+        }
+        try {
+          const res = await fetch(
+            `/api/station-contributions?ids=${encodeURIComponent(ids.join(","))}`
+          );
+          if (!res.ok) return;
+          const data = (await res.json()) as {
+            summaries?: Record<string, StationCommunitySummary>;
+          };
+          if (data.summaries) {
+            set({ communityByStationId: data.summaries });
+          }
+        } catch {
+          // Community data is optional — keep scoring on official prices
+        }
+      },
+
+      setCommunitySummary: (stationId, summary) => {
+        set({
+          communityByStationId: {
+            ...get().communityByStationId,
+            [stationId]: summary,
+          },
+        });
       },
 
       getEnrichedStations: () => {
@@ -661,6 +702,7 @@ export const usePitstopStore = create<PitstopState>()(
           excludedBrands,
           route,
           originCoords,
+          communityByStationId,
         } = get();
 
         const deps = [
@@ -674,6 +716,7 @@ export const usePitstopStore = create<PitstopState>()(
           excludedBrands,
           route,
           originCoords,
+          communityByStationId,
         ] as const;
         if (enrichedStationsCache?.deps.every((d, i) => d === deps[i])) {
           return enrichedStationsCache.value;
@@ -691,7 +734,7 @@ export const usePitstopStore = create<PitstopState>()(
             : [originCoords]
         );
 
-        const enriched: StationWithCalculation[] = stations
+        const enriched = stations
           .filter((station) =>
             stationMatchesBrandFilter(station, brandFilter)
           )
@@ -706,8 +749,15 @@ export const usePitstopStore = create<PitstopState>()(
             );
             return milesTo <= rangeMiles;
           })
-          .map((station) => {
-            const pricePerLitre = station.prices[vehicle.fuelType];
+          .map((station): StationWithCalculation | null => {
+            const community = communityByStationId[station.id];
+            const official = station.prices[vehicle.fuelType];
+            const communityPrice = community?.communityPrices[vehicle.fuelType];
+            const priceFromCommunity =
+              communityPrice != null && Number.isFinite(communityPrice);
+            const pricePerLitre = priceFromCommunity
+              ? communityPrice
+              : official;
             if (pricePerLitre === undefined) return null;
 
             const calculation = calculateDetourSavings({
@@ -720,7 +770,13 @@ export const usePitstopStore = create<PitstopState>()(
               valueOfTimeGbpPerHour,
             });
 
-            return { station, calculation, pricePerLitre };
+            return {
+              station,
+              calculation,
+              pricePerLitre,
+              priceFromCommunity,
+              community,
+            };
           })
           .filter((x): x is StationWithCalculation => x !== null);
 
