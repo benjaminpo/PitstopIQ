@@ -7,7 +7,6 @@ import {
   Marker,
   Popup,
   Polyline,
-  CircleMarker,
   useMap,
 } from "react-leaflet";
 import L from "leaflet";
@@ -471,27 +470,12 @@ export default function MapView() {
       )}
 
       {originCoords && (
-        <>
-          <CircleMarker
-            center={[originCoords.lat, originCoords.lng]}
-            radius={10}
-            pathOptions={{
-              color: "#5eead4",
-              fillColor: "#14b8a6",
-              fillOpacity: 0.85,
-              weight: 3,
-            }}
-          >
-            <Popup>You / origin · {origin}</Popup>
-          </CircleMarker>
-
-          <Marker
-            position={[originCoords.lat, originCoords.lng]}
-            icon={endpointIcon("A", "#0d9488")}
-          >
-            <Popup>Origin · {origin}</Popup>
-          </Marker>
-        </>
+        <Marker
+          position={[originCoords.lat, originCoords.lng]}
+          icon={endpointIcon("A", "#0d9488")}
+        >
+          <Popup>Origin · {origin}</Popup>
+        </Marker>
       )}
       {destinationCoords && (
         <Marker
