@@ -1,11 +1,6 @@
 "use client";
 
-import {
-  useRef,
-  useState,
-  type DragEvent,
-  type KeyboardEvent,
-} from "react";
+import { useState, type DragEvent, type KeyboardEvent } from "react";
 import {
   ArrowUpDown,
   Crosshair,
@@ -66,7 +61,6 @@ export function RouteForm() {
     destinationLocationError,
   } = usePitstopStore();
 
-  const dragEndRef = useRef<RouteEnd | null>(null);
   const [dragging, setDragging] = useState<RouteEnd | null>(null);
   const [dropTarget, setDropTarget] = useState<RouteEnd | null>(null);
 
@@ -81,7 +75,6 @@ export function RouteForm() {
   const canSwap = Boolean(origin || destination);
 
   const clearDrag = () => {
-    dragEndRef.current = null;
     setDragging(null);
     setDropTarget(null);
   };
@@ -91,14 +84,13 @@ export function RouteForm() {
       e.preventDefault();
       return;
     }
-    dragEndRef.current = end;
     setDragging(end);
     e.dataTransfer.effectAllowed = "move";
     e.dataTransfer.setData("text/plain", end);
   };
 
   const onDragOver = (end: RouteEnd) => (e: DragEvent) => {
-    if (!dragEndRef.current || dragEndRef.current === end) return;
+    if (!dragging || dragging === end) return;
     e.preventDefault();
     e.dataTransfer.dropEffect = "move";
     setDropTarget(end);
@@ -110,7 +102,7 @@ export function RouteForm() {
 
   const onDrop = (end: RouteEnd) => (e: DragEvent) => {
     e.preventDefault();
-    const from = dragEndRef.current;
+    const from = dragging;
     clearDrag();
     if (from && from !== end) swapEnds();
   };

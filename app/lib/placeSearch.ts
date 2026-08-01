@@ -13,6 +13,7 @@ interface NominatimAddress {
   suburb?: string;
   village?: string;
   town?: string;
+  city_district?: string;
   city?: string;
   county?: string;
   state?: string;
@@ -25,9 +26,16 @@ interface NominatimResult {
   lat: string;
   lon: string;
   display_name: string;
+  name?: string;
   type?: string;
   class?: string;
+  addresstype?: string;
   address?: NominatimAddress;
+}
+
+/** Bare postcode hits (centroids with no street/locality in the address). */
+export function isPostcodeResult(item: NominatimResult): boolean {
+  return item.type === "postcode" || item.addresstype === "postcode";
 }
 
 /** Forward-geocode place search via our API proxy (Nominatim). */
@@ -69,8 +77,15 @@ export function formatNominatimResult(item: NominatimResult): PlaceSuggestion {
   const a = item.address;
   const postcode = a?.postcode?.trim() || undefined;
 
+  // "London Borough of Sutton" → "Sutton", matching how Google Maps labels it
+  const district = a?.city_district?.replace(
+    /^(london borough of|royal borough of|city of)\s+/i,
+    ""
+  );
+
   const primary =
     a?.road ||
+    (isPostcodeResult(item) ? item.name?.trim() || postcode : undefined) ||
     a?.suburb ||
     a?.village ||
     a?.town ||
@@ -81,6 +96,7 @@ export function formatNominatimResult(item: NominatimResult): PlaceSuggestion {
   const secondaryParts = [
     a?.suburb && a.suburb !== primary ? a.suburb : null,
     a?.town && a.town !== primary ? a.town : null,
+    district && district !== primary ? district : null,
     a?.city && a.city !== primary ? a.city : null,
     a?.county,
     postcode,
