@@ -44,10 +44,18 @@ function statusColor(status: DetourStatus): string {
   }
 }
 
-function makePinIcon(status: DetourStatus, selected: boolean) {
+function makePinIcon(status: DetourStatus, selected: boolean, best = false) {
   const color = statusColor(status);
-  const size = selected ? 34 : 26;
-  const ring = selected ? "3px solid #2dd4bf" : "2px solid #0f172a";
+  const size = selected ? 34 : best ? 30 : 26;
+  const ring = selected
+    ? "3px solid #2dd4bf"
+    : best
+      ? "2.5px solid #2dd4bf"
+      : "2px solid #0f172a";
+  // Star marks the highest net-after-time forecourt, matching the "Best" card
+  const star = best
+    ? `<span style="color:#042f2e;font:700 ${Math.round(size * 0.55)}px/1 ui-sans-serif,system-ui;">★</span>`
+    : "";
 
   return L.divIcon({
     className: "",
@@ -57,8 +65,9 @@ function makePinIcon(status: DetourStatus, selected: boolean) {
     html: `<div style="
       width:${size}px;height:${size}px;border-radius:9999px;
       background:${color};border:${ring};
+      display:flex;align-items:center;justify-content:center;
       box-shadow:0 0 0 4px ${color}33, 0 8px 16px rgba(0,0,0,.45);
-    "></div>`,
+    ">${star}</div>`,
   });
 }
 
@@ -163,6 +172,15 @@ export default function MapView() {
   }, []);
 
   const selected = enriched.find((e) => e.station.id === selectedStationId);
+
+  // Same rule as the sidebar's "Best" badge: highest net after time
+  let best: StationWithCalculation | undefined;
+  for (const item of enriched) {
+    if (!best || item.calculation.netAfterTime > best.calculation.netAfterTime) {
+      best = item;
+    }
+  }
+  const bestId = best?.station.id ?? null;
   const showingDetour = Boolean(
     selected && detourRoute && detourRoute.coordinates.length > 1
   );
@@ -210,6 +228,70 @@ export default function MapView() {
     originCoords,
     destinationCoords,
   ]);
+
+  const renderStationMarker = (item: StationWithCalculation) => {
+    const isSelected = selectedStationId === item.station.id;
+    const isBest = bestId === item.station.id;
+    const priceUpdatedAt = item.station.pricesLastUpdatedAt;
+    const priceTone = stationPriceTone(priceUpdatedAt, now);
+    return (
+      <Marker
+        key={item.station.id}
+        position={[item.station.location.lat, item.station.location.lng]}
+        icon={makePinIcon(item.calculation.status, isSelected, isBest)}
+        eventHandlers={{
+          click: () => setSelectedStationId(item.station.id),
+        }}
+        zIndexOffset={isSelected ? 1000 : isBest ? 500 : 0}
+      >
+        <Popup>
+          <div className="min-w-[180px] space-y-1.5 text-slate-900">
+            <div className="flex items-center gap-1.5">
+              <p className="font-semibold">{item.station.name}</p>
+              {isBest && (
+                <span className="inline-flex shrink-0 items-center rounded-md bg-teal-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-teal-700 ring-1 ring-teal-500/35">
+                  ★ Best
+                </span>
+              )}
+            </div>
+            <p className="text-xs text-slate-600">{item.station.brand}</p>
+            <StatusBadge status={item.calculation.status} />
+            <p className="font-mono text-sm">
+              £{item.pricePerLitre.toFixed(3)}/L ·{" "}
+              {item.station.distanceOffRouteMiles.toFixed(1)} mi ·{" "}
+              {item.calculation.detourExtraMinutes < 0.5
+                ? "<1 min"
+                : `+${Math.round(item.calculation.detourExtraMinutes)} min`}
+            </p>
+            <p
+              className={cn(
+                "font-mono text-xs",
+                STATION_AGE_TEXT_CLASSES_LIGHT[priceTone]
+              )}
+              title={stationPriceAgeTitle(priceUpdatedAt, priceTone)}
+            >
+              {priceUpdatedAt != null
+                ? `Price updated ${formatPriceAge(priceUpdatedAt, now)}`
+                : "Price update time unknown"}
+            </p>
+            <p className="font-mono text-sm font-bold">
+              Net {formatGbp(item.calculation.netAfterTime)}
+            </p>
+            <NavigateHere
+              className="mt-2"
+              primary
+              tone="light"
+              target={{
+                location: item.station.location,
+                name: item.station.name,
+                origin: originCoords,
+              }}
+            />
+          </div>
+        </Popup>
+      </Marker>
+    );
+  };
 
   return (
     <MapContainer
@@ -319,61 +401,27 @@ export default function MapView() {
         </Marker>
       )}
 
-      {enriched.map((item) => {
-        const isSelected = selectedStationId === item.station.id;
-        const priceUpdatedAt = item.station.pricesLastUpdatedAt;
-        const priceTone = stationPriceTone(priceUpdatedAt, now);
-        return (
-          <Marker
-            key={item.station.id}
-            position={[item.station.location.lat, item.station.location.lng]}
-            icon={makePinIcon(item.calculation.status, isSelected)}
-            eventHandlers={{
-              click: () => setSelectedStationId(item.station.id),
-            }}
-            zIndexOffset={isSelected ? 1000 : 0}
-          >
-            <Popup>
-              <div className="min-w-[180px] space-y-1.5 text-slate-900">
-                <p className="font-semibold">{item.station.name}</p>
-                <p className="text-xs text-slate-600">{item.station.brand}</p>
-                <StatusBadge status={item.calculation.status} />
-                <p className="font-mono text-sm">
-                  £{item.pricePerLitre.toFixed(3)}/L ·{" "}
-                  {item.station.distanceOffRouteMiles.toFixed(1)} mi ·{" "}
-                  {item.calculation.detourExtraMinutes < 0.5
-                    ? "<1 min"
-                    : `+${Math.round(item.calculation.detourExtraMinutes)} min`}
-                </p>
-                <p
-                  className={cn(
-                    "font-mono text-xs",
-                    STATION_AGE_TEXT_CLASSES_LIGHT[priceTone]
-                  )}
-                  title={stationPriceAgeTitle(priceUpdatedAt, priceTone)}
-                >
-                  {priceUpdatedAt != null
-                    ? `Price updated ${formatPriceAge(priceUpdatedAt, now)}`
-                    : "Price update time unknown"}
-                </p>
-                <p className="font-mono text-sm font-bold">
-                  Net {formatGbp(item.calculation.netAfterTime)}
-                </p>
-                <NavigateHere
-                  className="mt-2"
-                  primary
-                  tone="light"
-                  target={{
-                    location: item.station.location,
-                    name: item.station.name,
-                    origin: originCoords,
-                  }}
-                />
-              </div>
-            </Popup>
-          </Marker>
-        );
-      })}
+      {/* Cluster the rest of the pins so long corridors (100+ stations) stay
+          readable. The selected and best stations render outside the cluster
+          group below, so they never collapse into a cluster bubble. */}
+      <MarkerClusterGroup
+        chunkedLoading
+        showCoverageOnHover={false}
+        spiderfyOnMaxZoom
+        maxClusterRadius={55}
+        disableClusteringAtZoom={12}
+        iconCreateFunction={makeClusterIcon}
+      >
+        {enriched
+          .filter(
+            (item) =>
+              item.station.id !== selectedStationId &&
+              item.station.id !== bestId
+          )
+          .map((item) => renderStationMarker(item))}
+      </MarkerClusterGroup>
+      {best && best.station.id !== selectedStationId && renderStationMarker(best)}
+      {selected && renderStationMarker(selected)}
 
       <FitBounds points={fitPoints} />
     </MapContainer>
