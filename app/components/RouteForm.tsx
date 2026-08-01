@@ -185,9 +185,6 @@ export function RouteForm() {
             <div className="w-4 shrink-0" />
             <div className="min-w-0 flex-1 space-y-1.5 py-1 pr-10">
               <div className="flex items-center justify-between gap-2">
-                <span className="text-xs font-medium uppercase tracking-wide text-slate-400">
-                  Origin
-                </span>
                 <button
                   type="button"
                   onClick={() => void locateCurrentPosition("origin")}
@@ -257,9 +254,6 @@ export function RouteForm() {
             <div className="w-4 shrink-0" />
             <div className="min-w-0 flex-1 space-y-1.5 py-1 pr-10">
               <div className="flex items-center justify-between gap-2">
-                <span className="text-xs font-medium uppercase tracking-wide text-slate-400">
-                  Destination
-                </span>
                 <button
                   type="button"
                   onClick={() => void locateCurrentPosition("destination")}
