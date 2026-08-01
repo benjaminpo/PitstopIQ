@@ -3,6 +3,7 @@
 import dynamic from "next/dynamic";
 import { useEffect, useRef, useState } from "react";
 import { Coffee, Crosshair, Loader2, Menu, PanelLeftClose, Sparkles } from "lucide-react";
+import { AccountMenu } from "@/app/components/AccountMenu";
 import { FreshnessBadge } from "@/app/components/FreshnessBadge";
 import { RouteForm } from "@/app/components/RouteForm";
 import { SidebarAd } from "@/app/components/AdUnit";
@@ -93,18 +94,21 @@ export default function HomePage() {
               </h1>
             </div>
           </div>
-          <button
-            type="button"
-            onClick={() => setSidebarOpen(false)}
-            className="rounded-lg p-2 text-slate-400 transition hover:bg-slate-800 hover:text-slate-100 md:hidden"
-            aria-label="Close sidebar"
-          >
-            <PanelLeftClose className="h-5 w-5" />
-          </button>
+          <div className="flex items-center gap-2">
+            <AccountMenu />
+            <button
+              type="button"
+              onClick={() => setSidebarOpen(false)}
+              className="rounded-lg p-2 text-slate-400 transition hover:bg-slate-800 hover:text-slate-100 md:hidden"
+              aria-label="Close sidebar"
+            >
+              <PanelLeftClose className="h-5 w-5" />
+            </button>
+          </div>
         </header>
 
-        <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-5 py-4 md:overflow-hidden">
-          <div className="shrink-0 md:max-h-[48%] md:overflow-y-auto md:pr-1">
+        <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-5 py-4">
+          <div className="shrink-0">
             <RouteForm />
           </div>
           <div className="h-px shrink-0 bg-slate-800/80" />
@@ -257,7 +261,7 @@ export default function HomePage() {
   );
 }
 
-function LegendDot({ color, label }: { color: string; label: string }) {
+function LegendDot({ color, label }: Readonly<{ color: string; label: string }>) {
   return (
     <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-700/80 bg-slate-950/90 px-2.5 py-1 text-[11px] text-slate-300 shadow backdrop-blur">
       <span className={cn("h-2 w-2 rounded-full", color)} />

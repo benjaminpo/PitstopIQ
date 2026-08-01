@@ -56,6 +56,34 @@ npm run test:coverage
 npm run lint
 ```
 
+## User accounts (register / login)
+
+Email + password authentication via [Better Auth](https://better-auth.com). Pages: `/register` and `/login`; the account menu lives in the sidebar header.
+
+```bash
+# .env.local (dev — SQLite when DATABASE_URL is unset)
+BETTER_AUTH_SECRET=$(openssl rand -base64 32)
+```
+
+### Production database (Neon)
+
+Production uses [Neon](https://neon.tech) Postgres. Set these on the Vercel project (**Production** env):
+
+| Variable | Value |
+| --- | --- |
+| `DATABASE_URL` | Neon pooled connection string (`…-pooler…` host, `sslmode=require`) |
+| `BETTER_AUTH_SECRET` | `openssl rand -base64 32` |
+| `BETTER_AUTH_URL` | `https://pitstopiq.vercel.app` (or your custom domain) |
+
+Create the auth tables once against Neon (run locally; never commit the URL):
+
+```bash
+DATABASE_URL='postgresql://…?sslmode=require' \
+  npx @better-auth/cli@latest migrate --config app/lib/auth.ts -y
+```
+
+Redeploy after adding or changing env vars so serverless functions pick them up.
+
 ## Google AdSense
 
 Optional monetization. Ads load only when `NEXT_PUBLIC_ADSENSE_CLIENT` is set.
@@ -106,7 +134,9 @@ Serverless functions run in **London (`lhr1`)** — Fuel Finder’s CloudFront e
 app/
   api/fuel-finder/route.ts
   api/calculate-detour/route.ts
-  components/   # MapView, RouteForm, StationCard, StationList
-  lib/          # types, detourCalculator, fuelApiAdapter, store
+  api/auth/[...all]/route.ts   # Better Auth handler
+  components/   # MapView, RouteForm, StationCard, StationList, AuthForm, AccountMenu
+  lib/          # types, detourCalculator, fuelApiAdapter, store, auth, auth-client
+  login/ register/             # auth pages
   page.tsx
 ```
