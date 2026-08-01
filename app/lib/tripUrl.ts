@@ -90,7 +90,7 @@ export function parseTripSearchParams(
     snap.vehicle = {
       fuelType: fuel && isFuelType(fuel) ? fuel : "E10",
       mpg: mpg ?? 45,
-      tankCapacityLitres: tank ?? 55,
+      tankCapacityLitres: tank ?? 40,
       fillPercentage: fill ?? 25,
     };
   }

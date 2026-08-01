@@ -160,7 +160,7 @@ interface PitstopState {
 const defaultVehicle: VehicleProfile = {
   fuelType: "E10",
   mpg: 45,
-  tankCapacityLitres: 55,
+  tankCapacityLitres: 40,
   fillPercentage: 25,
 };
 
