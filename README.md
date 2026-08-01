@@ -98,6 +98,8 @@ Required GitHub secrets: `VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID`.
 
 Fuel Finder credentials stay on the Vercel project env (pulled during deploy). Git auto-deploys from Vercel are disabled so only Actions ships production.
 
+Serverless functions run in **London (`lhr1`)** — Fuel Finder’s CloudFront edge blocks non-UK IPs with a bare 403, so the US default region (`iad1`) cannot obtain an OAuth token.
+
 ## Project layout
 
 ```

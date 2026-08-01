@@ -203,7 +203,13 @@ async function requestToken(
 
   if (!response.ok) {
     const text = await response.text().catch(() => "");
-    console.warn(`[fuelFinder] token ${path} → ${response.status}: ${text}`);
+    const server = response.headers.get("server") ?? "";
+    // CloudFront often returns a bare 403 (empty body) when the caller IP is
+    // outside the UK — useful signal when diagnosing region misconfiguration.
+    console.warn(
+      `[fuelFinder] token ${path} → ${response.status} ` +
+        `server=${server || "(none)"} body=${text.slice(0, 200) || "(empty)"}`
+    );
     return null;
   }
 
