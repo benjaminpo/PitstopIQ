@@ -113,7 +113,7 @@ function sampleRoute(coords: GeoPoint[], maxSamples = 40): GeoPoint[] {
   return coords.filter((_, i) => i % step === 0);
 }
 
-function computeFitPoints(args: {
+interface FitPointsInputs {
   originCoords: GeoPoint | null;
   destinationCoords: GeoPoint | null;
   showingDetour: boolean;
@@ -121,7 +121,9 @@ function computeFitPoints(args: {
   selected: StationWithCalculation | undefined;
   route: { coordinates: GeoPoint[] } | null;
   enriched: StationWithCalculation[];
-}): GeoPoint[] {
+}
+
+function computeFitPoints(args: FitPointsInputs): GeoPoint[] {
   const {
     originCoords,
     destinationCoords,
@@ -147,6 +149,46 @@ function computeFitPoints(args: {
     pts.push(item.station.location);
   }
   return pts;
+}
+
+/**
+ * Memoized in its own hook: inside MapView the compiler lint refuses a
+ * useMemo on `enriched`/`selected` because they later flow into marker
+ * rendering, but scoped here nothing touches the deps after the memo.
+ * The store keeps `enriched` referentially stable, so this actually caches.
+ */
+function useFitPoints(args: FitPointsInputs): GeoPoint[] {
+  const {
+    originCoords,
+    destinationCoords,
+    showingDetour,
+    detourRoute,
+    selected,
+    route,
+    enriched,
+  } = args;
+
+  return useMemo(
+    () =>
+      computeFitPoints({
+        originCoords,
+        destinationCoords,
+        showingDetour,
+        detourRoute,
+        selected,
+        route,
+        enriched,
+      }),
+    [
+      originCoords,
+      destinationCoords,
+      showingDetour,
+      detourRoute,
+      selected,
+      route,
+      enriched,
+    ]
+  );
 }
 
 /** Roughly centres the UK before any trip is entered */
@@ -278,9 +320,7 @@ export default function MapView() {
   if (showingDetour) baseLineDashArray = "6 10";
   else if (!isDrivingRoute) baseLineDashArray = "10 8";
 
-  // No useMemo needed: FitBounds keys its effect on the serialized
-  // coordinates, so this list doesn't need referential stability.
-  const fitPoints = computeFitPoints({
+  const fitPoints = useFitPoints({
     originCoords,
     destinationCoords,
     showingDetour,

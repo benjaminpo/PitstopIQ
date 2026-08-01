@@ -192,6 +192,18 @@ type PersistedSettings = Pick<
   | "recentPlaces"
 >;
 
+/**
+ * Enriching stations runs per-station geometry and detour maths, and both the
+ * map and the sidebar call it on every render (including a 30s clock tick).
+ * Zustand replaces state slices immutably, so caching the last result keyed
+ * on the input references is sound and keeps the returned array referentially
+ * stable when nothing relevant changed.
+ */
+let enrichedStationsCache: {
+  deps: readonly unknown[];
+  value: StationWithCalculation[];
+} | null = null;
+
 export const usePitstopStore = create<PitstopState>()(
   persist(
     (set, get) => ({
@@ -638,7 +650,26 @@ export const usePitstopStore = create<PitstopState>()(
           originCoords,
         } = get();
 
-        if (!originCoords) return [];
+        const deps = [
+          stations,
+          vehicle,
+          baseRouteAvgPricePerLitre,
+          litresToRefill,
+          valueOfTimeGbpPerHour,
+          sortKey,
+          brandFilter,
+          excludedBrands,
+          route,
+          originCoords,
+        ] as const;
+        if (enrichedStationsCache?.deps.every((d, i) => d === deps[i])) {
+          return enrichedStationsCache.value;
+        }
+
+        if (!originCoords) {
+          enrichedStationsCache = { deps, value: [] };
+          return enrichedStationsCache.value;
+        }
 
         const rangeMiles = remainingRangeMiles(vehicle);
         const routeLine = downsampleRoute(
@@ -695,6 +726,7 @@ export const usePitstopStore = create<PitstopState>()(
           }
         });
 
+        enrichedStationsCache = { deps, value: enriched };
         return enriched;
       },
 
