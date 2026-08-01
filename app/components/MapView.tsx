@@ -12,7 +12,10 @@ import {
   ZoomControl,
 } from "react-leaflet";
 import L from "leaflet";
+import MarkerClusterGroup from "react-leaflet-cluster";
 import "leaflet/dist/leaflet.css";
+import "react-leaflet-cluster/dist/assets/MarkerCluster.css";
+import "react-leaflet-cluster/dist/assets/MarkerCluster.Default.css";
 import { usePitstopStore } from "@/app/lib/store";
 import { formatGbp } from "@/app/lib/detourCalculator";
 import {
@@ -21,7 +24,11 @@ import {
   stationPriceTone,
   STATION_AGE_TEXT_CLASSES_LIGHT,
 } from "@/app/lib/freshness";
-import type { DetourStatus, GeoPoint } from "@/app/lib/types";
+import type {
+  DetourStatus,
+  GeoPoint,
+  StationWithCalculation,
+} from "@/app/lib/types";
 import { cn } from "@/app/lib/utils";
 import { NavigateHere } from "./NavigateHere";
 import { StatusBadge } from "./StatusBadge";
@@ -52,6 +59,24 @@ function makePinIcon(status: DetourStatus, selected: boolean) {
       background:${color};border:${ring};
       box-shadow:0 0 0 4px ${color}33, 0 8px 16px rgba(0,0,0,.45);
     "></div>`,
+  });
+}
+
+function makeClusterIcon(cluster: { getChildCount: () => number }) {
+  const count = cluster.getChildCount();
+  const size = count >= 50 ? 46 : count >= 20 ? 40 : 34;
+
+  return L.divIcon({
+    className: "",
+    iconSize: [size, size],
+    iconAnchor: [size / 2, size / 2],
+    html: `<div style="
+      width:${size}px;height:${size}px;border-radius:9999px;
+      background:#0f172a;border:2px solid #2dd4bf;
+      display:flex;align-items:center;justify-content:center;
+      color:#5eead4;font:700 ${count >= 100 ? 12 : 13}px/1 ui-sans-serif,system-ui;
+      box-shadow:0 0 0 5px #2dd4bf26, 0 8px 16px rgba(0,0,0,.45);
+    ">${count}</div>`,
   });
 }
 
