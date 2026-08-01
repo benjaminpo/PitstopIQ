@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   classifyStationBrands,
+  distinctBrandOptions,
+  sanitizeExcludedBrands,
+  stationBrandKey,
   stationMatchesBrandFilter,
 } from "./brandCategory";
 
@@ -72,5 +75,50 @@ describe("stationMatchesBrandFilter", () => {
     expect(stationMatchesBrandFilter(shell, "premium")).toBe(true);
     expect(stationMatchesBrandFilter(moto, "motorway")).toBe(true);
     expect(stationMatchesBrandFilter(tesco, "motorway")).toBe(false);
+  });
+});
+
+describe("stationBrandKey", () => {
+  it("normalizes the brand for stable grouping", () => {
+    expect(stationBrandKey({ brand: "Costco", name: "Costco Reading" })).toBe(
+      "costco"
+    );
+    expect(
+      stationBrandKey({ brand: "  COSTCO  ", name: "Costco Croydon" })
+    ).toBe("costco");
+  });
+
+  it("falls back to the trading name when brand is blank", () => {
+    expect(stationBrandKey({ brand: "", name: "Village Garage" })).toBe(
+      "village garage"
+    );
+    expect(stationBrandKey({ brand: " ", name: "" })).toBe("unknown");
+  });
+});
+
+describe("distinctBrandOptions", () => {
+  it("dedupes case-insensitively, counts stations, sorts by label", () => {
+    const options = distinctBrandOptions([
+      { brand: "Tesco", name: "Tesco Extra" },
+      { brand: "COSTCO", name: "Costco Reading" },
+      { brand: "Costco", name: "Costco Croydon" },
+      { brand: "Shell", name: "Shell Select" },
+    ]);
+    expect(options.map((o) => o.key)).toEqual(["costco", "shell", "tesco"]);
+    expect(options[0]).toMatchObject({ label: "COSTCO", count: 2 });
+    expect(options[2]).toMatchObject({ label: "Tesco", count: 1 });
+  });
+});
+
+describe("sanitizeExcludedBrands", () => {
+  it("keeps only unique lowercase non-empty strings", () => {
+    expect(
+      sanitizeExcludedBrands(["Costco", "costco", "  ", 42, "Shell"])
+    ).toEqual(["costco", "shell"]);
+  });
+
+  it("returns empty for non-arrays", () => {
+    expect(sanitizeExcludedBrands(undefined)).toEqual([]);
+    expect(sanitizeExcludedBrands("costco")).toEqual([]);
   });
 });

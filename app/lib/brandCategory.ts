@@ -96,3 +96,51 @@ export function stationMatchesBrandFilter(
   const cats = classifyStationBrands(station);
   return cats[filter];
 }
+
+/** Stable key used to group stations by forecourt brand for exclusions. */
+export function stationBrandKey(
+  station: Pick<FuelStation, "brand" | "name">
+): string {
+  return (
+    station.brand.trim().toLowerCase() ||
+    station.name.trim().toLowerCase() ||
+    "unknown"
+  );
+}
+
+export interface BrandOption {
+  key: string;
+  label: string;
+  count: number;
+}
+
+/** Distinct brands present in the list, alphabetical, with station counts. */
+export function distinctBrandOptions(
+  stations: Pick<FuelStation, "brand" | "name">[]
+): BrandOption[] {
+  const byKey = new Map<string, BrandOption>();
+  for (const station of stations) {
+    const key = stationBrandKey(station);
+    const existing = byKey.get(key);
+    if (existing) {
+      existing.count += 1;
+    } else {
+      byKey.set(key, {
+        key,
+        label: station.brand.trim() || station.name.trim() || "Unknown",
+        count: 1,
+      });
+    }
+  }
+  return [...byKey.values()].sort((a, b) => a.label.localeCompare(b.label));
+}
+
+/** Validate a persisted excluded-brands list (e.g. from localStorage). */
+export function sanitizeExcludedBrands(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  const keys = value
+    .filter((v): v is string => typeof v === "string")
+    .map((v) => v.trim().toLowerCase())
+    .filter((v) => v.length > 0);
+  return [...new Set(keys)].slice(0, 100);
+}

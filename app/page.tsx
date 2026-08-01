@@ -80,10 +80,6 @@ export default function HomePage() {
               </h1>
               <ShareTripButton />
             </div>
-            <p className="mt-1.5 text-xs leading-relaxed text-slate-400">
-              Smart route cost calculator — know when a cheaper forecourt is
-              worth the detour.
-            </p>
           </div>
           <button
             type="button"

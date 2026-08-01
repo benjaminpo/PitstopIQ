@@ -1,10 +1,18 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { AlertTriangle, ArrowUpDown, Loader2, RefreshCw } from "lucide-react";
+import {
+  AlertTriangle,
+  ArrowUpDown,
+  Ban,
+  ChevronDown,
+  Loader2,
+  RefreshCw,
+} from "lucide-react";
 import { remainingRangeMiles } from "@/app/lib/detourCalculator";
 import {
   BRAND_FILTER_OPTIONS,
+  distinctBrandOptions,
   type BrandFilter,
 } from "@/app/lib/brandCategory";
 import { usePitstopStore } from "@/app/lib/store";
@@ -39,6 +47,9 @@ export function StationList() {
     setSortKey,
     brandFilter,
     setBrandFilter,
+    excludedBrands,
+    toggleExcludedBrand,
+    clearExcludedBrands,
     selectedStationId,
     setSelectedStationId,
     setSidebarOpen,
@@ -60,6 +71,12 @@ export function StationList() {
   const filterLabel =
     BRAND_FILTER_OPTIONS.find((o) => o.key === brandFilter)?.label ?? "All";
   const rangeMiles = remainingRangeMiles(vehicle);
+  const brandOptions = distinctBrandOptions(stations);
+  const [brandPanelOpen, setBrandPanelOpen] = useState(false);
+  const hiddenBrandsSuffix =
+    excludedBrands.length === 0
+      ? ""
+      : ` · ${excludedBrands.length} ${excludedBrands.length === 1 ? "brand" : "brands"} hidden`;
 
   const handleSelect = (stationId: string) => {
     setSelectedStationId(stationId);
@@ -94,7 +111,7 @@ export function StationList() {
           <p className="mt-0.5 text-xs text-slate-500">
             {loading
               ? "Fetching Fuel Finder prices (first load can take a minute)…"
-              : `${enriched.length} in range (≤${rangeMiles.toFixed(0)} mi) · ${stations.length} on corridor · ${filterLabel} · ${SORT_OPTIONS.find((s) => s.key === sortKey)?.label.toLowerCase()}`}
+              : `${enriched.length} in range (≤${rangeMiles.toFixed(0)} mi) · ${stations.length} on corridor · ${filterLabel} · ${SORT_OPTIONS.find((s) => s.key === sortKey)?.label.toLowerCase()}${hiddenBrandsSuffix}`}
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-1.5">
@@ -171,7 +188,79 @@ export function StationList() {
             </button>
           );
         })}
+        {brandOptions.length > 0 && (
+          <button
+            type="button"
+            onClick={() => setBrandPanelOpen((open) => !open)}
+            title="Hide brands you can't or don't want to use (e.g. membership-only forecourts)"
+            aria-expanded={brandPanelOpen}
+            className={cn(
+              "inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-[11px] font-semibold transition",
+              excludedBrands.length > 0
+                ? "bg-rose-500/15 text-rose-300 ring-1 ring-rose-500/40 hover:bg-rose-500/25"
+                : "bg-slate-900/80 text-slate-400 ring-1 ring-slate-700/60 hover:bg-slate-800 hover:text-slate-200"
+            )}
+          >
+            <Ban className="h-3 w-3" />
+            Hide brands
+            {excludedBrands.length > 0 && ` (${excludedBrands.length})`}
+            <ChevronDown
+              className={cn(
+                "h-3 w-3 transition-transform",
+                brandPanelOpen && "rotate-180"
+              )}
+            />
+          </button>
+        )}
       </div>
+
+      {brandPanelOpen && brandOptions.length > 0 && (
+        <div className="mb-3 rounded-lg bg-slate-900/60 p-2.5 ring-1 ring-slate-700/60">
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <p className="text-[11px] text-slate-400">
+              Tap a brand to hide its stations — handy for membership-only
+              forecourts like Costco.
+            </p>
+            {excludedBrands.length > 0 && (
+              <button
+                type="button"
+                onClick={clearExcludedBrands}
+                className="shrink-0 text-[11px] font-semibold text-teal-300 transition hover:text-teal-200"
+              >
+                Show all
+              </button>
+            )}
+          </div>
+          <div
+            className="flex max-h-36 flex-wrap gap-1.5 overflow-y-auto pr-1"
+            role="group"
+            aria-label="Hidden brands"
+          >
+            {brandOptions.map((opt) => {
+              const hidden = excludedBrands.includes(opt.key);
+              return (
+                <button
+                  key={opt.key}
+                  type="button"
+                  aria-pressed={hidden}
+                  onClick={() => toggleExcludedBrand(opt.key)}
+                  className={cn(
+                    "rounded-md px-2 py-1 text-[11px] font-medium transition",
+                    hidden
+                      ? "bg-rose-500/15 text-rose-300 line-through ring-1 ring-rose-500/40 hover:bg-rose-500/25"
+                      : "bg-slate-950/60 text-slate-300 ring-1 ring-slate-700/60 hover:bg-slate-800 hover:text-slate-100"
+                  )}
+                >
+                  {opt.label}
+                  <span className="ml-1 text-[10px] text-slate-500">
+                    {opt.count}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {error && !loading && (
         <div className="mb-2 rounded-lg bg-rose-950/50 px-3 py-2.5 ring-1 ring-rose-500/30">
@@ -199,6 +288,30 @@ export function StationList() {
         stations.length > 0 &&
         enriched.length === 0 &&
         !error &&
+        excludedBrands.length > 0 && (
+          <div className="rounded-lg border border-dashed border-slate-700 px-3 py-8 text-center text-sm text-slate-500">
+            <p>
+              Every in-range forecourt is hidden by your brand exclusions
+              {brandFilter !== "all"
+                ? ` or the ${filterLabel.toLowerCase()} filter`
+                : ""}
+              .
+            </p>
+            <button
+              type="button"
+              onClick={clearExcludedBrands}
+              className="mt-2 text-[12px] font-semibold text-teal-300 transition hover:text-teal-200"
+            >
+              Show all brands
+            </button>
+          </div>
+        )}
+
+      {!loading &&
+        stations.length > 0 &&
+        enriched.length === 0 &&
+        !error &&
+        excludedBrands.length === 0 &&
         brandFilter !== "all" && (
           <p className="rounded-lg border border-dashed border-slate-700 px-3 py-8 text-center text-sm text-slate-500">
             No {filterLabel.toLowerCase()} forecourts within your{" "}
@@ -211,6 +324,7 @@ export function StationList() {
         stations.length > 0 &&
         enriched.length === 0 &&
         !error &&
+        excludedBrands.length === 0 &&
         brandFilter === "all" && (
           <p className="rounded-lg border border-dashed border-slate-700 px-3 py-8 text-center text-sm text-slate-500">
             No corridor forecourts within your {rangeMiles.toFixed(0)} mi

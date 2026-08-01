@@ -9,7 +9,6 @@ import {
   Polyline,
   CircleMarker,
   useMap,
-  ZoomControl,
 } from "react-leaflet";
 import L from "leaflet";
 import MarkerClusterGroup from "react-leaflet-cluster";
@@ -136,6 +135,29 @@ function InvalidateOnResize() {
   return null;
 }
 
+/**
+ * react-leaflet's <ZoomControl> attaches during render commit and crashes with
+ * "Cannot read properties of undefined (reading 'topright')" when fast refresh
+ * hands it a torn-down map whose control corners are gone. Attach the control
+ * in an effect and bail out if the map has already been destroyed.
+ */
+function SafeZoomControl({ position }: { position: L.ControlPosition }) {
+  const map = useMap();
+
+  useEffect(() => {
+    const corners = (map as unknown as { _controlCorners?: unknown })
+      ._controlCorners;
+    if (!corners) return;
+    const control = L.control.zoom({ position });
+    control.addTo(map);
+    return () => {
+      control.remove();
+    };
+  }, [map, position]);
+
+  return null;
+}
+
 function FitBounds({ points }: { points: GeoPoint[] }) {
   const map = useMap();
   const key = points.map((p) => `${p.lat.toFixed(5)},${p.lng.toFixed(5)}`).join("|");
@@ -170,6 +192,14 @@ export default function MapView() {
     const id = window.setInterval(() => setNow(Date.now()), 30_000);
     return () => window.clearInterval(id);
   }, []);
+
+  // Fresh key per component instance: fast refresh can leave the previous
+  // Leaflet map attached to the old DOM node, and Leaflet throws "Map
+  // container is being reused by another instance" if it re-initialises on
+  // that node. A per-mount key guarantees a brand-new container element.
+  const [mapInstanceKey] = useState(
+    () => `map-${Math.random().toString(36).slice(2)}`
+  );
 
   const selected = enriched.find((e) => e.station.id === selectedStationId);
 
@@ -295,6 +325,7 @@ export default function MapView() {
 
   return (
     <MapContainer
+      key={mapInstanceKey}
       center={
         originCoords
           ? [originCoords.lat, originCoords.lng]
@@ -306,7 +337,7 @@ export default function MapView() {
       attributionControl
     >
       <InvalidateOnResize />
-      <ZoomControl position="topright" />
+      <SafeZoomControl position="topright" />
       <TileLayer
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> · Routing © <a href="http://project-osrm.org">OSRM</a>'
         url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
