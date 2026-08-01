@@ -78,7 +78,6 @@ export default function HomePage() {
               <h1 className="text-lg font-bold tracking-tight text-white">
                 PitstopIQ
               </h1>
-              <ShareTripButton />
             </div>
           </div>
           <button
@@ -112,6 +111,7 @@ export default function HomePage() {
             <Coffee className="h-3.5 w-3.5" />
             Buy me a coffee
           </a>
+          <ShareTripButton />
         </footer>
       </aside>
 
