@@ -42,9 +42,11 @@ jobs:
         env:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
-          # NEXT_PUBLIC_ vars are inlined at build time; the Vercel env pull
-          # returns empty strings for sensitive vars, so inject it here.
+          # Sensitive vars come back empty from `vercel pull`. Inject the
+          # public auth origin so Better Auth can prerender /login & /register.
+          # Runtime secrets (DATABASE_URL, BETTER_AUTH_SECRET) stay on Vercel.
           NEXT_PUBLIC_ADSENSE_CLIENT: ${{ vars.NEXT_PUBLIC_ADSENSE_CLIENT }}
+          BETTER_AUTH_URL: https://pitstopiq.vercel.app
 
       - name: Deploy
         id: deploy

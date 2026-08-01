@@ -73,7 +73,7 @@ Production uses [Neon](https://neon.tech) Postgres. Set these on the Vercel proj
 | --- | --- |
 | `DATABASE_URL` | Neon pooled connection string (`…-pooler…` host, `sslmode=require`) |
 | `BETTER_AUTH_SECRET` | `openssl rand -base64 32` |
-| `BETTER_AUTH_URL` | `https://pitstopiq.vercel.app` (or your custom domain) |
+| `BETTER_AUTH_URL` | `https://pitstopiq.vercel.app` (public; use `--no-sensitive` so CI/`vercel pull` can read it) |
 
 Create the auth tables once against Neon (run locally; never commit the URL):
 

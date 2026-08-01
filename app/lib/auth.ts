@@ -1,9 +1,11 @@
 import { betterAuth } from "better-auth";
 import { nextCookies } from "better-auth/next-js";
+import { resolveAuthBaseURL } from "@/app/lib/auth-url";
 import { createAuthDatabase } from "@/app/lib/db";
 
 export const auth = betterAuth({
   appName: "PitstopIQ",
+  baseURL: resolveAuthBaseURL(),
   database: createAuthDatabase(),
   emailAndPassword: {
     enabled: true,
