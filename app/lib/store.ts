@@ -143,6 +143,8 @@ interface PitstopState {
   setSelectedStationId: (id: string | null) => void;
   addRecentPlace: (place: PlaceSuggestion) => void;
   clearRecentPlaces: () => void;
+  /** Replace recent places from cloud sync. */
+  replaceRecentPlaces: (places: PlaceSuggestion[]) => void;
   loadDetourRoute: (stationId: string) => Promise<void>;
   setSidebarOpen: (open: boolean) => void;
   applyVehiclePreset: (id: string) => void;
@@ -354,6 +356,8 @@ export const usePitstopStore = create<PitstopState>()(
           recentPlaces: addToRecentPlaces(s.recentPlaces, place),
         })),
       clearRecentPlaces: () => set({ recentPlaces: [] }),
+      replaceRecentPlaces: (places) =>
+        set({ recentPlaces: sanitizeRecentPlaces(places) }),
 
       loadDetourRoute: async (stationId) => {
         const {

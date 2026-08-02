@@ -33,6 +33,10 @@ Query params: `from`, `to` (lat,lng), `fromLabel`, `toLabel`, `fuel`, `mpg`, `ta
 
 Named profiles (fuel grade, MPG, tank size) live in the sidebar. Guests keep them in `localStorage` on this browser; signed-in users sync the same presets to the database so they follow you across devices.
 
+## Recent searches
+
+Origin and destination picks appear under **Recent searches** in the place autocomplete. Guests keep them in `localStorage`; signed-in users sync the same history to the account across devices.
+
 ## Brand filters
 
 Stations can be filtered to **Supermarket** (Tesco, Asda, Sainsbury’s…), **Motorway** (Moto, Welcome Break, Roadchef, MSA…), or **Premium** (Shell, BP, Esso…). Classification uses brand + trading-name heuristics.
