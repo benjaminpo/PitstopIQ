@@ -33,6 +33,7 @@ describe("resolveBrandLogo", () => {
     expect(resolveBrandLogo("Gulf").domain).toBeUndefined();
     expect(resolveBrandLogo("Jet").src).toBe("/brands/jet.svg");
     expect(resolveBrandLogo("Jet").domain).toBeUndefined();
+    expect(resolveBrandLogo("Valero").src).toBe("/brands/valero.png");
     expect(resolveBrandLogo("Tesco").id).toBe("tesco");
     expect(resolveBrandLogo("Sainsbury's").id).toBe("sainsburys");
     expect(resolveBrandLogo("Sainsbury's").domain).toBe(

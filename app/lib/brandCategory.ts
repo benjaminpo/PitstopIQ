@@ -62,6 +62,7 @@ const PREMIUM_PATTERNS = [
   /\bapplegreen\b/i,
   /\bcircle\s*k\b/i,
   /\bharrison'?s?\b/i,
+  /\bvalero\b/i,
   /\bqfuel\b/i,
 ];
 

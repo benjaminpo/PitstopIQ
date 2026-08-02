@@ -235,6 +235,15 @@ const KNOWN_BRANDS: BrandDef[] = [
     fg: "#F5C518",
   },
   {
+    id: "valero",
+    patterns: [/\bvalero\b/i],
+    // Favicons are stubs — public-domain Valero V + ribbon (Wikimedia)
+    src: "/brands/valero.png",
+    initials: "Va",
+    bg: "#0054A4",
+    fg: "#FFD200",
+  },
+  {
     id: "qfuel",
     patterns: [/\bqfuel\b/i],
     domain: "q8.com",
