@@ -377,11 +377,14 @@ export function RouteForm() {
         </div>
       </label>
 
-      <label htmlFor="refill-amount" className="block space-y-2">
+      <div className="block space-y-2">
         <div className="flex items-center justify-between">
-          <span className="text-xs font-medium uppercase tracking-wide text-slate-400">
+          <label
+            htmlFor="refill-amount"
+            className="text-xs font-medium uppercase tracking-wide text-slate-400"
+          >
             Refill amount
-          </span>
+          </label>
           <span className="font-mono text-sm font-semibold text-teal-300">
             {litresToRefill.toFixed(0)} L · {refillPct}%
           </span>
@@ -395,12 +398,13 @@ export function RouteForm() {
           value={litresToRefill}
           onChange={(e) => setLitresToRefill(Number(e.target.value))}
           className="w-full accent-teal-500"
+          aria-valuetext={`${litresToRefill.toFixed(0)} litres, ${refillPct}% of tank`}
         />
         <div className="flex justify-between text-[10px] text-slate-500">
           <span>5 L</span>
           <span>{maxRefill} L tank</span>
         </div>
-      </label>
+      </div>
 
       <label htmlFor="value-of-time" className="block space-y-2">
         <div className="flex items-center justify-between">

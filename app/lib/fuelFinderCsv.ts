@@ -131,9 +131,11 @@ function truthyFlag(raw: string | undefined): boolean {
  * Map a Fuel Finder national prices CSV into app stations.
  * Prices are pence/litre (same as the JSON API); timestamps are JS Date strings.
  */
+const DEFAULT_ROUTE_CENTRE: GeoPoint = { lat: 54.0, lng: -2.5 };
+
 export function parseFuelFinderCsv(
   text: string,
-  routeCentre: GeoPoint = { lat: 54.0, lng: -2.5 }
+  routeCentre: GeoPoint = DEFAULT_ROUTE_CENTRE
 ): FuelStation[] {
   const records = parseCsvRecords(text);
   if (records.length < 2) return [];

@@ -28,6 +28,13 @@ describe("parseCsvRecords", () => {
       ["1", "2"],
     ]);
   });
+
+  it("drops a trailing empty record from a blank final line", () => {
+    expect(parseCsvRecords("a,b\n1,2\n\n")).toEqual([
+      ["a", "b"],
+      ["1", "2"],
+    ]);
+  });
 });
 
 describe("parseFuelFinderCsv", () => {
@@ -65,15 +72,30 @@ badcoords,X,Y,false,false,not-a-lat,-0.1,,,130.0,,
 noprices,Brand Only,,false,false,51.5,-0.1,,,,,,
 brandless,,Only Brand,false,false,51.5,-0.1,,,130.0,,
 nameless,,,false,false,51.5,-0.1,1.329,,,
+flag1,ONE,GULF,false,1,51.5,-0.1,,,130.0,,
+
 `;
     const stations = parseFuelFinderCsv(csv, { lat: 51.5, lng: -0.1 });
     expect(stations).toHaveLength(2);
     expect(stations.find((s) => s.id === "noprices")).toBeUndefined();
+    expect(stations.find((s) => s.id === "flag1")).toBeUndefined();
     expect(stations.find((s) => s.id === "brandless")?.name).toBe("Only Brand");
     expect(stations.find((s) => s.id === "brandless")?.brand).toBe("Only Brand");
     expect(stations.find((s) => s.id === "nameless")?.name).toBe("Forecourt");
     expect(stations.find((s) => s.id === "nameless")?.brand).toBe("Unknown");
     expect(stations.find((s) => s.id === "nameless")?.pricesLastUpdatedAt).toBeNull();
+  });
+
+  it("skips empty CSV rows and missing header columns", () => {
+    const csv = `forecourts.node_id,forecourts.location.latitude,forecourts.location.longitude,forecourts.fuel_price.E10
+
+solo,x,y,130.0
+ok,51.5,-0.1,140.0
+`;
+    const stations = parseFuelFinderCsv(csv);
+    expect(stations).toHaveLength(1);
+    expect(stations[0].id).toBe("ok");
+    expect(stations[0].name).toBe("Forecourt");
   });
 
   it("returns an empty list for blank or header-only CSV", () => {

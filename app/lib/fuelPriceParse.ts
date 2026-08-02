@@ -15,8 +15,8 @@ export function parsePriceLastUpdated(
     );
   if (ukFormat) {
     const [, dd, mm, yyyy, hh, min, ss] = ukFormat;
-    const t = Date.UTC(+yyyy, +mm - 1, +dd, +hh, +min, ss ? +ss : 0);
-    return Number.isFinite(t) ? t : undefined;
+    // Digit captures always yield a finite epoch (Date.UTC overflows invalid calendar days).
+    return Date.UTC(+yyyy, +mm - 1, +dd, +hh, +min, ss ? +ss : 0);
   }
 
   const t = Date.parse(trimmed);

@@ -20,8 +20,10 @@ export default defineConfig({
         "app/lib/freshness.ts",
         "app/lib/adsense.ts",
         "app/lib/locationHistory.ts",
+        "app/lib/fuelConstants.ts",
         "app/lib/fuelFinderCsv.ts",
         "app/lib/fuelPriceParse.ts",
+        "app/lib/vehiclePresets.ts",
       ],
       thresholds: {
         lines: 90,
