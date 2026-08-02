@@ -104,7 +104,7 @@ export function StationList() {
           <h2 className="text-sm font-semibold text-slate-100">Stations</h2>
           <p className="mt-0.5 text-xs text-slate-500">
             {loading
-              ? "Fetching Fuel Finder prices (first load can take a minute)…"
+              ? "Fetching Fuel Finder prices…"
               : `${enriched.length} in range (≤${rangeMiles.toFixed(0)} mi) · ${stations.length} on corridor · ${filterLabel} · ${SORT_OPTIONS.find((s) => s.key === sortKey)?.label.toLowerCase()}${hiddenBrandsSuffix}`}
           </p>
         </div>

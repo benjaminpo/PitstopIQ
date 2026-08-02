@@ -1,10 +1,23 @@
+import {
+  decryptFuelFinderNxhex,
+  extractCsvPresign,
+  parseFuelFinderCsv,
+} from "./fuelFinderCsv";
+import {
+  parsePriceLastUpdated,
+  parsePriceToGbpPerLitre,
+} from "./fuelPriceParse";
 import type { FuelStation, FuelType, GeoPoint, MapBounds } from "./types";
+
+export { parsePriceLastUpdated, parsePriceToGbpPerLitre } from "./fuelPriceParse";
 
 const DEFAULT_BASE_URL = "https://www.fuel-finder.service.gov.uk";
 const TOKEN_PATH = "/api/v1/oauth/generate_access_token";
 const REFRESH_PATH = "/api/v1/oauth/regenerate_access_token";
 const PFS_PATH = "/api/v1/pfs";
 const PRICES_PATH = "/api/v1/pfs/fuel-prices";
+/** Portal internal endpoint → S3 presigned URL for the national prices CSV */
+const CSV_PRESIGN_PATH = "/internal/v1.0.2/csv/generate-presigned-url";
 
 const BATCH_SIZE = 500;
 const MIN_REQUEST_GAP_MS = 2100;
@@ -228,43 +241,6 @@ async function requestToken(
   return access;
 }
 
-/**
- * Parse the API's price_last_updated string to epoch ms.
- * Handles ISO 8601 and the legacy CMA "dd/MM/yyyy HH:mm:ss" format.
- */
-export function parsePriceLastUpdated(
-  raw: string | null | undefined
-): number | undefined {
-  if (!raw) return undefined;
-  const trimmed = raw.trim();
-  if (!trimmed) return undefined;
-
-  const ukFormat =
-    /^(\d{2})\/(\d{2})\/(\d{4})[ T](\d{2}):(\d{2})(?::(\d{2}))?$/.exec(
-      trimmed
-    );
-  if (ukFormat) {
-    const [, dd, mm, yyyy, hh, min, ss] = ukFormat;
-    const t = Date.UTC(+yyyy, +mm - 1, +dd, +hh, +min, ss ? +ss : 0);
-    return Number.isFinite(t) ? t : undefined;
-  }
-
-  const t = Date.parse(trimmed);
-  return Number.isFinite(t) ? t : undefined;
-}
-
-/** Convert API price (usually pence, sometimes £) to £/litre */
-export function parsePriceToGbpPerLitre(
-  raw: string | number | null | undefined
-): number | undefined {
-  if (raw == null || raw === "") return undefined;
-  const n = typeof raw === "number" ? raw : Number.parseFloat(raw);
-  if (!Number.isFinite(n) || n <= 0) return undefined;
-  // Values under ~10 are almost certainly already in pounds
-  if (n < 10) return Number(n.toFixed(3));
-  return Number((n / 100).toFixed(3));
-}
-
 function haversineMiles(a: GeoPoint, b: GeoPoint): number {
   const R = 3958.7613;
   const dLat = ((b.lat - a.lat) * Math.PI) / 180;
@@ -286,6 +262,20 @@ function inBounds(point: GeoPoint, bounds: MapBounds): boolean {
   );
 }
 
+/**
+ * Fuel Finder ends pagination with HTTP 404 + "Requested batch N is not
+ * available" when the previous page was a full 500 rows (so we cannot rely
+ * on a short final page alone).
+ */
+export function isPastLastFuelFinderBatch(
+  status: number,
+  body: string
+): boolean {
+  return (
+    status === 404 && /requested batch \d+ is not available/i.test(body)
+  );
+}
+
 async function fetchAllBatches<T>(path: string): Promise<T[]> {
   const all: T[] = [];
 
@@ -295,6 +285,11 @@ async function fetchAllBatches<T>(path: string): Promise<T[]> {
 
     if (!response.ok) {
       const text = await response.text().catch(() => "");
+      // After at least one successful page, treat "batch not available" as
+      // end-of-data rather than a hard failure.
+      if (batch > 1 && isPastLastFuelFinderBatch(response.status, text)) {
+        break;
+      }
       throw new Error(`Fuel Finder ${path} batch ${batch} → ${response.status}: ${text}`);
     }
 
@@ -391,7 +386,57 @@ function aggregatePriceRows(priceRows: ApiPriceStation[]): {
   return { pricesByNode, updatedByNode };
 }
 
-async function refreshDataset(): Promise<CachedDataset> {
+async function refreshFromCsv(): Promise<CachedDataset> {
+  const response = await fuelFinderFetch(CSV_PRESIGN_PATH, { method: "GET" });
+  if (!response.ok) {
+    const text = await response.text().catch(() => "");
+    throw new Error(
+      `Fuel Finder CSV presign → ${response.status}: ${text.slice(0, 200)}`
+    );
+  }
+
+  const raw = (await response.json()) as unknown;
+  const decrypted =
+    raw &&
+    typeof raw === "object" &&
+    "nxhex" in raw &&
+    "iv" in raw
+      ? decryptFuelFinderNxhex(
+          raw as { nxhex: string; iv: string }
+        )
+      : raw;
+
+  const presign = extractCsvPresign(decrypted);
+  if (!presign) {
+    throw new Error("Fuel Finder CSV presign response missing redirectUrl");
+  }
+
+  const csvResponse = await fetch(presign.redirectUrl, {
+    method: "GET",
+    headers: { "User-Agent": USER_AGENT },
+    cache: "no-store",
+  });
+  if (!csvResponse.ok) {
+    throw new Error(
+      `Fuel Finder CSV download → ${csvResponse.status}`
+    );
+  }
+
+  const text = await csvResponse.text();
+  const UK_CENTRE: GeoPoint = { lat: 54.0, lng: -2.5 };
+  const stations = parseFuelFinderCsv(text, UK_CENTRE);
+  if (stations.length === 0) {
+    throw new Error("Fuel Finder CSV contained no usable stations");
+  }
+
+  const generatedAt = parsePriceLastUpdated(presign.generatedAt ?? undefined);
+  return {
+    fetchedAt: generatedAt ?? Date.now(),
+    stations,
+  };
+}
+
+async function refreshFromApi(): Promise<CachedDataset> {
   // Sequential on purpose — Fuel Finder requires waiting for each response
   // before the next request (30 rpm Information Recipient limit).
   const stations = await fetchAllBatches<ApiStation>(PFS_PATH);
@@ -402,9 +447,30 @@ async function refreshDataset(): Promise<CachedDataset> {
   const UK_CENTRE: GeoPoint = { lat: 54.0, lng: -2.5 };
   const mapped = mapStations(stations, pricesByNode, updatedByNode, UK_CENTRE);
 
-  datasetCache = { fetchedAt: Date.now(), stations: mapped };
+  return { fetchedAt: Date.now(), stations: mapped };
+}
+
+async function refreshDataset(): Promise<CachedDataset> {
+  // Prefer the twice-daily national CSV (one request + S3 download) over the
+  // rate-limited batch JSON API, which is flaky under pagination.
+  try {
+    const fromCsv = await refreshFromCsv();
+    datasetCache = fromCsv;
+    console.info(
+      `[fuelFinder] cached ${fromCsv.stations.length} stations from CSV`
+    );
+    return datasetCache;
+  } catch (error) {
+    console.warn(
+      "[fuelFinder] CSV refresh failed, falling back to JSON API:",
+      error
+    );
+  }
+
+  const fromApi = await refreshFromApi();
+  datasetCache = fromApi;
   console.info(
-    `[fuelFinder] cached ${mapped.length} stations with prices (${stations.length} PFS / ${priceRows.length} price rows)`
+    `[fuelFinder] cached ${fromApi.stations.length} stations from API`
   );
   return datasetCache;
 }

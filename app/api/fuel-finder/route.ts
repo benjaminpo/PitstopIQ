@@ -31,8 +31,8 @@ function parseBounds(searchParams: URLSearchParams): MapBounds {
  * GET /api/fuel-finder
  * Query: north, south, east, west (optional — defaults to M4 corridor)
  *
- * Uses UK Fuel Finder OAuth when FUEL_FINDER_CLIENT_ID / SECRET are set.
- * First live load may take ~1–2 minutes while the national dataset is cached.
+ * Uses UK Fuel Finder: national CSV first (fast), JSON batch API as backup.
+ * First live load is usually a few seconds once the CSV presign succeeds.
  */
 export async function GET(request: NextRequest) {
   try {
