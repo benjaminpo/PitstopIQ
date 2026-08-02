@@ -123,10 +123,18 @@ Without credentials the app uses mock stations **in development only** (clearly 
 
 Workflows in `.github/workflows/`:
 
-- **CI** — lint + build on push/PR to `main`
+- **CI** — lint, test (with coverage), build, and [SonarCloud](https://sonarcloud.io/dashboard?id=benjaminpo_PitstopIQ) analysis on push/PR to `main`
 - **Deploy to Vercel** — production deploy on push to `main` (and manual `workflow_dispatch`)
 
-Required GitHub secrets: `VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID`.
+Required GitHub secrets: `VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID`, `SONAR_TOKEN`.
+
+### SonarCloud
+
+Project key `benjaminpo_PitstopIQ` (org `benjaminpo-gh`). Config lives in `sonar-project.properties`.
+
+1. In [SonarCloud](https://sonarcloud.io) → project **Administration** → **Analysis Method**: **disable Automatic Analysis** (CI analysis conflicts with Autoscan).
+2. Create a token (**My Account** → **Security**) and add it as the GitHub Actions secret `SONAR_TOKEN`.
+3. Push or open a PR — CI uploads coverage from `coverage/lcov.info` and fails the job if analysis cannot authenticate.
 
 Fuel Finder credentials stay on the Vercel project env (pulled during deploy). Git auto-deploys from Vercel are disabled so only Actions ships production.
 

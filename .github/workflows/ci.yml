@@ -19,6 +19,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          # Full history improves SonarCloud blame / new-code detection
+          fetch-depth: 0
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -40,3 +43,8 @@ jobs:
         env:
           # Build does not need live Fuel Finder credentials
           FUEL_FINDER_BASE_URL: https://www.fuel-finder.service.gov.uk
+
+      - name: SonarCloud Scan
+        uses: SonarSource/sonarqube-scan-action@v8.2.1
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
