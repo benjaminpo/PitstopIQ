@@ -1,31 +1,44 @@
-import { describe, expect, it } from "vitest";
+import { createCipheriv, createHash, randomBytes } from "node:crypto";
+import { afterEach, describe, expect, it } from "vitest";
 import {
   decryptFuelFinderNxhex,
   extractCsvPresign,
+  getFuelFinderTransportSecret,
   parseCsvRecords,
   parseFuelFinderCsv,
 } from "./fuelFinderCsv";
-import { createCipheriv, createHash, randomBytes } from "node:crypto";
 
-const SAMPLE_CSV = `forecourt_update_timestamp,forecourts.node_id,forecourts.trading_name,forecourts.brand_name,forecourts.is_motorway_service_station,forecourts.is_supermarket_service_station,forecourts.public_phone_number,forecourts.temporary_closure,forecourts.permanent_closure,forecourts.permanent_closure_date,forecourts.location.postcode,forecourts.location.address_line_1,forecourts.location.address_line_2,forecourts.location.city,forecourts.location.county,forecourts.location.country,forecourts.location.latitude,forecourts.location.longitude,forecourts.fuel_price.E5,forecourts.price_submission_timestamp.E5,forecourts.price_change_effective_timestamp.E5,forecourts.fuel_price.E10,forecourts.price_submission_timestamp.E10,forecourts.price_change_effective_timestamp.E10,forecourts.fuel_price.B7S,forecourts.price_submission_timestamp.B7S,forecourts.price_change_effective_timestamp.B7S,forecourts.fuel_price.B7P,forecourts.price_submission_timestamp.B7P,forecourts.price_change_effective_timestamp.B7P,forecourts.fuel_price.B10,forecourts.price_submission_timestamp.B10,forecourts.price_change_effective_timestamp.B10,forecourts.fuel_price.HVO,forecourts.price_submission_timestamp.HVO,forecourts.price_change_effective_timestamp.HVO
-Fri Jul 31 2026 16:10:16 GMT+0000 (Coordinated Universal Time),abc123,PONTYPOOL SUPERSTORE,TESCO,false,true,+44800,false,false,,NP4 6JU,LOWER BRIDGE STREET,,PONTYPOOL,,WALES,51.7000700,-3.0402500,,,,154.9000,Fri Jul 31 2026 16:15:08 GMT+0000 (Coordinated Universal Time),Fri Jul 31 2026 16:10:16 GMT+0000 (Coordinated Universal Time),135.9000,Fri Jul 31 2026 16:15:08 GMT+0000 (Coordinated Universal Time),Fri Jul 31 2026 16:10:16 GMT+0000 (Coordinated Universal Time),,,,,,,,,,,
-Fri Jul 31 2026 14:36:15 GMT+0000 (Coordinated Universal Time),closed1,CLOSED SITE,GULF,false,false,,true,false,,GL54 5NT,ROAD,,TOWN,,ENGLAND,51.96,-1.95,,,,161.7000,Fri Jul 31 2026 14:36:15 GMT+0000 (Coordinated Universal Time),Fri Jul 31 2026 14:36:15 GMT+0000 (Coordinated Universal Time),,,,,,,,,,,,,
-Fri Jul 31 2026 14:36:15 GMT+0000 (Coordinated Universal Time),quoted,"SHELL, READING",SHELL,false,false,,false,false,,RG1 1AA,"HIGH STREET, WEST",,READING,,ENGLAND,51.45,-0.97,142.9000,Fri Jul 31 2026 14:36:15 GMT+0000 (Coordinated Universal Time),Fri Jul 31 2026 14:36:15 GMT+0000 (Coordinated Universal Time),132.9000,Fri Jul 31 2026 14:36:15 GMT+0000 (Coordinated Universal Time),Fri Jul 31 2026 14:36:15 GMT+0000 (Coordinated Universal Time),,,,,,,,,,,,,
-`;
+const HEADER =
+  "forecourts.node_id,forecourts.trading_name,forecourts.brand_name,forecourts.temporary_closure,forecourts.permanent_closure,forecourts.location.latitude,forecourts.location.longitude,forecourts.fuel_price.E5,forecourts.price_submission_timestamp.E5,forecourts.fuel_price.E10,forecourts.price_submission_timestamp.E10,forecourts.fuel_price.B7S,forecourts.price_submission_timestamp.B7S";
 
 describe("parseCsvRecords", () => {
-  it("handles quoted fields with commas", () => {
-    const rows = parseCsvRecords('a,"b,c",d\n1,"2,3",4\n');
-    expect(rows).toEqual([
+  it("handles quoted fields, escaped quotes, and CR", () => {
+    expect(parseCsvRecords('a,"b,c",d\n1,"2,3",4\n')).toEqual([
       ["a", "b,c", "d"],
       ["1", "2,3", "4"],
+    ]);
+    expect(parseCsvRecords('"say ""hi""",x\r\n')).toEqual([
+      ['say "hi"', "x"],
+    ]);
+  });
+
+  it("keeps a final row when the file has no trailing newline", () => {
+    expect(parseCsvRecords("a,b\n1,2")).toEqual([
+      ["a", "b"],
+      ["1", "2"],
     ]);
   });
 });
 
 describe("parseFuelFinderCsv", () => {
   it("maps open stations with E10/E5/B7 prices and skips closures", () => {
-    const stations = parseFuelFinderCsv(SAMPLE_CSV);
+    const csv = `${HEADER}
+abc123,PONTYPOOL SUPERSTORE,TESCO,false,false,51.7000700,-3.0402500,,,154.9000,Fri Jul 31 2026 16:15:08 GMT+0000 (Coordinated Universal Time),135.9000,Fri Jul 31 2026 16:15:08 GMT+0000 (Coordinated Universal Time)
+closed1,CLOSED SITE,GULF,true,false,51.96,-1.95,,,161.7000,Fri Jul 31 2026 14:36:15 GMT+0000 (Coordinated Universal Time),,
+perm1,GONE,BP,false,yes,51.5,-0.1,,,130.0,Fri Jul 31 2026 14:36:15 GMT+0000 (Coordinated Universal Time),,
+quoted,"SHELL, READING",SHELL,false,false,51.45,-0.97,142.9000,Fri Jul 31 2026 14:36:15 GMT+0000 (Coordinated Universal Time),132.9000,Fri Jul 31 2026 14:36:15 GMT+0000 (Coordinated Universal Time),,
+`;
+    const stations = parseFuelFinderCsv(csv);
     expect(stations).toHaveLength(2);
 
     const tesco = stations.find((s) => s.id === "abc123");
@@ -42,6 +55,46 @@ describe("parseFuelFinderCsv", () => {
     expect(shell?.prices.E10).toBe(1.329);
 
     expect(stations.some((s) => s.id === "closed1")).toBe(false);
+    expect(stations.some((s) => s.id === "perm1")).toBe(false);
+  });
+
+  it("skips malformed or priceless rows and applies name fallbacks", () => {
+    const csv = `${HEADER}
+,No Id,X,false,false,51.5,-0.1,,,130.0,,
+badcoords,X,Y,false,false,not-a-lat,-0.1,,,130.0,,
+noprices,Brand Only,,false,false,51.5,-0.1,,,,,,
+brandless,,Only Brand,false,false,51.5,-0.1,,,130.0,,
+nameless,,,false,false,51.5,-0.1,1.329,,,
+`;
+    const stations = parseFuelFinderCsv(csv, { lat: 51.5, lng: -0.1 });
+    expect(stations).toHaveLength(2);
+    expect(stations.find((s) => s.id === "noprices")).toBeUndefined();
+    expect(stations.find((s) => s.id === "brandless")?.name).toBe("Only Brand");
+    expect(stations.find((s) => s.id === "brandless")?.brand).toBe("Only Brand");
+    expect(stations.find((s) => s.id === "nameless")?.name).toBe("Forecourt");
+    expect(stations.find((s) => s.id === "nameless")?.brand).toBe("Unknown");
+    expect(stations.find((s) => s.id === "nameless")?.pricesLastUpdatedAt).toBeNull();
+  });
+
+  it("returns an empty list for blank or header-only CSV", () => {
+    expect(parseFuelFinderCsv("")).toEqual([]);
+    expect(parseFuelFinderCsv("a,b\n")).toEqual([]);
+  });
+});
+
+describe("getFuelFinderTransportSecret", () => {
+  afterEach(() => {
+    delete process.env.FUEL_FINDER_TRANSPORT_SECRET;
+  });
+
+  it("uses the env override when set", () => {
+    process.env.FUEL_FINDER_TRANSPORT_SECRET = " custom-secret ";
+    expect(getFuelFinderTransportSecret()).toBe("custom-secret");
+  });
+
+  it("falls back to the portal default", () => {
+    delete process.env.FUEL_FINDER_TRANSPORT_SECRET;
+    expect(getFuelFinderTransportSecret().length).toBeGreaterThan(20);
   });
 });
 
@@ -69,6 +122,20 @@ describe("decryptFuelFinderNxhex + extractCsvPresign", () => {
     expect(extractCsvPresign(decrypted)).toEqual({
       redirectUrl: "https://example.com/prices.csv",
       generatedAt: "2026-08-02T09:00:19.495Z",
+    });
+  });
+
+  it("rejects invalid or incomplete presign payloads", () => {
+    expect(extractCsvPresign(null)).toBeNull();
+    expect(extractCsvPresign("nope")).toBeNull();
+    expect(extractCsvPresign({ success: true, data: {} })).toBeNull();
+    expect(
+      extractCsvPresign({
+        data: { redirectUrl: "  https://example.com/a.csv  " },
+      })
+    ).toEqual({
+      redirectUrl: "https://example.com/a.csv",
+      generatedAt: null,
     });
   });
 });
