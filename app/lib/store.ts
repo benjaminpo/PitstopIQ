@@ -35,6 +35,11 @@ import {
 } from "./routing";
 import type { TripSnapshot } from "./tripUrl";
 import {
+  DEFAULT_ROUTE_AVOID,
+  normalizeRouteAvoid,
+  type RouteAvoidOptions,
+} from "./routeAvoid";
+import {
   sanitizeExcludedBrands,
   stationBrandKey,
   stationMatchesBrandFilter,
@@ -86,6 +91,8 @@ interface PitstopState {
   /** Null until the user picks a place, uses their location, or opens a shared link */
   originCoords: GeoPoint | null;
   destinationCoords: GeoPoint | null;
+  /** Google Maps–style avoid motorways / tolls / ferries */
+  routeAvoid: RouteAvoidOptions;
   route: DrivingRoute | null;
   routing: boolean;
   routeError: string | null;
@@ -130,6 +137,7 @@ interface PitstopState {
   setOriginPlace: (label: string, coords: GeoPoint) => void;
   setDestinationPlace: (label: string, coords: GeoPoint) => void;
   swapEnds: () => void;
+  setRouteAvoid: (patch: Partial<RouteAvoidOptions>) => void;
   setVehicle: (patch: Partial<VehicleProfile>) => void;
   setFuelType: (fuelType: FuelType) => void;
   setBaseRouteAvgPrice: (price: number) => void;
@@ -203,6 +211,7 @@ type PersistedSettings = Pick<
   | "brandFilter"
   | "excludedBrands"
   | "recentPlaces"
+  | "routeAvoid"
 >;
 
 /**
@@ -224,6 +233,7 @@ export const usePitstopStore = create<PitstopState>()(
       destination: "",
       originCoords: null,
       destinationCoords: null,
+      routeAvoid: DEFAULT_ROUTE_AVOID,
       route: null,
       routing: false,
       routeError: null,
@@ -284,6 +294,10 @@ export const usePitstopStore = create<PitstopState>()(
         });
         void get().loadStations();
       },
+      setRouteAvoid: (patch) =>
+        set((s) => ({
+          routeAvoid: normalizeRouteAvoid({ ...s.routeAvoid, ...patch }),
+        })),
       setVehicle: (patch) =>
         set((s) => {
           const vehicle = { ...s.vehicle, ...patch };
@@ -365,6 +379,7 @@ export const usePitstopStore = create<PitstopState>()(
           originCoords,
           destinationCoords,
           selectedStationId,
+          routeAvoid,
         } = get();
         if (selectedStationId !== stationId) return;
         if (!originCoords || !destinationCoords) return;
@@ -384,7 +399,8 @@ export const usePitstopStore = create<PitstopState>()(
           const detourRoute = await fetchDrivingRoute(
             originCoords,
             destinationCoords,
-            station.location
+            station.location,
+            routeAvoid
           );
           // Ignore stale responses if the user picked another station
           if (get().selectedStationId !== stationId) return;
@@ -534,7 +550,7 @@ export const usePitstopStore = create<PitstopState>()(
       },
 
       loadStations: async () => {
-        const { originCoords, destinationCoords } = get();
+        const { originCoords, destinationCoords, routeAvoid } = get();
         // Nothing to search until both ends of the trip are chosen
         if (!originCoords || !destinationCoords) return;
 
@@ -550,7 +566,12 @@ export const usePitstopStore = create<PitstopState>()(
         try {
           let route: DrivingRoute;
           try {
-            route = await fetchDrivingRoute(originCoords, destinationCoords);
+            route = await fetchDrivingRoute(
+              originCoords,
+              destinationCoords,
+              null,
+              routeAvoid
+            );
             set({ route, routing: false, routeError: null });
           } catch (e) {
             set({
@@ -618,7 +639,8 @@ export const usePitstopStore = create<PitstopState>()(
             destinationCoords,
             candidates,
             route.coordinates,
-            route
+            route,
+            routeAvoid
           );
 
           const stations: FuelStation[] = withApprox.map((s) => {
@@ -838,6 +860,7 @@ export const usePitstopStore = create<PitstopState>()(
           destination: s.destination,
           originCoords: s.originCoords,
           destinationCoords: s.destinationCoords,
+          routeAvoid: s.routeAvoid,
           vehicle: s.vehicle,
           litresToRefill: s.litresToRefill,
           valueOfTimeGbpPerHour: s.valueOfTimeGbpPerHour,
@@ -875,6 +898,9 @@ export const usePitstopStore = create<PitstopState>()(
           ...(snap.destinationCoords
             ? { destinationCoords: snap.destinationCoords }
             : {}),
+          ...(snap.routeAvoid
+            ? { routeAvoid: normalizeRouteAvoid(snap.routeAvoid) }
+            : {}),
           vehicle,
           litresToRefill,
           ...(snap.valueOfTimeGbpPerHour != null
@@ -909,6 +935,7 @@ export const usePitstopStore = create<PitstopState>()(
         brandFilter: state.brandFilter,
         excludedBrands: state.excludedBrands,
         recentPlaces: state.recentPlaces,
+        routeAvoid: state.routeAvoid,
       }),
       migrate: (persisted) => {
         if (!persisted || typeof persisted !== "object")
@@ -961,9 +988,12 @@ export const usePitstopStore = create<PitstopState>()(
           brandFilter,
           excludedBrands: sanitizeExcludedBrands(p.excludedBrands),
           recentPlaces: sanitizeRecentPlaces(p.recentPlaces),
+          routeAvoid: normalizeRouteAvoid(
+            p.routeAvoid as Partial<RouteAvoidOptions> | undefined
+          ),
         };
       },
-      version: 7,
+      version: 8,
     }
   )
 );

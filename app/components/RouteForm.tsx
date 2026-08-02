@@ -9,6 +9,7 @@ import {
   Gauge,
   GripVertical,
   Loader2,
+  Route,
 } from "lucide-react";
 import { NumberInput } from "@/app/components/NumberInput";
 import { PlaceAutocomplete } from "@/app/components/PlaceAutocomplete";
@@ -16,6 +17,7 @@ import { VehiclePresets } from "@/app/components/VehiclePresets";
 import { remainingRangeMiles } from "@/app/lib/detourCalculator";
 import { usePitstopStore } from "@/app/lib/store";
 import { formatPlaceSelection, type PlaceSuggestion } from "@/app/lib/placeSearch";
+import type { RouteAvoidOptions } from "@/app/lib/routeAvoid";
 import type { FuelType } from "@/app/lib/types";
 import { cn } from "@/app/lib/utils";
 
@@ -23,6 +25,15 @@ const FUEL_OPTIONS: { value: FuelType; label: string; hint: string }[] = [
   { value: "E10", label: "E10 Petrol", hint: "Standard" },
   { value: "E5", label: "E5 Petrol", hint: "Premium" },
   { value: "B7_Diesel", label: "B7 Diesel", hint: "Diesel" },
+];
+
+const AVOID_OPTIONS: {
+  key: keyof RouteAvoidOptions;
+  label: string;
+}[] = [
+  { key: "motorways", label: "Motorways" },
+  { key: "tolls", label: "Tolls" },
+  { key: "ferries", label: "Ferries" },
 ];
 
 type RouteEnd = "origin" | "destination";
@@ -151,6 +162,7 @@ export function RouteForm() {
     destination,
     originCoords,
     destinationCoords,
+    routeAvoid,
     vehicle,
     baseRouteAvgPricePerLitre,
     basePriceManual,
@@ -164,6 +176,7 @@ export function RouteForm() {
     setOriginPlace,
     setDestinationPlace,
     swapEnds,
+    setRouteAvoid,
     setVehicle,
     setFuelType,
     setBaseRouteAvgPrice,
@@ -316,10 +329,49 @@ export function RouteForm() {
         />
       </div>
 
+      <fieldset className="space-y-2">
+        <legend className="flex items-center gap-1.5 text-xs font-medium tracking-wide text-slate-400">
+          <Route className="h-3.5 w-3.5" />
+          Route options
+        </legend>
+        <div className="space-y-1.5 rounded-lg bg-slate-900/80 p-2 ring-1 ring-slate-700/60">
+          <p className="px-2 text-xs font-medium tracking-wide text-slate-400">
+            Avoid
+          </p>
+          {AVOID_OPTIONS.map((opt) => {
+            const checked = routeAvoid[opt.key];
+            const id = `avoid-${opt.key}`;
+            return (
+              <label
+                key={opt.key}
+                htmlFor={id}
+                className={cn(
+                  "flex cursor-pointer items-center gap-2.5 rounded-md px-2 py-1.5 text-sm transition",
+                  checked
+                    ? "bg-teal-950/50 text-teal-100"
+                    : "text-slate-300 hover:bg-slate-800/80"
+                )}
+              >
+                <input
+                  id={id}
+                  type="checkbox"
+                  checked={checked}
+                  onChange={(e) =>
+                    setRouteAvoid({ [opt.key]: e.target.checked })
+                  }
+                  className="h-3.5 w-3.5 rounded border-slate-600 bg-slate-900 accent-teal-500"
+                />
+                {opt.label}
+              </label>
+            );
+          })}
+        </div>
+      </fieldset>
+
       <VehiclePresets />
 
       <div className="space-y-2">
-        <span className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-slate-400">
+        <span className="flex items-center gap-1.5 text-xs font-medium tracking-wide text-slate-400">
           <Fuel className="h-3.5 w-3.5" />
           Fuel type
         </span>
@@ -356,7 +408,7 @@ export function RouteForm() {
       </div>
 
       <label htmlFor="vehicle-mpg" className="block space-y-1.5">
-        <span className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-slate-400">
+        <span className="flex items-center gap-1.5 text-xs font-medium tracking-wide text-slate-400">
           <Gauge className="h-3.5 w-3.5" />
           Vehicle MPG
         </span>
@@ -381,7 +433,7 @@ export function RouteForm() {
         <div className="flex items-center justify-between">
           <label
             htmlFor="refill-amount"
-            className="text-xs font-medium uppercase tracking-wide text-slate-400"
+            className="text-xs font-medium tracking-wide text-slate-400"
           >
             Refill amount
           </label>
@@ -408,7 +460,7 @@ export function RouteForm() {
 
       <label htmlFor="value-of-time" className="block space-y-2">
         <div className="flex items-center justify-between">
-          <span className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-slate-400">
+          <span className="flex items-center gap-1.5 text-xs font-medium tracking-wide text-slate-400">
             <Clock className="h-3.5 w-3.5" />
             Value of time
           </span>
@@ -439,7 +491,7 @@ export function RouteForm() {
 
       <label htmlFor="base-route-price" className="block space-y-1.5">
         <div className="flex items-center justify-between gap-2">
-          <span className="text-xs font-medium uppercase tracking-wide text-slate-400">
+          <span className="text-xs font-medium tracking-wide text-slate-400">
             Base route avg price (£/L)
           </span>
           {basePriceManual ? (
@@ -472,7 +524,7 @@ export function RouteForm() {
 
       <div className="grid grid-cols-2 gap-2">
         <label htmlFor="tank-capacity" className="block space-y-1.5">
-          <span className="text-xs font-medium uppercase tracking-wide text-slate-400">
+          <span className="text-xs font-medium tracking-wide text-slate-400">
             Tank (L)
           </span>
           <NumberInput
@@ -489,7 +541,7 @@ export function RouteForm() {
           />
         </label>
         <label htmlFor="fill-percentage" className="block space-y-1.5">
-          <span className="text-xs font-medium uppercase tracking-wide text-slate-400">
+          <span className="text-xs font-medium tracking-wide text-slate-400">
             Fill %
           </span>
           <NumberInput

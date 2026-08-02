@@ -1,4 +1,11 @@
 import type { FuelType, GeoPoint, VehicleProfile } from "./types";
+import {
+  DEFAULT_ROUTE_AVOID,
+  parseRouteAvoidParam,
+  routeAvoidEqual,
+  serializeRouteAvoid,
+  type RouteAvoidOptions,
+} from "./routeAvoid";
 
 const FUEL_TYPES: readonly FuelType[] = ["E10", "E5", "B7_Diesel"];
 
@@ -8,6 +15,7 @@ export interface TripSnapshot {
   /** Null when the user hasn't picked that end of the trip yet */
   originCoords: GeoPoint | null;
   destinationCoords: GeoPoint | null;
+  routeAvoid: RouteAvoidOptions;
   vehicle: VehicleProfile;
   litresToRefill: number;
   valueOfTimeGbpPerHour: number;
@@ -61,7 +69,8 @@ export function parseTripSearchParams(
     params.has("fill") ||
     params.has("refill") ||
     params.has("vot") ||
-    params.has("base");
+    params.has("base") ||
+    params.has("avoid");
 
   if (!originCoords && !destinationCoords && !hasVehicleHints) {
     return null;
@@ -81,6 +90,9 @@ export function parseTripSearchParams(
       params.get("toLabel")?.trim() ||
       `${destinationCoords.lat.toFixed(4)}, ${destinationCoords.lng.toFixed(4)}`;
   }
+
+  const avoid = parseRouteAvoidParam(params.get("avoid"));
+  if (avoid) snap.routeAvoid = avoid;
 
   const fuel = params.get("fuel");
   const mpg = parseNumber(params.get("mpg"), 1, 150);
@@ -136,6 +148,11 @@ export function buildTripSearchParams(trip: TripSnapshot): URLSearchParams {
   params.set("refill", String(Math.round(trip.litresToRefill)));
   params.set("vot", String(Math.round(trip.valueOfTimeGbpPerHour)));
 
+  const avoidToken = serializeRouteAvoid(
+    trip.routeAvoid ?? DEFAULT_ROUTE_AVOID
+  );
+  if (avoidToken) params.set("avoid", avoidToken);
+
   if (
     trip.basePriceManual &&
     trip.baseRouteAvgPricePerLitre != null &&
@@ -167,6 +184,10 @@ export function tripFieldsEqual(a: TripSnapshot, b: TripSnapshot): boolean {
     a.destination === b.destination &&
     coordsEqual(a.originCoords, b.originCoords) &&
     coordsEqual(a.destinationCoords, b.destinationCoords) &&
+    routeAvoidEqual(
+      a.routeAvoid ?? DEFAULT_ROUTE_AVOID,
+      b.routeAvoid ?? DEFAULT_ROUTE_AVOID
+    ) &&
     a.vehicle.fuelType === b.vehicle.fuelType &&
     a.vehicle.mpg === b.vehicle.mpg &&
     a.vehicle.tankCapacityLitres === b.vehicle.tankCapacityLitres &&

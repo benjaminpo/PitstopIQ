@@ -204,6 +204,28 @@ describe("fetchDrivingRoute / fetchStationDetours", () => {
     expect(String(fetchMock.mock.calls[0][0])).toContain("viaLng=");
   });
 
+  it("passes avoid flags to the route API", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        distanceMiles: 50,
+        durationSeconds: 4200,
+        coordinates: route,
+        bounds: { north: 1, south: 0, east: 1, west: 0 },
+      }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    await fetchDrivingRoute(origin, dest, null, {
+      motorways: true,
+      tolls: true,
+      ferries: false,
+    });
+    const url = String(fetchMock.mock.calls[0][0]);
+    expect(url).toContain("avoidMotorways=1");
+    expect(url).toContain("avoidTolls=1");
+    expect(url).not.toContain("avoidFerries");
+  });
+
   it("throws when the route API fails", async () => {
     vi.stubGlobal(
       "fetch",

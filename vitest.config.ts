@@ -24,6 +24,8 @@ export default defineConfig({
         "app/lib/fuelFinderCsv.ts",
         "app/lib/fuelPriceParse.ts",
         "app/lib/vehiclePresets.ts",
+        "app/lib/routeAvoid.ts",
+        "app/lib/polyline6.ts",
       ],
       thresholds: {
         lines: 90,

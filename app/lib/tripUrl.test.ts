@@ -12,6 +12,7 @@ const sample: TripSnapshot = {
   destination: "Heathrow Airport, UK",
   originCoords: { lat: 51.4543, lng: -0.9781 },
   destinationCoords: { lat: 51.47, lng: -0.4543 },
+  routeAvoid: { motorways: false, tolls: false, ferries: false },
   vehicle: {
     fuelType: "E10",
     mpg: 45,
@@ -50,6 +51,25 @@ describe("trip URL round-trip", () => {
     expect(parsed?.baseRouteAvgPricePerLitre).toBeCloseTo(1.349, 3);
   });
 
+  it("round-trips avoid motorways / tolls / ferries", () => {
+    const withAvoid: TripSnapshot = {
+      ...sample,
+      routeAvoid: { motorways: true, tolls: true, ferries: true },
+    };
+    const params = buildTripSearchParams(withAvoid);
+    expect(params.get("avoid")).toBe("motorway,toll,ferry");
+    const parsed = parseTripSearchParams(`?${params.toString()}`);
+    expect(parsed?.routeAvoid).toEqual({
+      motorways: true,
+      tolls: true,
+      ferries: true,
+    });
+  });
+
+  it("omits avoid when all options are off", () => {
+    expect(buildTripSearchParams(sample).has("avoid")).toBe(false);
+  });
+
   it("returns null for an empty query", () => {
     expect(parseTripSearchParams("")).toBeNull();
     expect(parseTripSearchParams("?")).toBeNull();
@@ -77,6 +97,12 @@ describe("tripFieldsEqual / tripToShareUrl", () => {
       tripFieldsEqual(sample, {
         ...sample,
         vehicle: { ...sample.vehicle, mpg: 50 },
+      })
+    ).toBe(false);
+    expect(
+      tripFieldsEqual(sample, {
+        ...sample,
+        routeAvoid: { motorways: true, tolls: false, ferries: false },
       })
     ).toBe(false);
     expect(

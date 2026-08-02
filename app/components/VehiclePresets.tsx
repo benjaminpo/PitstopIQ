@@ -52,7 +52,7 @@ export function VehiclePresets() {
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between gap-2">
-        <span className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-slate-400">
+        <span className="flex items-center gap-1.5 text-xs font-medium tracking-wide text-slate-400">
           <Car className="h-3.5 w-3.5" />
           Vehicle presets
         </span>

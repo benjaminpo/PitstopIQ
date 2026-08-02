@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { metersToMiles } from "@/app/lib/routing";
+import {
+  normalizeRouteAvoid,
+  type RouteAvoidOptions,
+} from "@/app/lib/routeAvoid";
+import { resolveRouteLeg } from "@/app/lib/serverRouting";
 import type { GeoPoint } from "@/app/lib/types";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
-
-const OSRM_BASE =
-  process.env.OSRM_BASE_URL?.replace(/\/$/, "") ||
-  "https://router.project-osrm.org";
 
 const CONCURRENCY = 3;
 const MAX_STATIONS = 25;
@@ -16,34 +17,12 @@ interface DetourBody {
   origin: GeoPoint;
   destination: GeoPoint;
   stations: Array<{ id: string; lat: number; lng: number }>;
+  avoid?: Partial<RouteAvoidOptions>;
 }
 
-interface OsrmRouteResponse {
-  code: string;
-  routes?: Array<{ distance: number; duration: number }>;
-}
-
-interface RouteLeg {
-  distanceMeters: number;
-  durationSeconds: number;
-}
-
-async function routeLeg(points: GeoPoint[]): Promise<RouteLeg | null> {
-  const path = points.map((p) => `${p.lng},${p.lat}`).join(";");
-  const url = new URL(`${OSRM_BASE}/route/v1/driving/${path}`);
-  url.searchParams.set("overview", "false");
-
-  const res = await fetch(url.toString(), {
-    headers: { Accept: "application/json" },
-    cache: "no-store",
-  });
-  if (!res.ok) return null;
-  const data = (await res.json()) as OsrmRouteResponse;
-  if (data.code !== "Ok" || !data.routes?.[0]) return null;
-  return {
-    distanceMeters: data.routes[0].distance,
-    durationSeconds: data.routes[0].duration,
-  };
+export interface StationDetourMetrics {
+  miles: number;
+  extraSeconds: number;
 }
 
 async function mapPool<T, R>(
@@ -67,20 +46,16 @@ async function mapPool<T, R>(
   return results;
 }
 
-export interface StationDetourMetrics {
-  miles: number;
-  extraSeconds: number;
-}
-
 /**
  * POST /api/osrm/detours
- * Body: { origin, destination, stations: [{id,lat,lng}] }
- * Returns extra driving miles + seconds for A→station→B vs direct A→B (OSRM).
+ * Body: { origin, destination, stations: [{id,lat,lng}], avoid? }
+ * Returns extra driving miles + seconds for A→station→B vs direct A→B.
  */
 export async function POST(request: NextRequest) {
   try {
     const body = (await request.json()) as DetourBody;
     const { origin, destination, stations } = body;
+    const avoid = normalizeRouteAvoid(body.avoid);
 
     if (
       !origin ||
@@ -93,7 +68,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
     }
 
-    const direct = await routeLeg([origin, destination]);
+    const direct = await resolveRouteLeg([origin, destination], avoid);
     if (direct == null) {
       return NextResponse.json(
         { error: "Could not resolve direct route" },
@@ -106,11 +81,10 @@ export async function POST(request: NextRequest) {
       .slice(0, MAX_STATIONS);
 
     const extras = await mapPool(limited, CONCURRENCY, async (s) => {
-      const via = await routeLeg([
-        origin,
-        { lat: s.lat, lng: s.lng },
-        destination,
-      ]);
+      const via = await resolveRouteLeg(
+        [origin, { lat: s.lat, lng: s.lng }, destination],
+        avoid
+      );
       if (via == null) {
         return {
           id: s.id,

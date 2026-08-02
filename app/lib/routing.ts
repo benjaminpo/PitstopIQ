@@ -1,3 +1,7 @@
+import {
+  DEFAULT_ROUTE_AVOID,
+  type RouteAvoidOptions,
+} from "./routeAvoid";
 import type { GeoPoint, MapBounds } from "./types";
 
 export interface DrivingRoute {
@@ -248,11 +252,12 @@ export function formatDuration(seconds: number): string {
   return rem ? `${h} h ${rem} min` : `${h} h`;
 }
 
-/** Client helper: fetch driving route from our OSRM proxy. */
+/** Client helper: fetch driving route from our routing proxy. */
 export async function fetchDrivingRoute(
   origin: GeoPoint,
   destination: GeoPoint,
-  via?: GeoPoint | null
+  via?: GeoPoint | null,
+  avoid: RouteAvoidOptions = DEFAULT_ROUTE_AVOID
 ): Promise<DrivingRoute> {
   const params = new URLSearchParams({
     fromLat: String(origin.lat),
@@ -264,6 +269,9 @@ export async function fetchDrivingRoute(
     params.set("viaLat", String(via.lat));
     params.set("viaLng", String(via.lng));
   }
+  if (avoid.motorways) params.set("avoidMotorways", "1");
+  if (avoid.tolls) params.set("avoidTolls", "1");
+  if (avoid.ferries) params.set("avoidFerries", "1");
   const res = await fetch(`/api/osrm/route?${params}`);
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
@@ -280,7 +288,7 @@ export interface StationDetourMetrics {
 }
 
 /**
- * Ask the server to compute OSRM A→station→B extra miles + time vs the direct route.
+ * Ask the server to compute A→station→B extra miles + time vs the direct route.
  * Falls back to approximateDetourMiles / approximateDetourSeconds for gaps.
  */
 export async function fetchStationDetours(
@@ -288,7 +296,8 @@ export async function fetchStationDetours(
   destination: GeoPoint,
   stations: Array<{ id: string; location: GeoPoint }>,
   routeCoords: GeoPoint[],
-  routeTiming?: Pick<DrivingRoute, "distanceMiles" | "durationSeconds"> | null
+  routeTiming?: Pick<DrivingRoute, "distanceMiles" | "durationSeconds"> | null,
+  avoid: RouteAvoidOptions = DEFAULT_ROUTE_AVOID
 ): Promise<Record<string, StationDetourMetrics>> {
   if (stations.length === 0) return {};
 
@@ -304,6 +313,7 @@ export async function fetchStationDetours(
           lat: s.location.lat,
           lng: s.location.lng,
         })),
+        avoid,
       }),
     });
     if (res.ok) {
