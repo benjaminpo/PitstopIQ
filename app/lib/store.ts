@@ -18,7 +18,7 @@ import {
   remainingRangeMiles,
 } from "./detourCalculator";
 import { computeBaselineRoutePrice } from "./baselinePrice";
-import { DEFAULT_BASE_ROUTE_AVG_PRICE } from "./fuelApiAdapter";
+import { DEFAULT_BASE_ROUTE_AVG_PRICE } from "./fuelConstants";
 import {
   getBrowserPosition,
   reverseGeocode,

@@ -6,7 +6,7 @@ Smart Route Cost Calculator & Detour Planner — decide whether diverting to a c
 
 - Next.js 16 (App Router) + TypeScript + Tailwind CSS
 - Zustand state · Lucide icons · Leaflet / OpenStreetMap
-- Modular API routes with mock Fuel Finder fallback (development only)
+- Modular API routes; live Fuel Finder with CSV primary / JSON API backup (mocks in development only)
 
 ## Math (UK units)
 
@@ -107,18 +107,38 @@ NEXT_PUBLIC_ADSENSE_SLOT_SIDEBAR=1234567890
 
 UK/EU: enable AdSense’s consent messaging (or your own CMP) for personalized ads.
 
-## Live Fuel Finder API
+## Live Fuel Finder
 
-Copy `.env.example` → `.env.local` and set your Information Recipient OAuth credentials from the [Fuel Finder developer portal](https://www.developer.fuel-finder.service.gov.uk/):
+Fuel prices come from the UK [Fuel Finder](https://www.developer.fuel-finder.service.gov.uk/) Information Recipient APIs.
+
+### Env vars
+
+Copy `.env.example` → `.env.local`, then set the same values on the Vercel project (**Production**). Redeploy after any env change so serverless functions pick them up.
+
+| Variable | Required | Purpose |
+| --- | --- | --- |
+| `FUEL_FINDER_CLIENT_ID` | Yes (live) | OAuth client id from the developer portal |
+| `FUEL_FINDER_CLIENT_SECRET` | Yes (live) | OAuth client secret |
+| `FUEL_FINDER_BASE_URL` | No | Defaults to `https://www.fuel-finder.service.gov.uk` |
+| `FUEL_FINDER_TRANSPORT_SECRET` | Yes (CSV path) | Portal SPA transport key used to decrypt the CSV presign response — keep in env/Vercel only, never in source |
+| `FUEL_FINDER_ALLOW_MOCKS` | No | Set `true` on a preview deploy to allow demo stations |
 
 ```bash
 FUEL_FINDER_CLIENT_ID=...
 FUEL_FINDER_CLIENT_SECRET=...
 FUEL_FINDER_BASE_URL=https://www.fuel-finder.service.gov.uk
-FUEL_FINDER_TRANSPORT_SECRET=...   # portal SPA transport key; needed for CSV primary path
+FUEL_FINDER_TRANSPORT_SECRET=...
 ```
 
-Live loads prefer the national **CSV** snapshot (same file linked from [access latest fuel prices](https://www.developer.fuel-finder.service.gov.uk/fuel-finder/access-latest-fuelprices), via an authenticated presigned URL) and fall back to the paginated JSON API if that fails. `FUEL_FINDER_TRANSPORT_SECRET` decrypts the CSV presign response envelope (the portal’s client-side transport key — keep it in env/Vercel, not in source). The national dataset is cached in memory and in the app database (~1 hour TTL) so serverless cold starts / reloads do not re-download every time. Without OAuth credentials the app uses mock stations **in development only** (clearly labelled as demo data). In production, missing credentials or a failed live fetch return an error with a retry button instead of fake stations — set `FUEL_FINDER_ALLOW_MOCKS=true` to opt a preview deployment into mock data. The stations list shows a **freshness badge** (`Updated Xm ago`) from that sync time.
+### How a live load works
+
+1. **CSV (primary)** — authenticated presign → S3 download of the national prices CSV (same snapshot linked from [access latest fuel prices](https://www.developer.fuel-finder.service.gov.uk/fuel-finder/access-latest-fuelprices)). Usually a few seconds.
+2. **JSON API (backup)** — paginated `/api/v1/pfs` + `/fuel-prices` if CSV fails. Rate-limited (~30 rpm); a full national pull can take about a minute — avoid relying on this in production by setting `FUEL_FINDER_TRANSPORT_SECRET`.
+3. **Cache** — the national dataset is kept in process memory and in the app database (`fuel_dataset_cache`, Neon in production / SQLite locally) for ~1 hour, so cold serverless instances and reloads do not re-download every time. Live `/api/fuel-finder` responses also send `Cache-Control` so the CDN can serve repeated bounds queries.
+
+Without OAuth credentials the app uses mock stations **in development only** (clearly labelled). In production, missing credentials or a failed live fetch return an error with a retry button — never fabricated forecourts. The stations list shows a **freshness badge** (`Updated Xm ago`) from the last successful sync.
+
+Serverless functions run in **London (`lhr1`)** — Fuel Finder’s CloudFront edge blocks non-UK IPs with a bare 403, so the US default region (`iad1`) cannot obtain a token.
 
 ## CI / Deploy (GitHub Actions)
 
@@ -139,8 +159,6 @@ Project key `benjaminpo_PitstopIQ` (org `benjaminpo-gh`). Config lives in `sonar
 
 Fuel Finder credentials stay on the Vercel project env (pulled during deploy). Git auto-deploys from Vercel are disabled so only Actions ships production.
 
-Serverless functions run in **London (`lhr1`)** — Fuel Finder’s CloudFront edge blocks non-UK IPs with a bare 403, so the US default region (`iad1`) cannot obtain an OAuth token.
-
 ## Project layout
 
 ```
@@ -149,7 +167,8 @@ app/
   api/calculate-detour/route.ts
   api/auth/[...all]/route.ts   # Better Auth handler
   components/   # MapView, RouteForm, StationCard, StationList, AuthForm, AccountMenu
-  lib/          # types, detourCalculator, fuelApiAdapter, store, auth, auth-client
+  lib/          # types, detourCalculator, fuelApiAdapter, fuelFinderClient,
+                # fuelFinderCsv, fuelDatasetCache, fuelConstants, store, auth
   login/ register/             # auth pages
   page.tsx
 ```

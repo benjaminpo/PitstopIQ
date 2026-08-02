@@ -1,3 +1,7 @@
+/**
+ * Server-only durable cache for the national Fuel Finder dataset.
+ * Must not be imported from Client Components (pulls in pg / better-sqlite3).
+ */
 import { dbGet, dbRun } from "@/app/lib/db";
 import type { FuelStation } from "@/app/lib/types";
 
