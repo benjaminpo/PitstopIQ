@@ -40,13 +40,24 @@ export async function GET(request: NextRequest) {
     const { stations, source, pricesFetchedAt } =
       await fetchNearbyFuelStations(bounds);
 
-    return NextResponse.json({
-      source,
-      configured: isFuelFinderConfigured(),
-      count: stations.length,
-      pricesFetchedAt,
-      stations,
-    });
+    return NextResponse.json(
+      {
+        source,
+        configured: isFuelFinderConfigured(),
+        count: stations.length,
+        pricesFetchedAt,
+        stations,
+      },
+      {
+        headers: {
+          // Bounds URLs repeat on reload/pan — let the CDN serve warm copies.
+          "Cache-Control":
+            source === "live"
+              ? "public, s-maxage=300, stale-while-revalidate=3600"
+              : "no-store",
+        },
+      }
+    );
   } catch (error) {
     console.error("[fuel-finder]", error);
     if (error instanceof FuelDataUnavailableError) {

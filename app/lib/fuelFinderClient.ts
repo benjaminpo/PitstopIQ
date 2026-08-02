@@ -4,6 +4,10 @@ import {
   parseFuelFinderCsv,
 } from "./fuelFinderCsv";
 import {
+  readFuelDatasetCache,
+  writeFuelDatasetCache,
+} from "./fuelDatasetCache";
+import {
   parsePriceLastUpdated,
   parsePriceToGbpPerLitre,
 } from "./fuelPriceParse";
@@ -483,9 +487,25 @@ async function getAllStationsCached(): Promise<CachedDataset> {
     return datasetCache;
   }
 
-  inflightRefresh ??= refreshDataset().finally(() => {
-    inflightRefresh = null;
-  });
+  // Durable cache (Neon/SQLite) — shared across serverless instances so a
+  // reload doesn't re-pull the national dataset on a cold function.
+  const persisted = await readFuelDatasetCache(CACHE_TTL_MS);
+  if (persisted) {
+    datasetCache = persisted;
+    console.info(
+      `[fuelFinder] loaded ${persisted.stations.length} stations from durable cache`
+    );
+    return datasetCache;
+  }
+
+  inflightRefresh ??= refreshDataset()
+    .then(async (fresh) => {
+      await writeFuelDatasetCache(fresh);
+      return fresh;
+    })
+    .finally(() => {
+      inflightRefresh = null;
+    });
 
   try {
     return await inflightRefresh;
@@ -498,6 +518,17 @@ async function getAllStationsCached(): Promise<CachedDataset> {
         new Date(datasetCache.fetchedAt).toISOString(),
         error
       );
+      return datasetCache;
+    }
+    // Last resort: expired durable row still better than failing hard.
+    const stale = await readFuelDatasetCache(Number.POSITIVE_INFINITY);
+    if (stale) {
+      console.warn(
+        "[fuelFinder] refresh failed, serving expired durable cache from",
+        new Date(stale.fetchedAt).toISOString(),
+        error
+      );
+      datasetCache = stale;
       return datasetCache;
     }
     throw error;
