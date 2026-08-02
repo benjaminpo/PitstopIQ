@@ -62,10 +62,7 @@ async function readApiErrorMessage(res: Response): Promise<string> {
 }
 
 function newPresetId(): string {
-  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
-    return crypto.randomUUID();
-  }
-  return `preset-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  return crypto.randomUUID();
 }
 
 function normalizePresetName(name: string): string {

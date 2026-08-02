@@ -19,7 +19,7 @@ function parseBounds(searchParams: URLSearchParams): MapBounds {
     return DEFAULT_BOUNDS;
   }
 
-  const [north, south, east, west] = raw.map((v) => Number(v));
+  const [north, south, east, west] = raw.map(Number);
 
   if ([north, south, east, west].every((n) => Number.isFinite(n))) {
     return { north, south, east, west };

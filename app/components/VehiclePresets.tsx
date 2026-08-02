@@ -66,7 +66,7 @@ export function VehiclePresets() {
                 onClick={() => applyVehiclePreset(preset.id)}
                 onDoubleClick={() => {
                   const next = window.prompt("Rename preset", preset.name);
-                  if (next != null && next.trim()) {
+                  if (next?.trim()) {
                     renameVehiclePreset(preset.id, next);
                   }
                 }}

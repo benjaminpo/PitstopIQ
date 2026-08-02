@@ -10,14 +10,17 @@ export class GeolocationError extends Error {
   }
 }
 
+const DEFAULT_GEO_OPTIONS: PositionOptions = {
+  enableHighAccuracy: true,
+  timeout: 15_000,
+  maximumAge: 60_000,
+};
+
 /** Read the device GPS position via the browser Geolocation API. */
 export function getBrowserPosition(
-  options: PositionOptions = {
-    enableHighAccuracy: true,
-    timeout: 15_000,
-    maximumAge: 60_000,
-  }
+  options?: PositionOptions
 ): Promise<GeoPoint> {
+  const opts = options ?? DEFAULT_GEO_OPTIONS;
   return new Promise((resolve, reject) => {
     if (typeof window === "undefined" || !navigator.geolocation) {
       reject(
@@ -46,7 +49,7 @@ export function getBrowserPosition(
           )
         );
       },
-      options
+      opts
     );
   });
 }

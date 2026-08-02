@@ -31,12 +31,14 @@ interface TokenResponse {
   message?: string;
 }
 
+type ApiCoord = string | number | null;
+
 interface ApiLocation {
   address_line_1?: string | null;
   city?: string | null;
   postcode?: string | null;
-  latitude?: string | number | null;
-  longitude?: string | number | null;
+  latitude?: ApiCoord;
+  longitude?: ApiCoord;
 }
 
 interface ApiStation {
@@ -298,7 +300,7 @@ async function fetchAllBatches<T>(path: string): Promise<T[]> {
 
     const page = (await response.json()) as T[];
     if (!Array.isArray(page)) {
-      throw new Error(`Fuel Finder ${path} returned unexpected payload`);
+      throw new TypeError(`Fuel Finder ${path} returned unexpected payload`);
     }
 
     all.push(...page);
@@ -415,11 +417,9 @@ async function getAllStationsCached(): Promise<CachedDataset> {
     return datasetCache;
   }
 
-  if (!inflightRefresh) {
-    inflightRefresh = refreshDataset().finally(() => {
-      inflightRefresh = null;
-    });
-  }
+  inflightRefresh ??= refreshDataset().finally(() => {
+    inflightRefresh = null;
+  });
 
   try {
     return await inflightRefresh;

@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { dbAll, dbGet, dbRun } from "@/app/lib/db";
 import type { FuelType, StationCommunitySummary } from "@/app/lib/types";
 
-const FUEL_TYPES: FuelType[] = ["E10", "E5", "B7_Diesel"];
+const FUEL_TYPES = new Set<FuelType>(["E10", "E5", "B7_Diesel"]);
 const MAX_COMMENT = 500;
 /** Plausible UK £/L band (guards against typos / abuse). */
 const MIN_PRICE = 0.8;
@@ -40,93 +40,87 @@ export interface UpsertContributionInput {
 let schemaReady: Promise<void> | null = null;
 
 export function ensureContributionSchema(): Promise<void> {
-  if (!schemaReady) {
-    schemaReady = (async () => {
-      await dbRun(`
-        CREATE TABLE IF NOT EXISTS station_contribution (
-          id TEXT PRIMARY KEY NOT NULL,
-          user_id TEXT NOT NULL,
-          station_id TEXT NOT NULL,
-          fuel_type TEXT NOT NULL,
-          price_per_litre REAL,
-          comment TEXT,
-          rating INTEGER,
-          created_at INTEGER NOT NULL,
-          updated_at INTEGER NOT NULL,
-          UNIQUE (user_id, station_id)
-        )
-      `);
-      await dbRun(`
-        CREATE INDEX IF NOT EXISTS idx_station_contribution_station
-        ON station_contribution (station_id)
-      `);
-    })();
-  }
+  schemaReady ??= (async () => {
+    await dbRun(`
+      CREATE TABLE IF NOT EXISTS station_contribution (
+        id TEXT PRIMARY KEY NOT NULL,
+        user_id TEXT NOT NULL,
+        station_id TEXT NOT NULL,
+        fuel_type TEXT NOT NULL,
+        price_per_litre REAL,
+        comment TEXT,
+        rating INTEGER,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL,
+        UNIQUE (user_id, station_id)
+      )
+    `);
+    await dbRun(`
+      CREATE INDEX IF NOT EXISTS idx_station_contribution_station
+      ON station_contribution (station_id)
+    `);
+  })();
   return schemaReady;
 }
 
-export function parseUpsertBody(
-  body: unknown
-): { ok: true; value: UpsertContributionInput } | { ok: false; error: string } {
-  if (!body || typeof body !== "object") {
-    return { ok: false, error: "Invalid payload" };
-  }
-  const b = body as Record<string, unknown>;
+function parseStationId(
+  body: Record<string, unknown>
+): { ok: true; stationId: string } | { ok: false; error: string } {
   const stationId =
-    typeof b.stationId === "string" ? b.stationId.trim() : "";
+    typeof body.stationId === "string" ? body.stationId.trim() : "";
   if (!stationId || stationId.length > 128) {
     return { ok: false, error: "stationId is required" };
   }
+  return { ok: true, stationId };
+}
 
-  const kind = b.kind;
-  if (kind !== "price" && kind !== "review") {
-    return { ok: false, error: 'kind must be "price" or "review"' };
+function parsePriceBody(
+  stationId: string,
+  b: Record<string, unknown>,
+  clear: boolean
+): { ok: true; value: UpsertContributionInput } | { ok: false; error: string } {
+  if (clear) {
+    return { ok: true, value: { stationId, kind: "price", clear: true } };
   }
 
-  const clear = b.clear === true;
+  const fuelType = b.fuelType;
+  if (typeof fuelType !== "string" || !FUEL_TYPES.has(fuelType as FuelType)) {
+    return { ok: false, error: "fuelType must be E10, E5, or B7_Diesel" };
+  }
 
-  if (kind === "price") {
-    if (clear) {
-      return { ok: true, value: { stationId, kind, clear: true } };
-    }
-
-    const fuelType = b.fuelType;
-    if (
-      typeof fuelType !== "string" ||
-      !FUEL_TYPES.includes(fuelType as FuelType)
-    ) {
-      return { ok: false, error: "fuelType must be E10, E5, or B7_Diesel" };
-    }
-
-    if (
-      b.pricePerLitre === undefined ||
-      b.pricePerLitre === null ||
-      b.pricePerLitre === ""
-    ) {
-      return { ok: false, error: "pricePerLitre is required" };
-    }
-    const n = Number(b.pricePerLitre);
-    if (!Number.isFinite(n) || n < MIN_PRICE || n > MAX_PRICE) {
-      return {
-        ok: false,
-        error: `pricePerLitre must be between £${MIN_PRICE.toFixed(2)} and £${MAX_PRICE.toFixed(2)}`,
-      };
-    }
-
+  if (
+    b.pricePerLitre === undefined ||
+    b.pricePerLitre === null ||
+    b.pricePerLitre === ""
+  ) {
+    return { ok: false, error: "pricePerLitre is required" };
+  }
+  const n = Number(b.pricePerLitre);
+  if (!Number.isFinite(n) || n < MIN_PRICE || n > MAX_PRICE) {
     return {
-      ok: true,
-      value: {
-        stationId,
-        kind,
-        fuelType: fuelType as FuelType,
-        pricePerLitre: Math.round(n * 1000) / 1000,
-      },
+      ok: false,
+      error: `pricePerLitre must be between £${MIN_PRICE.toFixed(2)} and £${MAX_PRICE.toFixed(2)}`,
     };
   }
 
-  // kind === "review"
+  return {
+    ok: true,
+    value: {
+      stationId,
+      kind: "price",
+      fuelType: fuelType as FuelType,
+      pricePerLitre: Math.round(n * 1000) / 1000,
+    },
+  };
+}
+
+function parseReviewBody(
+  stationId: string,
+  b: Record<string, unknown>,
+  clear: boolean
+): { ok: true; value: UpsertContributionInput } | { ok: false; error: string } {
   if (clear) {
-    return { ok: true, value: { stationId, kind, clear: true } };
+    return { ok: true, value: { stationId, kind: "review", clear: true } };
   }
 
   let comment: string | null = null;
@@ -148,33 +142,55 @@ export function parseUpsertBody(
   }
 
   if (rating == null && comment == null) {
-    return {
-      ok: false,
-      error: "Provide a rating and/or comment",
-    };
+    return { ok: false, error: "Provide a rating and/or comment" };
   }
 
   return {
     ok: true,
-    value: {
-      stationId,
-      kind,
-      rating,
-      comment,
-    },
+    value: { stationId, kind: "review", rating, comment },
   };
+}
+
+export function parseUpsertBody(
+  body: unknown
+): { ok: true; value: UpsertContributionInput } | { ok: false; error: string } {
+  if (!body || typeof body !== "object") {
+    return { ok: false, error: "Invalid payload" };
+  }
+  const b = body as Record<string, unknown>;
+  const station = parseStationId(b);
+  if (!station.ok) return station;
+
+  const kind = b.kind;
+  if (kind !== "price" && kind !== "review") {
+    return { ok: false, error: 'kind must be "price" or "review"' };
+  }
+
+  const clear = b.clear === true;
+  if (kind === "price") {
+    return parsePriceBody(station.stationId, b, clear);
+  }
+  return parseReviewBody(station.stationId, b, clear);
+}
+
+function asString(value: unknown, fallback = ""): string {
+  if (typeof value === "string") return value;
+  if (typeof value === "number" || typeof value === "boolean") {
+    return String(value);
+  }
+  return fallback;
 }
 
 function mapRow(row: Record<string, unknown>): StationContributionRow {
   return {
-    id: String(row.id),
-    userId: String(row.user_id),
-    userName: String(row.user_name ?? "Member"),
-    stationId: String(row.station_id),
+    id: asString(row.id),
+    userId: asString(row.user_id),
+    userName: asString(row.user_name, "Member") || "Member",
+    stationId: asString(row.station_id),
     fuelType: row.fuel_type as FuelType,
     pricePerLitre:
       row.price_per_litre == null ? null : Number(row.price_per_litre),
-    comment: row.comment == null ? null : String(row.comment),
+    comment: row.comment == null ? null : asString(row.comment),
     rating: row.rating == null ? null : Number(row.rating),
     createdAt: Number(row.created_at),
     updatedAt: Number(row.updated_at),
@@ -205,19 +221,15 @@ type ExistingRow = {
   created_at: number;
 };
 
-export async function upsertContribution(
-  userId: string,
+function applyUpsertFields(
+  existing: ExistingRow | undefined,
   input: UpsertContributionInput
-): Promise<StationContributionRow | null> {
-  await ensureContributionSchema();
-  const now = Date.now();
-  const existing = await dbGet<ExistingRow>(
-    `SELECT id, fuel_type, price_per_litre, comment, rating, created_at
-     FROM station_contribution
-     WHERE user_id = ? AND station_id = ?`,
-    [userId, input.stationId]
-  );
-
+): {
+  fuelType: FuelType;
+  pricePerLitre: number | null;
+  comment: string | null;
+  rating: number | null;
+} {
   let fuelType: FuelType = (existing?.fuel_type as FuelType) || "E10";
   let pricePerLitre: number | null =
     existing?.price_per_litre == null ? null : Number(existing.price_per_litre);
@@ -237,10 +249,30 @@ export async function upsertContribution(
     comment = null;
     rating = null;
   } else {
-    // Review upsert replaces rating/comment together (either may be null)
     rating = input.rating ?? null;
     comment = input.comment ?? null;
   }
+
+  return { fuelType, pricePerLitre, comment, rating };
+}
+
+export async function upsertContribution(
+  userId: string,
+  input: UpsertContributionInput
+): Promise<StationContributionRow | null> {
+  await ensureContributionSchema();
+  const now = Date.now();
+  const existing = await dbGet<ExistingRow>(
+    `SELECT id, fuel_type, price_per_litre, comment, rating, created_at
+     FROM station_contribution
+     WHERE user_id = ? AND station_id = ?`,
+    [userId, input.stationId]
+  );
+
+  const { fuelType, pricePerLitre, comment, rating } = applyUpsertFields(
+    existing,
+    input
+  );
 
   // Nothing left — remove the row entirely
   if (pricePerLitre == null && comment == null && rating == null) {
@@ -307,6 +339,52 @@ function emptySummary(stationId: string): StationCommunitySummary {
   };
 }
 
+function foldContributionIntoSummary(
+  summary: StationCommunitySummary,
+  row: StationContributionRow
+): void {
+  if (row.rating != null) {
+    const prevTotal = (summary.avgRating ?? 0) * summary.ratingCount;
+    summary.ratingCount += 1;
+    summary.avgRating = prevTotal + row.rating;
+  }
+
+  if (row.comment) {
+    summary.commentCount += 1;
+    if (summary.recentComments.length < 5) {
+      summary.recentComments.push({
+        userName: row.userName,
+        comment: row.comment,
+        rating: row.rating,
+        fuelType: row.fuelType,
+        pricePerLitre: row.pricePerLitre,
+        updatedAt: row.updatedAt,
+      });
+    }
+  }
+
+  if (row.pricePerLitre != null) {
+    const prevAt = summary.communityPriceUpdatedAt[row.fuelType];
+    if (prevAt == null || row.updatedAt > prevAt) {
+      summary.communityPrices[row.fuelType] = row.pricePerLitre;
+      summary.communityPriceUpdatedAt[row.fuelType] = row.updatedAt;
+    }
+  }
+}
+
+function finalizeAverages(
+  summaries: Record<string, StationCommunitySummary>
+): void {
+  for (const summary of Object.values(summaries)) {
+    if (summary.ratingCount > 0 && summary.avgRating != null) {
+      summary.avgRating =
+        Math.round((summary.avgRating / summary.ratingCount) * 10) / 10;
+    } else {
+      summary.avgRating = null;
+    }
+  }
+}
+
 export async function getCommunitySummaries(
   stationIds: string[]
 ): Promise<Record<string, StationCommunitySummary>> {
@@ -330,44 +408,9 @@ export async function getCommunitySummaries(
     const row = mapRow(raw);
     const summary = out[row.stationId] ?? emptySummary(row.stationId);
     out[row.stationId] = summary;
-
-    if (row.rating != null) {
-      const prevTotal = (summary.avgRating ?? 0) * summary.ratingCount;
-      summary.ratingCount += 1;
-      summary.avgRating = prevTotal + row.rating;
-    }
-
-    if (row.comment) {
-      summary.commentCount += 1;
-      if (summary.recentComments.length < 5) {
-        summary.recentComments.push({
-          userName: row.userName,
-          comment: row.comment,
-          rating: row.rating,
-          fuelType: row.fuelType,
-          pricePerLitre: row.pricePerLitre,
-          updatedAt: row.updatedAt,
-        });
-      }
-    }
-
-    if (row.pricePerLitre != null) {
-      const prevAt = summary.communityPriceUpdatedAt[row.fuelType];
-      if (prevAt == null || row.updatedAt > prevAt) {
-        summary.communityPrices[row.fuelType] = row.pricePerLitre;
-        summary.communityPriceUpdatedAt[row.fuelType] = row.updatedAt;
-      }
-    }
+    foldContributionIntoSummary(summary, row);
   }
 
-  for (const summary of Object.values(out)) {
-    if (summary.ratingCount > 0 && summary.avgRating != null) {
-      summary.avgRating =
-        Math.round((summary.avgRating / summary.ratingCount) * 10) / 10;
-    } else {
-      summary.avgRating = null;
-    }
-  }
-
+  finalizeAverages(out);
   return out;
 }

@@ -19,35 +19,41 @@ interface NavigateHereProps {
   stopPropagation?: boolean;
 }
 
+function googleMapsClass(tone: "dark" | "light", primary: boolean): string {
+  if (tone === "light") {
+    return primary
+      ? "bg-teal-600 text-white hover:bg-teal-500"
+      : "bg-teal-700 text-white hover:bg-teal-600";
+  }
+  if (primary) {
+    return "bg-teal-600 text-white shadow-md shadow-teal-950/40 hover:bg-teal-500";
+  }
+  return "bg-slate-800 text-slate-100 ring-1 ring-slate-600/60 hover:bg-slate-700";
+}
+
+function appleMapsClass(tone: "dark" | "light", primary: boolean): string {
+  if (tone === "light") {
+    return "bg-slate-200 text-slate-900 hover:bg-slate-300";
+  }
+  if (primary) {
+    return "bg-slate-100 text-slate-900 hover:bg-white";
+  }
+  return "bg-slate-800 text-slate-100 ring-1 ring-slate-600/60 hover:bg-slate-700";
+}
+
 export function NavigateHere({
   target,
   primary = false,
   tone = "dark",
   className,
   stopPropagation = true,
-}: NavigateHereProps) {
+}: Readonly<NavigateHereProps>) {
   const googleHref = googleMapsNavigateUrl(target);
   const appleHref = appleMapsNavigateUrl(target);
 
   const onLinkClick = (e: React.MouseEvent) => {
     if (stopPropagation) e.stopPropagation();
   };
-
-  const googleClass =
-    tone === "light"
-      ? primary
-        ? "bg-teal-600 text-white hover:bg-teal-500"
-        : "bg-teal-700 text-white hover:bg-teal-600"
-      : primary
-        ? "bg-teal-600 text-white shadow-md shadow-teal-950/40 hover:bg-teal-500"
-        : "bg-slate-800 text-slate-100 ring-1 ring-slate-600/60 hover:bg-slate-700";
-
-  const appleClass =
-    tone === "light"
-      ? "bg-slate-200 text-slate-900 hover:bg-slate-300"
-      : primary
-        ? "bg-slate-100 text-slate-900 hover:bg-white"
-        : "bg-slate-800 text-slate-100 ring-1 ring-slate-600/60 hover:bg-slate-700";
 
   return (
     <div className={cn("space-y-1.5", className)}>
@@ -70,7 +76,7 @@ export function NavigateHere({
           onClick={onLinkClick}
           className={cn(
             "inline-flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold transition",
-            googleClass
+            googleMapsClass(tone, primary)
           )}
         >
           Google Maps
@@ -82,7 +88,7 @@ export function NavigateHere({
           onClick={onLinkClick}
           className={cn(
             "inline-flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold transition",
-            appleClass
+            appleMapsClass(tone, primary)
           )}
         >
           Apple Maps

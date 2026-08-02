@@ -38,7 +38,7 @@ export function createAuthDatabase() {
 /** Convert `?` placeholders to Postgres `$1`, `$2`, … */
 function toPg(sql: string): string {
   let i = 0;
-  return sql.replace(/\?/g, () => `$${++i}`);
+  return sql.replaceAll("?", () => `$${++i}`);
 }
 
 export async function dbAll<T extends QueryResultRow = QueryResultRow>(

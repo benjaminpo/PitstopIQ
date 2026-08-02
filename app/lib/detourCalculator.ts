@@ -132,6 +132,8 @@ export function calculateDetourSavings(
 
 /** Format GBP for UI badges and cards */
 export function formatGbp(amount: number, digits = 2): string {
-  const sign = amount > 0 ? "+" : amount < 0 ? "−" : "";
+  let sign = "";
+  if (amount > 0) sign = "+";
+  else if (amount < 0) sign = "−";
   return `${sign}£${Math.abs(amount).toFixed(digits)}`;
 }

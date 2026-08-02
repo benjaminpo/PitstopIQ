@@ -32,10 +32,10 @@ export function statusDotClasses(status: DetourStatus): string {
 export function StatusBadge({
   status,
   className,
-}: {
+}: Readonly<{
   status: DetourStatus;
   className?: string;
-}) {
+}>) {
   return (
     <span
       className={cn(

@@ -15,7 +15,7 @@ import { PlaceAutocomplete } from "@/app/components/PlaceAutocomplete";
 import { VehiclePresets } from "@/app/components/VehiclePresets";
 import { remainingRangeMiles } from "@/app/lib/detourCalculator";
 import { usePitstopStore } from "@/app/lib/store";
-import { formatPlaceSelection } from "@/app/lib/placeSearch";
+import { formatPlaceSelection, type PlaceSuggestion } from "@/app/lib/placeSearch";
 import type { FuelType } from "@/app/lib/types";
 import { cn } from "@/app/lib/utils";
 
@@ -26,6 +26,124 @@ const FUEL_OPTIONS: { value: FuelType; label: string; hint: string }[] = [
 ];
 
 type RouteEnd = "origin" | "destination";
+
+interface RouteEndRowProps {
+  end: RouteEnd;
+  value: string;
+  onChange: (value: string) => void;
+  onSelectPlace: (place: PlaceSuggestion) => void;
+  recentPlaces: PlaceSuggestion[];
+  onClearRecent: () => void;
+  locating: boolean;
+  locatingThis: boolean;
+  locationError: string | null;
+  onLocate: () => void;
+  canSwap: boolean;
+  dragging: RouteEnd | null;
+  dropTarget: RouteEnd | null;
+  onDragStart: (end: RouteEnd) => (e: DragEvent) => void;
+  onDragOver: (end: RouteEnd) => (e: DragEvent) => void;
+  onDragLeave: (end: RouteEnd) => () => void;
+  onDrop: (end: RouteEnd) => (e: DragEvent) => void;
+  onDragEnd: () => void;
+  onGripKeyDown: (e: KeyboardEvent) => void;
+  gripAriaLabel: string;
+}
+
+function RouteEndRow({
+  end,
+  value,
+  onChange,
+  onSelectPlace,
+  recentPlaces,
+  onClearRecent,
+  locating,
+  locatingThis,
+  locationError,
+  onLocate,
+  canSwap,
+  dragging,
+  dropTarget,
+  onDragStart,
+  onDragOver,
+  onDragLeave,
+  onDrop,
+  onDragEnd,
+  onGripKeyDown,
+  gripAriaLabel,
+}: Readonly<RouteEndRowProps>) {
+  return (
+    <div
+      onDragOver={onDragOver(end)}
+      onDragLeave={onDragLeave(end)}
+      onDrop={onDrop(end)}
+      className={cn(
+        "rounded-xl transition",
+        dropTarget === end && "bg-teal-950/40 ring-1 ring-teal-600/50",
+        dragging === end && "opacity-40"
+      )}
+    >
+      <div className="flex items-start gap-1">
+        <button
+          type="button"
+          draggable={canSwap}
+          onDragStart={onDragStart(end)}
+          onDragEnd={onDragEnd}
+          onKeyDown={onGripKeyDown}
+          disabled={!canSwap}
+          aria-label={gripAriaLabel}
+          title="Drag to reorder"
+          className={cn(
+            "mt-7 shrink-0 rounded p-0.5 text-slate-500 outline-none ring-teal-500/40 focus-visible:ring-2",
+            canSwap
+              ? "cursor-grab active:cursor-grabbing hover:text-slate-300"
+              : "cursor-default opacity-40"
+          )}
+        >
+          <GripVertical className="h-4 w-4" />
+        </button>
+        <div className="w-4 shrink-0" />
+        <div className="min-w-0 flex-1 space-y-1.5 py-1 pr-10">
+          <div className="flex items-center justify-between gap-2">
+            <button
+              type="button"
+              onClick={onLocate}
+              disabled={locating}
+              className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-[11px] font-semibold text-teal-300 transition hover:bg-teal-950/60 hover:text-teal-200 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {locatingThis ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Crosshair className="h-3.5 w-3.5" />
+              )}
+              {locatingThis ? "Locating…" : "Use my location"}
+            </button>
+          </div>
+          <PlaceAutocomplete
+            value={value}
+            onChange={onChange}
+            onSelect={onSelectPlace}
+            recentPlaces={recentPlaces}
+            onClearRecent={onClearRecent}
+            placeholder="Type a place, address, or postcode…"
+            ariaLabel={end === "origin" ? "Origin" : "Destination"}
+          />
+          {locationError && (
+            <p className="text-[11px] leading-snug text-rose-400">
+              {locationError}
+            </p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function submitButtonLabel(loading: boolean, tripReady: boolean): string {
+  if (loading) return "Loading Fuel Finder…";
+  if (!tripReady) return "Choose origin & destination";
+  return "Find cheaper pit stops";
+}
 
 export function RouteForm() {
   const {
@@ -67,9 +185,6 @@ export function RouteForm() {
   const maxRefill = vehicle.tankCapacityLitres;
   const refillPct = Math.round((litresToRefill / maxRefill) * 100);
   const tripReady = originCoords !== null && destinationCoords !== null;
-  let submitLabel = "Find cheaper pit stops";
-  if (loading) submitLabel = "Loading Fuel Finder…";
-  else if (!tripReady) submitLabel = "Choose origin & destination";
   const locatingOrigin = locating && locatingTarget === "origin";
   const locatingDestination = locating && locatingTarget === "destination";
   const canSwap = Boolean(origin || destination);
@@ -119,6 +234,18 @@ export function RouteForm() {
     }
   };
 
+  const dragHandlers = {
+    canSwap,
+    dragging,
+    dropTarget,
+    onDragStart,
+    onDragOver,
+    onDragLeave,
+    onDrop,
+    onDragEnd,
+    onGripKeyDown,
+  };
+
   return (
     <form
       className="space-y-5"
@@ -152,145 +279,41 @@ export function RouteForm() {
           </button>
         </div>
 
-        {/* Origin row */}
-        <div
-          onDragOver={onDragOver("origin")}
-          onDragLeave={onDragLeave("origin")}
-          onDrop={onDrop("origin")}
-          className={cn(
-            "rounded-xl transition",
-            dropTarget === "origin" && "bg-teal-950/40 ring-1 ring-teal-600/50",
-            dragging === "origin" && "opacity-40"
-          )}
-        >
-          <div className="flex items-start gap-1">
-            <span
-              draggable={canSwap}
-              onDragStart={onDragStart("origin")}
-              onDragEnd={onDragEnd}
-              onKeyDown={onGripKeyDown}
-              tabIndex={canSwap ? 0 : -1}
-              role="button"
-              aria-label="Drag to swap with destination"
-              title="Drag to reorder"
-              className={cn(
-                "mt-7 shrink-0 rounded p-0.5 text-slate-500 outline-none ring-teal-500/40 focus-visible:ring-2",
-                canSwap
-                  ? "cursor-grab active:cursor-grabbing hover:text-slate-300"
-                  : "cursor-default opacity-40"
-              )}
-            >
-              <GripVertical className="h-4 w-4" />
-            </span>
-            <div className="w-4 shrink-0" />
-            <div className="min-w-0 flex-1 space-y-1.5 py-1 pr-10">
-              <div className="flex items-center justify-between gap-2">
-                <button
-                  type="button"
-                  onClick={() => void locateCurrentPosition("origin")}
-                  disabled={locating}
-                  className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-[11px] font-semibold text-teal-300 transition hover:bg-teal-950/60 hover:text-teal-200 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {locatingOrigin ? (
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  ) : (
-                    <Crosshair className="h-3.5 w-3.5" />
-                  )}
-                  {locatingOrigin ? "Locating…" : "Use my location"}
-                </button>
-              </div>
-              <PlaceAutocomplete
-                value={origin}
-                onChange={setOrigin}
-                onSelect={(place) => {
-                  addRecentPlace(place);
-                  setOriginPlace(formatPlaceSelection(place), place.location);
-                }}
-                recentPlaces={recentPlaces}
-                onClearRecent={clearRecentPlaces}
-                placeholder="Type a place, address, or postcode…"
-                ariaLabel="Origin"
-              />
-              {locationError && (
-                <p className="text-[11px] leading-snug text-rose-400">
-                  {locationError}
-                </p>
-              )}
-            </div>
-          </div>
-        </div>
+        <RouteEndRow
+          end="origin"
+          value={origin}
+          onChange={setOrigin}
+          onSelectPlace={(place) => {
+            addRecentPlace(place);
+            setOriginPlace(formatPlaceSelection(place), place.location);
+          }}
+          recentPlaces={recentPlaces}
+          onClearRecent={clearRecentPlaces}
+          locating={locating}
+          locatingThis={locatingOrigin}
+          locationError={locationError}
+          onLocate={() => void locateCurrentPosition("origin")}
+          gripAriaLabel="Drag to swap with destination"
+          {...dragHandlers}
+        />
 
-        {/* Destination row */}
-        <div
-          onDragOver={onDragOver("destination")}
-          onDragLeave={onDragLeave("destination")}
-          onDrop={onDrop("destination")}
-          className={cn(
-            "rounded-xl transition",
-            dropTarget === "destination" &&
-              "bg-teal-950/40 ring-1 ring-teal-600/50",
-            dragging === "destination" && "opacity-40"
-          )}
-        >
-          <div className="flex items-start gap-1">
-            <span
-              draggable={canSwap}
-              onDragStart={onDragStart("destination")}
-              onDragEnd={onDragEnd}
-              onKeyDown={onGripKeyDown}
-              tabIndex={canSwap ? 0 : -1}
-              role="button"
-              aria-label="Drag to swap with origin"
-              title="Drag to reorder"
-              className={cn(
-                "mt-7 shrink-0 rounded p-0.5 text-slate-500 outline-none ring-teal-500/40 focus-visible:ring-2",
-                canSwap
-                  ? "cursor-grab active:cursor-grabbing hover:text-slate-300"
-                  : "cursor-default opacity-40"
-              )}
-            >
-              <GripVertical className="h-4 w-4" />
-            </span>
-            <div className="w-4 shrink-0" />
-            <div className="min-w-0 flex-1 space-y-1.5 py-1 pr-10">
-              <div className="flex items-center justify-between gap-2">
-                <button
-                  type="button"
-                  onClick={() => void locateCurrentPosition("destination")}
-                  disabled={locating}
-                  className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-[11px] font-semibold text-teal-300 transition hover:bg-teal-950/60 hover:text-teal-200 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {locatingDestination ? (
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  ) : (
-                    <Crosshair className="h-3.5 w-3.5" />
-                  )}
-                  {locatingDestination ? "Locating…" : "Use my location"}
-                </button>
-              </div>
-              <PlaceAutocomplete
-                value={destination}
-                onChange={setDestination}
-                onSelect={(place) => {
-                  addRecentPlace(place);
-                  setDestinationPlace(
-                    formatPlaceSelection(place),
-                    place.location
-                  );
-                }}
-                recentPlaces={recentPlaces}
-                onClearRecent={clearRecentPlaces}
-                placeholder="Type a place, address, or postcode…"
-                ariaLabel="Destination"
-              />
-              {destinationLocationError && (
-                <p className="text-[11px] leading-snug text-rose-400">
-                  {destinationLocationError}
-                </p>
-              )}
-            </div>
-          </div>
-        </div>
+        <RouteEndRow
+          end="destination"
+          value={destination}
+          onChange={setDestination}
+          onSelectPlace={(place) => {
+            addRecentPlace(place);
+            setDestinationPlace(formatPlaceSelection(place), place.location);
+          }}
+          recentPlaces={recentPlaces}
+          onClearRecent={clearRecentPlaces}
+          locating={locating}
+          locatingThis={locatingDestination}
+          locationError={destinationLocationError}
+          onLocate={() => void locateCurrentPosition("destination")}
+          gripAriaLabel="Drag to swap with origin"
+          {...dragHandlers}
+        />
       </div>
 
       <VehiclePresets />
@@ -354,7 +377,7 @@ export function RouteForm() {
         </div>
       </label>
 
-      <label className="block space-y-2">
+      <label htmlFor="refill-amount" className="block space-y-2">
         <div className="flex items-center justify-between">
           <span className="text-xs font-medium uppercase tracking-wide text-slate-400">
             Refill amount
@@ -364,6 +387,7 @@ export function RouteForm() {
           </span>
         </div>
         <input
+          id="refill-amount"
           type="range"
           min={5}
           max={maxRefill}
@@ -378,7 +402,7 @@ export function RouteForm() {
         </div>
       </label>
 
-      <label className="block space-y-2">
+      <label htmlFor="value-of-time" className="block space-y-2">
         <div className="flex items-center justify-between">
           <span className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-slate-400">
             <Clock className="h-3.5 w-3.5" />
@@ -389,6 +413,7 @@ export function RouteForm() {
           </span>
         </div>
         <input
+          id="value-of-time"
           type="range"
           min={0}
           max={60}
@@ -489,7 +514,7 @@ export function RouteForm() {
         title={tripReady ? undefined : "Choose an origin and destination first"}
         className="flex w-full items-center justify-center gap-2 rounded-lg bg-teal-600 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-teal-950/40 transition hover:bg-teal-500 disabled:cursor-not-allowed disabled:opacity-60"
       >
-        {submitLabel}
+        {submitButtonLabel(loading, tripReady)}
       </button>
     </form>
   );

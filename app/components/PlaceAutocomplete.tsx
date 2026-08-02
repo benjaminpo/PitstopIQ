@@ -33,7 +33,7 @@ export function PlaceAutocomplete({
   placeholder,
   ariaLabel,
   disabled,
-}: PlaceAutocompleteProps) {
+}: Readonly<PlaceAutocompleteProps>) {
   const listId = useId();
   const rootRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
@@ -193,7 +193,6 @@ export function PlaceAutocomplete({
       {showList && (
         <ul
           id={listId}
-          role="listbox"
           className="absolute z-50 mt-1 max-h-56 w-full overflow-y-auto rounded-lg border border-slate-700 bg-slate-900 py-1 shadow-xl shadow-black/40"
         >
           {recentMode && (
@@ -228,12 +227,7 @@ export function PlaceAutocomplete({
               </li>
             )}
           {displayed.map((place, index) => (
-            <li
-              key={place.id}
-              id={`${listId}-opt-${index}`}
-              role="option"
-              aria-selected={highlight === index}
-            >
+            <li key={place.id} id={`${listId}-opt-${index}`}>
               <button
                 type="button"
                 className={cn(

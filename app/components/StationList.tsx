@@ -70,10 +70,11 @@ export function StationList() {
   const rangeMiles = remainingRangeMiles(vehicle);
   const brandOptions = distinctBrandOptions(stations);
   const [brandPanelOpen, setBrandPanelOpen] = useState(false);
-  const hiddenBrandsSuffix =
-    excludedBrands.length === 0
-      ? ""
-      : ` · ${excludedBrands.length} ${excludedBrands.length === 1 ? "brand" : "brands"} hidden`;
+  const hiddenBrandsSuffix = (() => {
+    if (excludedBrands.length === 0) return "";
+    const noun = excludedBrands.length === 1 ? "brand" : "brands";
+    return ` · ${excludedBrands.length} ${noun} hidden`;
+  })();
 
   const handleSelect = (stationId: string) => {
     // Tapping the selected card again deselects it, restoring the direct route
@@ -139,11 +140,8 @@ export function StationList() {
         </div>
       )}
 
-      <div
-        className="mb-3 flex flex-wrap gap-1.5"
-        role="group"
-        aria-label="Brand filter"
-      >
+      <fieldset className="mb-3 flex flex-wrap gap-1.5 border-0 p-0">
+        <legend className="sr-only">Brand filter</legend>
         {BRAND_FILTER_OPTIONS.map((opt) => {
           const active = brandFilter === opt.key;
           return (
@@ -187,7 +185,7 @@ export function StationList() {
             />
           </button>
         )}
-      </div>
+      </fieldset>
 
       {brandPanelOpen && brandOptions.length > 0 && (
         <div className="mb-3 rounded-lg bg-slate-900/60 p-2.5 ring-1 ring-slate-700/60">
@@ -206,11 +204,8 @@ export function StationList() {
               </button>
             )}
           </div>
-          <div
-            className="flex max-h-36 flex-wrap gap-1.5 overflow-y-auto pr-1"
-            role="group"
-            aria-label="Hidden brands"
-          >
+          <fieldset className="flex max-h-36 flex-wrap gap-1.5 overflow-y-auto border-0 p-0 pr-1">
+            <legend className="sr-only">Hidden brands</legend>
             {brandOptions.map((opt) => {
               const hidden = excludedBrands.includes(opt.key);
               return (
@@ -233,7 +228,7 @@ export function StationList() {
                 </button>
               );
             })}
-          </div>
+          </fieldset>
         </div>
       )}
 

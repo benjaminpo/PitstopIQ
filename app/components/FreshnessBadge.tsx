@@ -14,13 +14,13 @@ export function FreshnessBadge({
   pricesFetchedAt,
   now,
   className,
-}: {
+}: Readonly<{
   source: "live" | "mock" | null;
   pricesFetchedAt: number | null;
   /** Current clock (pass from a ticking parent — avoid Date.now in render) */
   now: number;
   className?: string;
-}) {
+}>) {
   const tone = freshnessTone(source, pricesFetchedAt, now);
 
   let label: string;

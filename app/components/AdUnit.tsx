@@ -30,7 +30,7 @@ export function AdUnit({
   format = "auto",
   className,
   label = true,
-}: AdUnitProps) {
+}: Readonly<AdUnitProps>) {
   const client = getAdSenseClient();
   const pushed = useRef(false);
 
