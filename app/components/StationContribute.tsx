@@ -526,10 +526,7 @@ export function StationContribute({
   }
 
   return (
-    <div
-      className="mt-3 border-t border-slate-800/80 pt-3"
-      onClick={(e) => e.stopPropagation()}
-    >
+    <div className="mt-3 border-t border-slate-800/80 pt-3">
       <CommunitySummaryBlock community={community} comments={comments} />
       {body}
     </div>
