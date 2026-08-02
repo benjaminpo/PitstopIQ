@@ -10,6 +10,7 @@ import { SidebarAd } from "@/app/components/AdUnit";
 import { ShareTripButton } from "@/app/components/ShareTripButton";
 import { StationList } from "@/app/components/StationList";
 import { TripUrlSync } from "@/app/components/TripUrlSync";
+import { VehiclePresetsSync } from "@/app/components/VehiclePresetsSync";
 import { usePitstopStore } from "@/app/lib/store";
 import { formatDuration } from "@/app/lib/routing";
 import { parseTripSearchParams } from "@/app/lib/tripUrl";
@@ -67,6 +68,7 @@ export default function HomePage() {
   return (
     <div className="relative flex h-[100dvh] w-full overflow-hidden bg-slate-950 text-slate-100">
       <TripUrlSync />
+      <VehiclePresetsSync />
 
       {/* Atmospheric backdrop behind map */}
       <div

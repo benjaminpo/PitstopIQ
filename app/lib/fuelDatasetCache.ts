@@ -2,7 +2,7 @@
  * Server-only durable cache for the national Fuel Finder dataset.
  * Must not be imported from Client Components (pulls in pg / better-sqlite3).
  */
-import { dbGet, dbRun } from "@/app/lib/db";
+import { dbGet, dbRun, ensureBigintEpochColumns } from "@/app/lib/db";
 import type { FuelStation } from "@/app/lib/types";
 
 const CACHE_ROW_ID = "national";
@@ -19,10 +19,11 @@ function ensureSchema(): Promise<void> {
     await dbRun(`
       CREATE TABLE IF NOT EXISTS fuel_dataset_cache (
         id TEXT PRIMARY KEY NOT NULL,
-        fetched_at INTEGER NOT NULL,
+        fetched_at BIGINT NOT NULL,
         stations_json TEXT NOT NULL
       )
     `);
+    await ensureBigintEpochColumns("fuel_dataset_cache", ["fetched_at"]);
   })();
   return schemaReady;
 }

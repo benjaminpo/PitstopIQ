@@ -4,19 +4,47 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Fuel, Loader2, MessageSquare, Star, Trash2 } from "lucide-react";
 import { useSession } from "@/app/lib/auth-client";
+import { ALL_FUEL_TYPES, FUEL_TYPE_LABELS } from "@/app/lib/fuelConstants";
 import { usePitstopStore } from "@/app/lib/store";
 import type { FuelType, StationCommunitySummary } from "@/app/lib/types";
 import { cn } from "@/app/lib/utils";
 
+type FuelPriceMap = Partial<Record<FuelType, number>>;
+
 interface MineContribution {
-  fuelType: FuelType;
-  pricePerLitre: number | null;
+  prices?: FuelPriceMap;
+  /** @deprecated legacy single-grade fields */
+  fuelType?: FuelType;
+  pricePerLitre?: number | null;
   comment: string | null;
   rating: number | null;
 }
 
 const inputClass =
   "w-full rounded-lg border border-slate-700/80 bg-slate-950/60 px-2.5 py-1.5 text-sm text-slate-100 outline-none ring-teal-500/40 transition placeholder:text-slate-500 focus:border-teal-500/60 focus:ring-2";
+
+function emptyPriceDrafts(): Record<FuelType, string> {
+  return { E10: "", E5: "", B7_Diesel: "" };
+}
+
+function pricesFromMine(mine: MineContribution | null | undefined): FuelPriceMap {
+  if (!mine) return {};
+  if (mine.prices && Object.keys(mine.prices).length > 0) return mine.prices;
+  if (mine.fuelType && mine.pricePerLitre != null) {
+    return { [mine.fuelType]: mine.pricePerLitre };
+  }
+  return {};
+}
+
+function draftsFromPrices(prices: FuelPriceMap): Record<FuelType, string> {
+  const drafts = emptyPriceDrafts();
+  for (const t of ALL_FUEL_TYPES) {
+    if (prices[t] != null) {
+      drafts[t] = String(prices[t]);
+    }
+  }
+  return drafts;
+}
 
 function Stars({
   value,
@@ -72,15 +100,7 @@ function Stars({
 }
 
 type SaveKind = "price" | "review";
-
-function initialPriceText(
-  mine: MineContribution | null | undefined,
-  officialPrice?: number
-): string {
-  if (mine?.pricePerLitre != null) return String(mine.pricePerLitre);
-  if (officialPrice != null) return officialPrice.toFixed(3);
-  return "";
-}
+type BusyState = SaveKind | "clear-price" | "clear-review" | null;
 
 function CommunitySummaryBlock({
   community,
@@ -123,10 +143,10 @@ function CommunitySummaryBlock({
   );
 }
 
-function priceSubmitLabel(saved: boolean, hasPrice: boolean): string {
+function priceSubmitLabel(saved: boolean, hasAnySaved: boolean): string {
   if (saved) return "Saved";
-  if (hasPrice) return "Update price";
-  return "Submit price";
+  if (hasAnySaved) return "Update prices";
+  return "Submit prices";
 }
 
 function reviewSubmitLabel(saved: boolean, hasReview: boolean): string {
@@ -136,26 +156,30 @@ function reviewSubmitLabel(saved: boolean, hasReview: boolean): string {
 }
 
 function PriceForm({
-  fuelLabel,
-  price,
-  setPrice,
-  hasPrice,
+  priceDrafts,
+  setPriceDraft,
+  savedPrices,
+  officialPrices,
   priceError,
   priceSaved,
   busy,
+  clearingFuel,
   onSubmit,
-  onClear,
+  onClearFuel,
 }: Readonly<{
-  fuelLabel: string;
-  price: string;
-  setPrice: (v: string) => void;
-  hasPrice: boolean;
+  priceDrafts: Record<FuelType, string>;
+  setPriceDraft: (fuel: FuelType, value: string) => void;
+  savedPrices: FuelPriceMap;
+  officialPrices?: FuelPriceMap;
   priceError: string | null;
   priceSaved: boolean;
-  busy: SaveKind | "clear-price" | "clear-review" | null;
+  busy: BusyState;
+  clearingFuel: FuelType | null;
   onSubmit: (e: React.FormEvent) => void;
-  onClear: () => void;
+  onClearFuel: (fuel: FuelType) => void;
 }>) {
+  const hasAnySaved = ALL_FUEL_TYPES.some((t) => savedPrices[t] != null);
+
   return (
     <form
       onSubmit={onSubmit}
@@ -163,25 +187,53 @@ function PriceForm({
     >
       <p className="flex items-center gap-1.5 text-[11px] font-medium text-slate-300">
         <Fuel className="h-3.5 w-3.5 text-teal-400" />
-        {hasPrice ? "Your reported price" : "Report pump price"}
+        {hasAnySaved ? "Your reported prices" : "Report pump prices"}
       </p>
-      <label className="flex flex-col gap-1">
-        <span className="text-[10px] uppercase tracking-wide text-slate-500">
-          {fuelLabel} £/L
-        </span>
-        <input
-          type="number"
-          inputMode="decimal"
-          step="0.001"
-          min="0.8"
-          max="3.5"
-          required
-          value={price}
-          onChange={(e) => setPrice(e.target.value)}
-          placeholder="1.349"
-          className={cn(inputClass, "font-mono")}
-        />
-      </label>
+      <p className="text-[10px] text-slate-500">
+        Enter any grades you can confirm — leave the rest blank.
+      </p>
+      <div className="space-y-2">
+        {ALL_FUEL_TYPES.map((fuel) => {
+          const saved = savedPrices[fuel] != null;
+          const official = officialPrices?.[fuel];
+          return (
+            <label key={fuel} className="flex flex-col gap-1">
+              <span className="flex items-center justify-between gap-2 text-[10px] uppercase tracking-wide text-slate-500">
+                <span>{FUEL_TYPE_LABELS[fuel]} £/L</span>
+                {saved && (
+                  <button
+                    type="button"
+                    onClick={() => onClearFuel(fuel)}
+                    disabled={busy != null}
+                    className="inline-flex items-center gap-1 rounded border border-transparent px-1 py-0.5 text-[10px] normal-case tracking-normal text-slate-500 transition hover:border-rose-700/50 hover:text-rose-300 disabled:opacity-60"
+                    aria-label={`Clear ${FUEL_TYPE_LABELS[fuel]} price`}
+                  >
+                    {busy === "clear-price" && clearingFuel === fuel ? (
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                    ) : (
+                      <Trash2 className="h-3 w-3" />
+                    )}
+                    Clear
+                  </button>
+                )}
+              </span>
+              <input
+                type="number"
+                inputMode="decimal"
+                step="0.001"
+                min="0.8"
+                max="3.5"
+                value={priceDrafts[fuel]}
+                onChange={(e) => setPriceDraft(fuel, e.target.value)}
+                placeholder={
+                  official != null ? official.toFixed(3) : "1.349"
+                }
+                className={cn(inputClass, "font-mono")}
+              />
+            </label>
+          );
+        })}
+      </div>
       {priceError && (
         <p
           role="alert"
@@ -190,33 +242,14 @@ function PriceForm({
           {priceError}
         </p>
       )}
-      <div className="flex items-center gap-2">
-        <button
-          type="submit"
-          disabled={busy != null}
-          className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-teal-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-teal-500 disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          {busy === "price" && (
-            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-          )}
-          {priceSubmitLabel(priceSaved, hasPrice)}
-        </button>
-        {hasPrice && (
-          <button
-            type="button"
-            onClick={onClear}
-            disabled={busy != null}
-            className="inline-flex items-center gap-1 rounded-lg border border-slate-700/80 px-2.5 py-1.5 text-xs text-slate-400 transition hover:border-rose-700/50 hover:text-rose-300 disabled:opacity-60"
-            aria-label="Clear your price report"
-          >
-            {busy === "clear-price" ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            ) : (
-              <Trash2 className="h-3.5 w-3.5" />
-            )}
-          </button>
-        )}
-      </div>
+      <button
+        type="submit"
+        disabled={busy != null}
+        className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg bg-teal-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-teal-500 disabled:cursor-not-allowed disabled:opacity-60"
+      >
+        {busy === "price" && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+        {priceSubmitLabel(priceSaved, hasAnySaved)}
+      </button>
     </form>
   );
 }
@@ -240,7 +273,7 @@ function ReviewForm({
   hasReview: boolean;
   reviewError: string | null;
   reviewSaved: boolean;
-  busy: SaveKind | "clear-price" | "clear-review" | null;
+  busy: BusyState;
   onSubmit: (e: React.FormEvent) => void;
   onClear: () => void;
 }>) {
@@ -314,45 +347,47 @@ function ReviewForm({
 export function StationContribute({
   stationId,
   stationName,
-  fuelType,
-  officialPrice,
+  officialPrices,
   community,
 }: Readonly<{
   stationId: string;
   stationName: string;
-  fuelType: FuelType;
-  officialPrice?: number;
+  officialPrices?: FuelPriceMap;
   community?: StationCommunitySummary;
 }>) {
   const { data: session, isPending: sessionPending } = useSession();
   const setCommunitySummary = usePitstopStore((s) => s.setCommunitySummary);
 
-  const [price, setPrice] = useState("");
+  const [priceDrafts, setPriceDrafts] = useState(emptyPriceDrafts);
+  const [savedPrices, setSavedPrices] = useState<FuelPriceMap>({});
   const [rating, setRating] = useState(0);
   const [comment, setComment] = useState("");
   const [mineLoaded, setMineLoaded] = useState(false);
-  const [hasPrice, setHasPrice] = useState(false);
   const [hasReview, setHasReview] = useState(false);
-  const [busy, setBusy] = useState<SaveKind | "clear-price" | "clear-review" | null>(
-    null
-  );
+  const [busy, setBusy] = useState<BusyState>(null);
+  const [clearingFuel, setClearingFuel] = useState<FuelType | null>(null);
   const [priceError, setPriceError] = useState<string | null>(null);
   const [reviewError, setReviewError] = useState<string | null>(null);
   const [priceSaved, setPriceSaved] = useState(false);
   const [reviewSaved, setReviewSaved] = useState(false);
 
+  const setPriceDraft = (fuel: FuelType, value: string) => {
+    setPriceDrafts((prev) => ({ ...prev, [fuel]: value }));
+  };
+
   const applyMine = (mine: MineContribution | null | undefined) => {
     if (!mine) {
-      setHasPrice(false);
+      setSavedPrices({});
       setHasReview(false);
-      setPrice(initialPriceText(null, officialPrice));
+      setPriceDrafts(draftsFromPrices({}));
       setRating(0);
       setComment("");
       return;
     }
-    setHasPrice(mine.pricePerLitre != null);
+    const prices = pricesFromMine(mine);
+    setSavedPrices(prices);
     setHasReview(mine.rating != null || Boolean(mine.comment));
-    setPrice(initialPriceText(mine, officialPrice));
+    setPriceDrafts(draftsFromPrices(prices));
     setRating(mine.rating ?? 0);
     setComment(mine.comment ?? "");
   };
@@ -415,6 +450,24 @@ export function StationContribute({
   const handlePriceSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (busy) return;
+
+    const prices: FuelPriceMap = {};
+    for (const t of ALL_FUEL_TYPES) {
+      const raw = priceDrafts[t].trim();
+      if (!raw) continue;
+      const n = Number(raw);
+      if (!Number.isFinite(n)) {
+        setPriceError(`Enter a valid ${FUEL_TYPE_LABELS[t]} price`);
+        return;
+      }
+      prices[t] = n;
+    }
+
+    if (Object.keys(prices).length === 0) {
+      setPriceError("Enter at least one fuel price");
+      return;
+    }
+
     setBusy("price");
     setPriceError(null);
     try {
@@ -422,8 +475,7 @@ export function StationContribute({
         {
           stationId,
           kind: "price",
-          fuelType,
-          pricePerLitre: Number(price),
+          prices,
         },
         "price"
       );
@@ -456,24 +508,38 @@ export function StationContribute({
     }
   };
 
-  const handleClear = async (kind: SaveKind) => {
+  const handleClearFuel = async (fuel: FuelType) => {
     if (busy) return;
-    setBusy(kind === "price" ? "clear-price" : "clear-review");
-    if (kind === "price") setPriceError(null);
-    else setReviewError(null);
+    setBusy("clear-price");
+    setClearingFuel(fuel);
+    setPriceError(null);
     try {
-      await postContribution({ stationId, kind, clear: true }, kind);
+      await postContribution(
+        { stationId, kind: "price", clear: true, fuelType: fuel },
+        "price"
+      );
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "Could not clear";
-      if (kind === "price") setPriceError(msg);
-      else setReviewError(msg);
+      setPriceError(err instanceof Error ? err.message : "Could not clear");
+    } finally {
+      setBusy(null);
+      setClearingFuel(null);
+    }
+  };
+
+  const handleClearReview = async () => {
+    if (busy) return;
+    setBusy("clear-review");
+    setReviewError(null);
+    try {
+      await postContribution({ stationId, kind: "review", clear: true }, "review");
+    } catch (err) {
+      setReviewError(err instanceof Error ? err.message : "Could not clear");
     } finally {
       setBusy(null);
     }
   };
 
   const comments = community?.recentComments ?? [];
-  const fuelLabel = fuelType.replaceAll("_", " ");
 
   let body: React.ReactNode;
   if (sessionPending || !mineLoaded) {
@@ -492,22 +558,23 @@ export function StationContribute({
         >
           Sign in
         </Link>{" "}
-        to report a pump price or leave a rating/comment on {stationName}.
+        to report pump prices or leave a rating/comment on {stationName}.
       </p>
     );
   } else {
     body = (
       <div className="space-y-3">
         <PriceForm
-          fuelLabel={fuelLabel}
-          price={price}
-          setPrice={setPrice}
-          hasPrice={hasPrice}
+          priceDrafts={priceDrafts}
+          setPriceDraft={setPriceDraft}
+          savedPrices={savedPrices}
+          officialPrices={officialPrices}
           priceError={priceError}
           priceSaved={priceSaved}
           busy={busy}
+          clearingFuel={clearingFuel}
           onSubmit={(e) => void handlePriceSubmit(e)}
-          onClear={() => void handleClear("price")}
+          onClearFuel={(fuel) => void handleClearFuel(fuel)}
         />
         <ReviewForm
           rating={rating}
@@ -519,7 +586,7 @@ export function StationContribute({
           reviewSaved={reviewSaved}
           busy={busy}
           onSubmit={(e) => void handleReviewSubmit(e)}
-          onClear={() => void handleClear("review")}
+          onClear={() => void handleClearReview()}
         />
       </div>
     );

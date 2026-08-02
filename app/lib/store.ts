@@ -94,7 +94,7 @@ interface PitstopState {
   detourRouting: boolean;
   detourRouteError: string | null;
   vehicle: VehicleProfile;
-  /** Named MPG / tank / fuel profiles kept in localStorage */
+  /** Named MPG / tank / fuel profiles (localStorage; synced to DB when signed in) */
   vehiclePresets: VehiclePreset[];
   activePresetId: string | null;
   baseRouteAvgPricePerLitre: number;
@@ -150,6 +150,11 @@ interface PitstopState {
   updateVehiclePreset: (id: string) => void;
   deleteVehiclePreset: (id: string) => void;
   renameVehiclePreset: (id: string, name: string) => void;
+  /** Replace presets from cloud sync (does not mutate vehicle fields). */
+  replaceVehiclePresets: (
+    presets: VehiclePreset[],
+    activePresetId: string | null
+  ) => void;
   locateCurrentPosition: (target?: "origin" | "destination") => Promise<void>;
   loadStations: () => Promise<void>;
   loadCommunitySummaries: (stationIds?: string[]) => Promise<void>;
@@ -470,6 +475,15 @@ export const usePitstopStore = create<PitstopState>()(
             p.id === id ? { ...p, name: trimmed } : p
           ),
         }));
+      },
+
+      replaceVehiclePresets: (presets, activePresetId) => {
+        const next = presets.slice(0, MAX_VEHICLE_PRESETS);
+        const active =
+          activePresetId && next.some((p) => p.id === activePresetId)
+            ? activePresetId
+            : null;
+        set({ vehiclePresets: next, activePresetId: active });
       },
 
       locateCurrentPosition: async (target = "origin") => {

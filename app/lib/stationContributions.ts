@@ -1,8 +1,9 @@
 import { randomUUID } from "node:crypto";
-import { dbAll, dbGet, dbRun } from "@/app/lib/db";
+import { dbAll, dbGet, dbRun, ensureBigintEpochColumns } from "@/app/lib/db";
+import { ALL_FUEL_TYPES } from "@/app/lib/fuelConstants";
 import type { FuelType, StationCommunitySummary } from "@/app/lib/types";
 
-const FUEL_TYPES = new Set<FuelType>(["E10", "E5", "B7_Diesel"]);
+const FUEL_TYPES = new Set<FuelType>(ALL_FUEL_TYPES);
 const MAX_COMMENT = 500;
 /** Plausible UK £/L band (guards against typos / abuse). */
 const MIN_PRICE = 0.8;
@@ -10,13 +11,15 @@ const MAX_PRICE = 3.5;
 
 export type ContributionKind = "price" | "review";
 
+export type FuelPriceMap = Partial<Record<FuelType, number>>;
+
 export interface StationContributionRow {
   id: string;
   userId: string;
   userName: string;
   stationId: string;
-  fuelType: FuelType;
-  pricePerLitre: number | null;
+  /** Member-reported £/L by fuel grade */
+  prices: FuelPriceMap;
   comment: string | null;
   rating: number | null;
   createdAt: number;
@@ -28,9 +31,13 @@ export type { StationCommunitySummary };
 export interface UpsertContributionInput {
   stationId: string;
   kind: ContributionKind;
-  /** Required for kind=price (unless clearing) */
-  fuelType?: FuelType;
-  pricePerLitre?: number | null;
+  /**
+   * Prices to merge (kind=price). Clearing uses `clearFuelType` or
+   * clears every grade when `clear` is true and no fuel type is set.
+   */
+  prices?: FuelPriceMap;
+  /** When clearing a single grade */
+  clearFuelType?: FuelType;
   comment?: string | null;
   rating?: number | null;
   /** Clear only this kind's fields; leave the other side intact */
@@ -38,6 +45,87 @@ export interface UpsertContributionInput {
 }
 
 let schemaReady: Promise<void> | null = null;
+
+function parsePricesJson(raw: unknown): FuelPriceMap {
+  if (raw == null || raw === "") return {};
+  let parsed: unknown = raw;
+  if (typeof raw === "string") {
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
+      return {};
+    }
+  }
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    return {};
+  }
+  const out: FuelPriceMap = {};
+  for (const [key, value] of Object.entries(parsed as Record<string, unknown>)) {
+    if (!FUEL_TYPES.has(key as FuelType)) continue;
+    const n = Number(value);
+    if (Number.isFinite(n)) out[key as FuelType] = n;
+  }
+  return out;
+}
+
+function serializePrices(prices: FuelPriceMap): string | null {
+  const keys = ALL_FUEL_TYPES.filter((t) => prices[t] != null);
+  if (keys.length === 0) return null;
+  const out: Record<string, number> = {};
+  for (const t of keys) {
+    out[t] = prices[t] as number;
+  }
+  return JSON.stringify(out);
+}
+
+/** Legacy columns kept in sync for older rows / NOT NULL fuel_type. */
+function legacyPriceColumns(prices: FuelPriceMap): {
+  fuelType: FuelType;
+  pricePerLitre: number | null;
+} {
+  for (const t of ALL_FUEL_TYPES) {
+    if (prices[t] != null) {
+      return { fuelType: t, pricePerLitre: prices[t] as number };
+    }
+  }
+  return { fuelType: "E10", pricePerLitre: null };
+}
+
+function hasAnyPrice(prices: FuelPriceMap): boolean {
+  return ALL_FUEL_TYPES.some((t) => prices[t] != null);
+}
+
+async function ensurePricesJsonColumn(): Promise<void> {
+  try {
+    await dbRun(
+      `ALTER TABLE station_contribution ADD COLUMN prices_json TEXT`
+    );
+  } catch {
+    // Column already exists (SQLite / Postgres without IF NOT EXISTS).
+  }
+}
+
+async function migrateLegacyPrices(): Promise<void> {
+  const rows = await dbAll<{
+    id: string;
+    fuel_type: string;
+    price_per_litre: number | null;
+    prices_json: string | null;
+  }>(
+    `SELECT id, fuel_type, price_per_litre, prices_json
+     FROM station_contribution
+     WHERE prices_json IS NULL AND price_per_litre IS NOT NULL`
+  );
+  for (const row of rows) {
+    const fuel = row.fuel_type as FuelType;
+    if (!FUEL_TYPES.has(fuel)) continue;
+    const prices: FuelPriceMap = { [fuel]: Number(row.price_per_litre) };
+    await dbRun(`UPDATE station_contribution SET prices_json = ? WHERE id = ?`, [
+      serializePrices(prices),
+      row.id,
+    ]);
+  }
+}
 
 export function ensureContributionSchema(): Promise<void> {
   schemaReady ??= (async () => {
@@ -48,13 +136,21 @@ export function ensureContributionSchema(): Promise<void> {
         station_id TEXT NOT NULL,
         fuel_type TEXT NOT NULL,
         price_per_litre REAL,
+        prices_json TEXT,
         comment TEXT,
         rating INTEGER,
-        created_at INTEGER NOT NULL,
-        updated_at INTEGER NOT NULL,
+        created_at BIGINT NOT NULL,
+        updated_at BIGINT NOT NULL,
         UNIQUE (user_id, station_id)
       )
     `);
+    // Existing Neon tables were created with INTEGER; widen for Date.now() ms.
+    await ensureBigintEpochColumns("station_contribution", [
+      "created_at",
+      "updated_at",
+    ]);
+    await ensurePricesJsonColumn();
+    await migrateLegacyPrices();
     await dbRun(`
       CREATE INDEX IF NOT EXISTS idx_station_contribution_station
       ON station_contribution (station_id)
@@ -74,43 +170,87 @@ function parseStationId(
   return { ok: true, stationId };
 }
 
-function parsePriceBody(
-  stationId: string,
-  b: Record<string, unknown>,
-  clear: boolean
-): { ok: true; value: UpsertContributionInput } | { ok: false; error: string } {
-  if (clear) {
-    return { ok: true, value: { stationId, kind: "price", clear: true } };
-  }
-
-  const fuelType = b.fuelType;
-  if (typeof fuelType !== "string" || !FUEL_TYPES.has(fuelType as FuelType)) {
-    return { ok: false, error: "fuelType must be E10, E5, or B7_Diesel" };
-  }
-
-  if (
-    b.pricePerLitre === undefined ||
-    b.pricePerLitre === null ||
-    b.pricePerLitre === ""
-  ) {
+function parseOnePrice(
+  value: unknown
+): { ok: true; n: number } | { ok: false; error: string } {
+  if (value === undefined || value === null || value === "") {
     return { ok: false, error: "pricePerLitre is required" };
   }
-  const n = Number(b.pricePerLitre);
+  const n = Number(value);
   if (!Number.isFinite(n) || n < MIN_PRICE || n > MAX_PRICE) {
     return {
       ok: false,
       error: `pricePerLitre must be between £${MIN_PRICE.toFixed(2)} and £${MAX_PRICE.toFixed(2)}`,
     };
   }
+  return { ok: true, n: Math.round(n * 1000) / 1000 };
+}
 
+function parseFuelType(
+  value: unknown
+): { ok: true; fuelType: FuelType } | { ok: false; error: string } {
+  if (typeof value !== "string" || !FUEL_TYPES.has(value as FuelType)) {
+    return { ok: false, error: "fuelType must be E10, E5, or B7_Diesel" };
+  }
+  return { ok: true, fuelType: value as FuelType };
+}
+
+function parsePriceMapFromBody(
+  b: Record<string, unknown>
+): { ok: true; prices: FuelPriceMap } | { ok: false; error: string } {
+  if (b.prices != null && typeof b.prices === "object" && !Array.isArray(b.prices)) {
+    const raw = b.prices as Record<string, unknown>;
+    const prices: FuelPriceMap = {};
+    let sawKey = false;
+    for (const t of ALL_FUEL_TYPES) {
+      if (!(t in raw)) continue;
+      sawKey = true;
+      const parsed = parseOnePrice(raw[t]);
+      if (!parsed.ok) {
+        return { ok: false, error: `${t}: ${parsed.error}` };
+      }
+      prices[t] = parsed.n;
+    }
+    if (!sawKey) {
+      return { ok: false, error: "prices must include at least one fuel grade" };
+    }
+    return { ok: true, prices };
+  }
+
+  const fuel = parseFuelType(b.fuelType);
+  if (!fuel.ok) return fuel;
+  const price = parseOnePrice(b.pricePerLitre);
+  if (!price.ok) return price;
+  return { ok: true, prices: { [fuel.fuelType]: price.n } };
+}
+
+function parsePriceBody(
+  stationId: string,
+  b: Record<string, unknown>,
+  clear: boolean
+): { ok: true; value: UpsertContributionInput } | { ok: false; error: string } {
+  if (clear) {
+    if (b.fuelType != null && b.fuelType !== "") {
+      const fuel = parseFuelType(b.fuelType);
+      if (!fuel.ok) return fuel;
+      return {
+        ok: true,
+        value: {
+          stationId,
+          kind: "price",
+          clear: true,
+          clearFuelType: fuel.fuelType,
+        },
+      };
+    }
+    return { ok: true, value: { stationId, kind: "price", clear: true } };
+  }
+
+  const parsed = parsePriceMapFromBody(b);
+  if (!parsed.ok) return parsed;
   return {
     ok: true,
-    value: {
-      stationId,
-      kind: "price",
-      fuelType: fuelType as FuelType,
-      pricePerLitre: Math.round(n * 1000) / 1000,
-    },
+    value: { stationId, kind: "price", prices: parsed.prices },
   };
 }
 
@@ -181,15 +321,27 @@ function asString(value: unknown, fallback = ""): string {
   return fallback;
 }
 
+function pricesFromRow(row: Record<string, unknown>): FuelPriceMap {
+  const fromJson = parsePricesJson(row.prices_json);
+  if (hasAnyPrice(fromJson)) return fromJson;
+  const fuel = row.fuel_type as FuelType;
+  if (
+    FUEL_TYPES.has(fuel) &&
+    row.price_per_litre != null &&
+    Number.isFinite(Number(row.price_per_litre))
+  ) {
+    return { [fuel]: Number(row.price_per_litre) };
+  }
+  return {};
+}
+
 function mapRow(row: Record<string, unknown>): StationContributionRow {
   return {
     id: asString(row.id),
     userId: asString(row.user_id),
     userName: asString(row.user_name, "Member") || "Member",
     stationId: asString(row.station_id),
-    fuelType: row.fuel_type as FuelType,
-    pricePerLitre:
-      row.price_per_litre == null ? null : Number(row.price_per_litre),
+    prices: pricesFromRow(row),
     comment: row.comment == null ? null : asString(row.comment),
     rating: row.rating == null ? null : Number(row.rating),
     createdAt: Number(row.created_at),
@@ -216,6 +368,7 @@ type ExistingRow = {
   id: string;
   fuel_type: string;
   price_per_litre: number | null;
+  prices_json: string | null;
   comment: string | null;
   rating: number | null;
   created_at: number;
@@ -225,14 +378,13 @@ function applyUpsertFields(
   existing: ExistingRow | undefined,
   input: UpsertContributionInput
 ): {
-  fuelType: FuelType;
-  pricePerLitre: number | null;
+  prices: FuelPriceMap;
   comment: string | null;
   rating: number | null;
 } {
-  let fuelType: FuelType = (existing?.fuel_type as FuelType) || "E10";
-  let pricePerLitre: number | null =
-    existing?.price_per_litre == null ? null : Number(existing.price_per_litre);
+  let prices: FuelPriceMap = existing
+    ? pricesFromRow(existing as unknown as Record<string, unknown>)
+    : {};
   let comment: string | null =
     existing?.comment == null ? null : String(existing.comment);
   let rating: number | null =
@@ -240,10 +392,15 @@ function applyUpsertFields(
 
   if (input.kind === "price") {
     if (input.clear) {
-      pricePerLitre = null;
-    } else {
-      fuelType = input.fuelType ?? fuelType;
-      pricePerLitre = input.pricePerLitre ?? null;
+      if (input.clearFuelType) {
+        const next = { ...prices };
+        delete next[input.clearFuelType];
+        prices = next;
+      } else {
+        prices = {};
+      }
+    } else if (input.prices) {
+      prices = { ...prices, ...input.prices };
     }
   } else if (input.clear) {
     comment = null;
@@ -253,7 +410,7 @@ function applyUpsertFields(
     comment = input.comment ?? null;
   }
 
-  return { fuelType, pricePerLitre, comment, rating };
+  return { prices, comment, rating };
 }
 
 export async function upsertContribution(
@@ -263,19 +420,16 @@ export async function upsertContribution(
   await ensureContributionSchema();
   const now = Date.now();
   const existing = await dbGet<ExistingRow>(
-    `SELECT id, fuel_type, price_per_litre, comment, rating, created_at
+    `SELECT id, fuel_type, price_per_litre, prices_json, comment, rating, created_at
      FROM station_contribution
      WHERE user_id = ? AND station_id = ?`,
     [userId, input.stationId]
   );
 
-  const { fuelType, pricePerLitre, comment, rating } = applyUpsertFields(
-    existing,
-    input
-  );
+  const { prices, comment, rating } = applyUpsertFields(existing, input);
 
   // Nothing left — remove the row entirely
-  if (pricePerLitre == null && comment == null && rating == null) {
+  if (!hasAnyPrice(prices) && comment == null && rating == null) {
     if (existing) {
       await dbRun(`DELETE FROM station_contribution WHERE id = ?`, [
         existing.id,
@@ -284,24 +438,36 @@ export async function upsertContribution(
     return null;
   }
 
+  const legacy = legacyPriceColumns(prices);
+  const pricesJson = serializePrices(prices);
+
   if (existing) {
     await dbRun(
       `UPDATE station_contribution
-       SET fuel_type = ?, price_per_litre = ?, comment = ?, rating = ?, updated_at = ?
+       SET fuel_type = ?, price_per_litre = ?, prices_json = ?, comment = ?, rating = ?, updated_at = ?
        WHERE id = ?`,
-      [fuelType, pricePerLitre, comment, rating, now, existing.id]
+      [
+        legacy.fuelType,
+        legacy.pricePerLitre,
+        pricesJson,
+        comment,
+        rating,
+        now,
+        existing.id,
+      ]
     );
   } else {
     await dbRun(
       `INSERT INTO station_contribution
-         (id, user_id, station_id, fuel_type, price_per_litre, comment, rating, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         (id, user_id, station_id, fuel_type, price_per_litre, prices_json, comment, rating, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         randomUUID(),
         userId,
         input.stationId,
-        fuelType,
-        pricePerLitre,
+        legacy.fuelType,
+        legacy.pricePerLitre,
+        pricesJson,
         comment,
         rating,
         now,
@@ -352,22 +518,25 @@ function foldContributionIntoSummary(
   if (row.comment) {
     summary.commentCount += 1;
     if (summary.recentComments.length < 5) {
+      const primary = legacyPriceColumns(row.prices);
       summary.recentComments.push({
         userName: row.userName,
         comment: row.comment,
         rating: row.rating,
-        fuelType: row.fuelType,
-        pricePerLitre: row.pricePerLitre,
+        fuelType: primary.fuelType,
+        pricePerLitre: primary.pricePerLitre,
         updatedAt: row.updatedAt,
       });
     }
   }
 
-  if (row.pricePerLitre != null) {
-    const prevAt = summary.communityPriceUpdatedAt[row.fuelType];
+  for (const fuelType of ALL_FUEL_TYPES) {
+    const price = row.prices[fuelType];
+    if (price == null) continue;
+    const prevAt = summary.communityPriceUpdatedAt[fuelType];
     if (prevAt == null || row.updatedAt > prevAt) {
-      summary.communityPrices[row.fuelType] = row.pricePerLitre;
-      summary.communityPriceUpdatedAt[row.fuelType] = row.updatedAt;
+      summary.communityPrices[fuelType] = price;
+      summary.communityPriceUpdatedAt[fuelType] = row.updatedAt;
     }
   }
 }

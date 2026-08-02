@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Car, Plus, Save, Trash2 } from "lucide-react";
+import { useSession } from "@/app/lib/auth-client";
 import { usePitstopStore } from "@/app/lib/store";
 import { cn } from "@/app/lib/utils";
 
@@ -12,6 +13,9 @@ const FUEL_SHORT: Record<string, string> = {
 };
 
 export function VehiclePresets() {
+  const { data: session } = useSession();
+  const signedIn = Boolean(session?.user);
+
   const {
     vehicle,
     vehiclePresets,
@@ -52,7 +56,9 @@ export function VehiclePresets() {
           <Car className="h-3.5 w-3.5" />
           Vehicle presets
         </span>
-        <span className="text-[10px] text-slate-500">saved in this browser</span>
+        <span className="text-[10px] text-slate-500">
+          {signedIn ? "synced to your account" : "saved in this browser"}
+        </span>
       </div>
 
       {vehiclePresets.length > 0 ? (

@@ -31,7 +31,7 @@ Query params: `from`, `to` (lat,lng), `fromLabel`, `toLabel`, `fuel`, `mpg`, `ta
 
 ## Vehicle presets
 
-Named profiles (fuel grade, MPG, tank size) are stored in `localStorage` via Zustand persist. Switch, save, update, or delete them in the sidebar — they survive reloads on this browser.
+Named profiles (fuel grade, MPG, tank size) live in the sidebar. Guests keep them in `localStorage` on this browser; signed-in users sync the same presets to the database so they follow you across devices.
 
 ## Brand filters
 

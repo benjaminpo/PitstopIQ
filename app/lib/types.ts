@@ -10,7 +10,7 @@ export interface VehicleProfile {
   fillPercentage: number;
 }
 
-/** Named vehicle saved in localStorage for quick switching */
+/** Named vehicle profile for quick switching (local + cloud when signed in) */
 export interface VehiclePreset {
   id: string;
   name: string;

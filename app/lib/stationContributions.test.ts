@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { parseUpsertBody } from "./stationContributions";
 
 describe("parseUpsertBody", () => {
-  it("accepts a price report", () => {
+  it("accepts a single-grade price report", () => {
     const result = parseUpsertBody({
       stationId: "mock-tesco-slough",
       kind: "price",
@@ -12,7 +12,35 @@ describe("parseUpsertBody", () => {
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.value.kind).toBe("price");
-      expect(result.value.pricePerLitre).toBe(1.349);
+      expect(result.value.prices).toEqual({ E10: 1.349 });
+    }
+  });
+
+  it("accepts multiple fuel grades in one report", () => {
+    const result = parseUpsertBody({
+      stationId: "mock-tesco-slough",
+      kind: "price",
+      prices: { E10: 1.349, E5: 1.449, B7_Diesel: 1.399 },
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.prices).toEqual({
+        E10: 1.349,
+        E5: 1.449,
+        B7_Diesel: 1.399,
+      });
+    }
+  });
+
+  it("accepts a partial multi-grade price report", () => {
+    const result = parseUpsertBody({
+      stationId: "abc",
+      kind: "price",
+      prices: { E5: 1.5, B7_Diesel: 1.42 },
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.prices).toEqual({ E5: 1.5, B7_Diesel: 1.42 });
     }
   });
 
@@ -26,7 +54,7 @@ describe("parseUpsertBody", () => {
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.value.kind).toBe("review");
-      expect(result.value.pricePerLitre).toBeUndefined();
+      expect(result.value.prices).toBeUndefined();
       expect(result.value.rating).toBe(5);
     }
   });
@@ -40,10 +68,18 @@ describe("parseUpsertBody", () => {
     expect(result.ok).toBe(true);
   });
 
-  it("accepts clearing price or review", () => {
+  it("accepts clearing all prices or a single grade", () => {
     expect(
       parseUpsertBody({ stationId: "abc", kind: "price", clear: true }).ok
     ).toBe(true);
+    const one = parseUpsertBody({
+      stationId: "abc",
+      kind: "price",
+      clear: true,
+      fuelType: "E5",
+    });
+    expect(one.ok).toBe(true);
+    if (one.ok) expect(one.value.clearFuelType).toBe("E5");
     expect(
       parseUpsertBody({ stationId: "abc", kind: "review", clear: true }).ok
     ).toBe(true);
@@ -62,6 +98,15 @@ describe("parseUpsertBody", () => {
       stationId: "abc",
       kind: "price",
       fuelType: "E10",
+    });
+    expect(result.ok).toBe(false);
+  });
+
+  it("rejects empty prices object", () => {
+    const result = parseUpsertBody({
+      stationId: "abc",
+      kind: "price",
+      prices: {},
     });
     expect(result.ok).toBe(false);
   });
@@ -85,6 +130,15 @@ describe("parseUpsertBody", () => {
     expect(result.ok).toBe(false);
   });
 
+  it("rejects out-of-range grade inside prices map", () => {
+    const result = parseUpsertBody({
+      stationId: "abc",
+      kind: "price",
+      prices: { E10: 0.1 },
+    });
+    expect(result.ok).toBe(false);
+  });
+
   it("rejects invalid ratings", () => {
     const result = parseUpsertBody({
       stationId: "abc",
@@ -102,6 +156,6 @@ describe("parseUpsertBody", () => {
       pricePerLitre: 1.3496,
     });
     expect(result.ok).toBe(true);
-    if (result.ok) expect(result.value.pricePerLitre).toBe(1.35);
+    if (result.ok) expect(result.value.prices?.E5).toBe(1.35);
   });
 });

@@ -70,3 +70,27 @@ export async function dbRun(
   }
   getSqlite().prepare(sql).run(...params);
 }
+
+/**
+ * Postgres INTEGER is 32-bit (max ~2.1e9); JS Date.now() is ~1.7e12 and needs
+ * BIGINT. SQLite INTEGER already stores 64-bit values, so this is a no-op there.
+ * Safe to call after CREATE TABLE — widening an existing column is a no-op if
+ * it is already BIGINT.
+ */
+export async function ensureBigintEpochColumns(
+  table: string,
+  columns: readonly string[]
+): Promise<void> {
+  if (getDbKind() !== "pg") return;
+  // Identifiers only — callers pass fixed schema names, never user input.
+  for (const column of columns) {
+    if (!/^[a-z_][a-z0-9_]*$/i.test(table) || !/^[a-z_][a-z0-9_]*$/i.test(column)) {
+      throw new Error(`Invalid identifier for ensureBigintEpochColumns: ${table}.${column}`);
+    }
+    try {
+      await dbRun(`ALTER TABLE ${table} ALTER COLUMN ${column} TYPE BIGINT`);
+    } catch {
+      // Column missing or already compatible.
+    }
+  }
+}

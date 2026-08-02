@@ -66,7 +66,6 @@ export function StationCard({
   const priceTone = now != null ? stationPriceTone(priceUpdatedAt, now) : null;
   const net = calculation.netAfterTime;
   const showNavigate = Boolean(selected || isBest);
-  const officialPrice = fuelType ? station.prices[fuelType] : undefined;
   const avgRating = community?.avgRating;
   const ratingCount = community?.ratingCount ?? 0;
 
@@ -196,13 +195,12 @@ export function StationCard({
         />
       )}
 
-      {selected && fuelType && (
+      {selected && (
         <StationContribute
           key={station.id}
           stationId={station.id}
           stationName={station.name}
-          fuelType={fuelType}
-          officialPrice={officialPrice}
+          officialPrices={station.prices}
           community={community}
         />
       )}
