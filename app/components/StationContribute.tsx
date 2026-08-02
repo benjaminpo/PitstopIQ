@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { Loader2, MessageSquare, Star, Trash2 } from "lucide-react";
+import { Fuel, Loader2, MessageSquare, Star, Trash2 } from "lucide-react";
 import { useSession } from "@/app/lib/auth-client";
 import { usePitstopStore } from "@/app/lib/store";
 import type { FuelType, StationCommunitySummary } from "@/app/lib/types";
@@ -68,6 +68,8 @@ function Stars({
   );
 }
 
+type SaveKind = "price" | "review";
+
 export function StationContribute({
   stationId,
   stationName,
@@ -88,10 +90,37 @@ export function StationContribute({
   const [rating, setRating] = useState(0);
   const [comment, setComment] = useState("");
   const [mineLoaded, setMineLoaded] = useState(false);
-  const [hasMine, setHasMine] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [savedFlash, setSavedFlash] = useState(false);
+  const [hasPrice, setHasPrice] = useState(false);
+  const [hasReview, setHasReview] = useState(false);
+  const [busy, setBusy] = useState<SaveKind | "clear-price" | "clear-review" | null>(
+    null
+  );
+  const [priceError, setPriceError] = useState<string | null>(null);
+  const [reviewError, setReviewError] = useState<string | null>(null);
+  const [priceSaved, setPriceSaved] = useState(false);
+  const [reviewSaved, setReviewSaved] = useState(false);
+
+  const applyMine = (mine: MineContribution | null | undefined) => {
+    if (!mine) {
+      setHasPrice(false);
+      setHasReview(false);
+      setPrice(officialPrice != null ? officialPrice.toFixed(3) : "");
+      setRating(0);
+      setComment("");
+      return;
+    }
+    setHasPrice(mine.pricePerLitre != null);
+    setHasReview(mine.rating != null || Boolean(mine.comment));
+    setPrice(
+      mine.pricePerLitre != null
+        ? String(mine.pricePerLitre)
+        : officialPrice != null
+          ? officialPrice.toFixed(3)
+          : ""
+    );
+    setRating(mine.rating ?? 0);
+    setComment(mine.comment ?? "");
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -108,21 +137,7 @@ export function StationContribute({
         };
         if (cancelled) return;
         if (data.summary) setCommunitySummary(stationId, data.summary);
-        if (data.mine) {
-          setHasMine(true);
-          setPrice(
-            data.mine.pricePerLitre != null
-              ? String(data.mine.pricePerLitre)
-              : ""
-          );
-          setRating(data.mine.rating ?? 0);
-          setComment(data.mine.comment ?? "");
-        } else {
-          setHasMine(false);
-          setPrice(officialPrice != null ? officialPrice.toFixed(3) : "");
-          setRating(0);
-          setComment("");
-        }
+        applyMine(data.mine);
       } finally {
         if (!cancelled) setMineLoaded(true);
       }
@@ -131,93 +146,99 @@ export function StationContribute({
     return () => {
       cancelled = true;
     };
-  }, [stationId, session?.user?.id, officialPrice, setCommunitySummary]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- remounted via key={stationId}
+  }, [stationId, session?.user?.id, setCommunitySummary]);
 
-  const applyResponse = (data: {
-    summary?: StationCommunitySummary | null;
-    mine?: MineContribution | null;
-  }) => {
+  const postContribution = async (
+    body: Record<string, unknown>,
+    flash: SaveKind
+  ) => {
+    const res = await fetch("/api/station-contributions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    const data = (await res.json()) as {
+      error?: string;
+      summary?: StationCommunitySummary | null;
+      mine?: MineContribution | null;
+    };
+    if (!res.ok) {
+      throw new Error(data.error ?? "Could not save");
+    }
     if (data.summary) setCommunitySummary(stationId, data.summary);
-    if (data.mine) {
-      setHasMine(true);
-      setPrice(
-        data.mine.pricePerLitre != null ? String(data.mine.pricePerLitre) : ""
-      );
-      setRating(data.mine.rating ?? 0);
-      setComment(data.mine.comment ?? "");
+    applyMine(data.mine);
+    if (flash === "price") {
+      setPriceSaved(true);
+      window.setTimeout(() => setPriceSaved(false), 2000);
     } else {
-      setHasMine(false);
+      setReviewSaved(true);
+      window.setTimeout(() => setReviewSaved(false), 2000);
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handlePriceSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (submitting) return;
-    setSubmitting(true);
-    setError(null);
-    setSavedFlash(false);
-
+    if (busy) return;
+    setBusy("price");
+    setPriceError(null);
     try {
-      const res = await fetch("/api/station-contributions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+      await postContribution(
+        {
           stationId,
+          kind: "price",
           fuelType,
-          pricePerLitre: price.trim() === "" ? null : Number(price),
+          pricePerLitre: Number(price),
+        },
+        "price"
+      );
+    } catch (err) {
+      setPriceError(err instanceof Error ? err.message : "Could not save");
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const handleReviewSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (busy) return;
+    setBusy("review");
+    setReviewError(null);
+    try {
+      await postContribution(
+        {
+          stationId,
+          kind: "review",
           rating: rating === 0 ? null : rating,
           comment: comment.trim() || null,
-        }),
-      });
-      const data = (await res.json()) as {
-        error?: string;
-        summary?: StationCommunitySummary | null;
-        mine?: MineContribution | null;
-      };
-      if (!res.ok) {
-        setError(data.error ?? "Could not save");
-        return;
-      }
-      applyResponse(data);
-      setSavedFlash(true);
-      window.setTimeout(() => setSavedFlash(false), 2000);
-    } catch {
-      setError("Network error — try again");
+        },
+        "review"
+      );
+    } catch (err) {
+      setReviewError(err instanceof Error ? err.message : "Could not save");
     } finally {
-      setSubmitting(false);
+      setBusy(null);
     }
   };
 
-  const handleDelete = async () => {
-    if (submitting || !hasMine) return;
-    setSubmitting(true);
-    setError(null);
+  const handleClear = async (kind: SaveKind) => {
+    if (busy) return;
+    setBusy(kind === "price" ? "clear-price" : "clear-review");
+    if (kind === "price") setPriceError(null);
+    else setReviewError(null);
     try {
-      const res = await fetch(
-        `/api/station-contributions/${encodeURIComponent(stationId)}`,
-        { method: "DELETE" }
-      );
-      const data = (await res.json()) as {
-        error?: string;
-        summary?: StationCommunitySummary | null;
-      };
-      if (!res.ok) {
-        setError(data.error ?? "Could not delete");
-        return;
-      }
-      if (data.summary) setCommunitySummary(stationId, data.summary);
-      setHasMine(false);
-      setPrice(officialPrice != null ? officialPrice.toFixed(3) : "");
-      setRating(0);
-      setComment("");
-    } catch {
-      setError("Network error — try again");
+      await postContribution({ stationId, kind, clear: true }, kind);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Could not clear";
+      if (kind === "price") setPriceError(msg);
+      else setReviewError(msg);
     } finally {
-      setSubmitting(false);
+      setBusy(null);
     }
   };
 
   const comments = community?.recentComments ?? [];
+  const fuelLabel = fuelType.replace("_", " ");
 
   return (
     <div
@@ -247,9 +268,7 @@ export function StationContribute({
                     <span className="font-medium text-slate-300">
                       {c.userName}
                     </span>
-                    {c.rating != null && (
-                      <Stars value={c.rating} readOnly />
-                    )}
+                    {c.rating != null && <Stars value={c.rating} readOnly />}
                   </div>
                   <p className="mt-0.5 text-slate-400">{c.comment}</p>
                 </li>
@@ -272,20 +291,22 @@ export function StationContribute({
           >
             Sign in
           </Link>{" "}
-          to update the pump price, leave a rating, or comment on{" "}
-          {stationName}.
+          to report a pump price or leave a rating/comment on {stationName}.
         </p>
       ) : (
-        <form onSubmit={handleSubmit} className="space-y-2.5">
-          <p className="flex items-center gap-1.5 text-[11px] font-medium text-slate-300">
-            <MessageSquare className="h-3.5 w-3.5 text-teal-400" />
-            {hasMine ? "Update your report" : "Report price & rate"}
-          </p>
-
-          <div className="grid grid-cols-2 gap-2">
+        <div className="space-y-3">
+          {/* Price — independent of review */}
+          <form
+            onSubmit={handlePriceSubmit}
+            className="space-y-2 rounded-lg border border-slate-800/80 bg-slate-950/30 p-2.5"
+          >
+            <p className="flex items-center gap-1.5 text-[11px] font-medium text-slate-300">
+              <Fuel className="h-3.5 w-3.5 text-teal-400" />
+              {hasPrice ? "Your reported price" : "Report pump price"}
+            </p>
             <label className="flex flex-col gap-1">
               <span className="text-[10px] uppercase tracking-wide text-slate-500">
-                {fuelType.replace("_", " ")} £/L
+                {fuelLabel} £/L
               </span>
               <input
                 type="number"
@@ -293,67 +314,119 @@ export function StationContribute({
                 step="0.001"
                 min="0.8"
                 max="3.5"
+                required
                 value={price}
                 onChange={(e) => setPrice(e.target.value)}
                 placeholder="1.349"
                 className={cn(inputClass, "font-mono")}
               />
             </label>
+            {priceError && (
+              <p
+                role="alert"
+                className="rounded-lg border border-rose-800/50 bg-rose-950/40 px-2.5 py-1.5 text-[11px] text-rose-300"
+              >
+                {priceError}
+              </p>
+            )}
+            <div className="flex items-center gap-2">
+              <button
+                type="submit"
+                disabled={busy != null}
+                className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-teal-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-teal-500 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {busy === "price" && (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                )}
+                {priceSaved ? "Saved" : hasPrice ? "Update price" : "Submit price"}
+              </button>
+              {hasPrice && (
+                <button
+                  type="button"
+                  onClick={() => void handleClear("price")}
+                  disabled={busy != null}
+                  className="inline-flex items-center gap-1 rounded-lg border border-slate-700/80 px-2.5 py-1.5 text-xs text-slate-400 transition hover:border-rose-700/50 hover:text-rose-300 disabled:opacity-60"
+                  aria-label="Clear your price report"
+                >
+                  {busy === "clear-price" ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Trash2 className="h-3.5 w-3.5" />
+                  )}
+                </button>
+              )}
+            </div>
+          </form>
+
+          {/* Rating / comment — independent of price */}
+          <form
+            onSubmit={handleReviewSubmit}
+            className="space-y-2 rounded-lg border border-slate-800/80 bg-slate-950/30 p-2.5"
+          >
+            <p className="flex items-center gap-1.5 text-[11px] font-medium text-slate-300">
+              <MessageSquare className="h-3.5 w-3.5 text-amber-400" />
+              {hasReview ? "Your rating & comment" : "Rate & comment"}
+            </p>
             <div className="flex flex-col gap-1">
               <span className="text-[10px] uppercase tracking-wide text-slate-500">
                 Rating
               </span>
-              <div className="flex h-[34px] items-center">
-                <Stars value={rating} onChange={setRating} />
-              </div>
+              <Stars value={rating} onChange={setRating} />
             </div>
-          </div>
-
-          <label className="flex flex-col gap-1">
-            <span className="text-[10px] uppercase tracking-wide text-slate-500">
-              Comment
-            </span>
-            <textarea
-              value={comment}
-              onChange={(e) => setComment(e.target.value)}
-              maxLength={500}
-              rows={2}
-              placeholder="Busy forecourt, pumps working…"
-              className={cn(inputClass, "resize-none")}
-            />
-          </label>
-
-          {error && (
-            <p
-              role="alert"
-              className="rounded-lg border border-rose-800/50 bg-rose-950/40 px-2.5 py-1.5 text-[11px] text-rose-300"
-            >
-              {error}
-            </p>
-          )}
-
-          <div className="flex items-center gap-2">
-            <button
-              type="submit"
-              disabled={submitting}
-              className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-teal-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-teal-500 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {submitting && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-              {savedFlash ? "Saved" : hasMine ? "Update" : "Submit"}
-            </button>
-            {hasMine && (
-              <button
-                type="button"
-                onClick={() => void handleDelete()}
-                disabled={submitting}
-                className="inline-flex items-center gap-1 rounded-lg border border-slate-700/80 px-2.5 py-1.5 text-xs text-slate-400 transition hover:border-rose-700/50 hover:text-rose-300 disabled:opacity-60"
-                aria-label="Remove your report"
+            <label className="flex flex-col gap-1">
+              <span className="text-[10px] uppercase tracking-wide text-slate-500">
+                Comment
+              </span>
+              <textarea
+                value={comment}
+                onChange={(e) => setComment(e.target.value)}
+                maxLength={500}
+                rows={2}
+                placeholder="Busy forecourt, pumps working…"
+                className={cn(inputClass, "resize-none")}
+              />
+            </label>
+            {reviewError && (
+              <p
+                role="alert"
+                className="rounded-lg border border-rose-800/50 bg-rose-950/40 px-2.5 py-1.5 text-[11px] text-rose-300"
               >
-                <Trash2 className="h-3.5 w-3.5" />
-              </button>
+                {reviewError}
+              </p>
             )}
-          </div>
-        </form>
+            <div className="flex items-center gap-2">
+              <button
+                type="submit"
+                disabled={busy != null}
+                className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-amber-700/50 bg-amber-950/40 px-3 py-1.5 text-xs font-semibold text-amber-200 transition hover:bg-amber-900/50 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {busy === "review" && (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                )}
+                {reviewSaved
+                  ? "Saved"
+                  : hasReview
+                    ? "Update review"
+                    : "Submit review"}
+              </button>
+              {hasReview && (
+                <button
+                  type="button"
+                  onClick={() => void handleClear("review")}
+                  disabled={busy != null}
+                  className="inline-flex items-center gap-1 rounded-lg border border-slate-700/80 px-2.5 py-1.5 text-xs text-slate-400 transition hover:border-rose-700/50 hover:text-rose-300 disabled:opacity-60"
+                  aria-label="Clear your rating and comment"
+                >
+                  {busy === "clear-review" ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Trash2 className="h-3.5 w-3.5" />
+                  )}
+                </button>
+              )}
+            </div>
+          </form>
+        </div>
       )}
     </div>
   );

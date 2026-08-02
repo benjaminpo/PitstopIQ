@@ -8,6 +8,8 @@ const MAX_COMMENT = 500;
 const MIN_PRICE = 0.8;
 const MAX_PRICE = 3.5;
 
+export type ContributionKind = "price" | "review";
+
 export interface StationContributionRow {
   id: string;
   userId: string;
@@ -25,10 +27,14 @@ export type { StationCommunitySummary };
 
 export interface UpsertContributionInput {
   stationId: string;
-  fuelType: FuelType;
+  kind: ContributionKind;
+  /** Required for kind=price (unless clearing) */
+  fuelType?: FuelType;
   pricePerLitre?: number | null;
   comment?: string | null;
   rating?: number | null;
+  /** Clear only this kind's fields; leave the other side intact */
+  clear?: boolean;
 }
 
 let schemaReady: Promise<void> | null = null;
@@ -72,13 +78,33 @@ export function parseUpsertBody(
     return { ok: false, error: "stationId is required" };
   }
 
-  const fuelType = b.fuelType;
-  if (typeof fuelType !== "string" || !FUEL_TYPES.includes(fuelType as FuelType)) {
-    return { ok: false, error: "fuelType must be E10, E5, or B7_Diesel" };
+  const kind = b.kind;
+  if (kind !== "price" && kind !== "review") {
+    return { ok: false, error: 'kind must be "price" or "review"' };
   }
 
-  let pricePerLitre: number | null = null;
-  if (b.pricePerLitre !== undefined && b.pricePerLitre !== null && b.pricePerLitre !== "") {
+  const clear = b.clear === true;
+
+  if (kind === "price") {
+    if (clear) {
+      return { ok: true, value: { stationId, kind, clear: true } };
+    }
+
+    const fuelType = b.fuelType;
+    if (
+      typeof fuelType !== "string" ||
+      !FUEL_TYPES.includes(fuelType as FuelType)
+    ) {
+      return { ok: false, error: "fuelType must be E10, E5, or B7_Diesel" };
+    }
+
+    if (
+      b.pricePerLitre === undefined ||
+      b.pricePerLitre === null ||
+      b.pricePerLitre === ""
+    ) {
+      return { ok: false, error: "pricePerLitre is required" };
+    }
     const n = Number(b.pricePerLitre);
     if (!Number.isFinite(n) || n < MIN_PRICE || n > MAX_PRICE) {
       return {
@@ -86,8 +112,21 @@ export function parseUpsertBody(
         error: `pricePerLitre must be between £${MIN_PRICE.toFixed(2)} and £${MAX_PRICE.toFixed(2)}`,
       };
     }
-    // Store to 3 decimal places (pence precision)
-    pricePerLitre = Math.round(n * 1000) / 1000;
+
+    return {
+      ok: true,
+      value: {
+        stationId,
+        kind,
+        fuelType: fuelType as FuelType,
+        pricePerLitre: Math.round(n * 1000) / 1000,
+      },
+    };
+  }
+
+  // kind === "review"
+  if (clear) {
+    return { ok: true, value: { stationId, kind, clear: true } };
   }
 
   let comment: string | null = null;
@@ -108,10 +147,10 @@ export function parseUpsertBody(
     rating = n;
   }
 
-  if (pricePerLitre == null && comment == null && rating == null) {
+  if (rating == null && comment == null) {
     return {
       ok: false,
-      error: "Provide at least a price, rating, or comment",
+      error: "Provide a rating and/or comment",
     };
   }
 
@@ -119,10 +158,9 @@ export function parseUpsertBody(
     ok: true,
     value: {
       stationId,
-      fuelType: fuelType as FuelType,
-      pricePerLitre,
-      comment,
+      kind,
       rating,
+      comment,
     },
   };
 }
@@ -158,31 +196,68 @@ export async function getMyContribution(
   return row ? mapRow(row) : null;
 }
 
+type ExistingRow = {
+  id: string;
+  fuel_type: string;
+  price_per_litre: number | null;
+  comment: string | null;
+  rating: number | null;
+  created_at: number;
+};
+
 export async function upsertContribution(
   userId: string,
   input: UpsertContributionInput
-): Promise<StationContributionRow> {
+): Promise<StationContributionRow | null> {
   await ensureContributionSchema();
   const now = Date.now();
-  const existing = await dbGet<{ id: string; created_at: number }>(
-    `SELECT id, created_at FROM station_contribution
+  const existing = await dbGet<ExistingRow>(
+    `SELECT id, fuel_type, price_per_litre, comment, rating, created_at
+     FROM station_contribution
      WHERE user_id = ? AND station_id = ?`,
     [userId, input.stationId]
   );
+
+  let fuelType: FuelType = (existing?.fuel_type as FuelType) || "E10";
+  let pricePerLitre: number | null =
+    existing?.price_per_litre == null ? null : Number(existing.price_per_litre);
+  let comment: string | null =
+    existing?.comment == null ? null : String(existing.comment);
+  let rating: number | null =
+    existing?.rating == null ? null : Number(existing.rating);
+
+  if (input.kind === "price") {
+    if (input.clear) {
+      pricePerLitre = null;
+    } else {
+      fuelType = input.fuelType ?? fuelType;
+      pricePerLitre = input.pricePerLitre ?? null;
+    }
+  } else if (input.clear) {
+    comment = null;
+    rating = null;
+  } else {
+    // Review upsert replaces rating/comment together (either may be null)
+    rating = input.rating ?? null;
+    comment = input.comment ?? null;
+  }
+
+  // Nothing left — remove the row entirely
+  if (pricePerLitre == null && comment == null && rating == null) {
+    if (existing) {
+      await dbRun(`DELETE FROM station_contribution WHERE id = ?`, [
+        existing.id,
+      ]);
+    }
+    return null;
+  }
 
   if (existing) {
     await dbRun(
       `UPDATE station_contribution
        SET fuel_type = ?, price_per_litre = ?, comment = ?, rating = ?, updated_at = ?
        WHERE id = ?`,
-      [
-        input.fuelType,
-        input.pricePerLitre,
-        input.comment,
-        input.rating,
-        now,
-        existing.id,
-      ]
+      [fuelType, pricePerLitre, comment, rating, now, existing.id]
     );
   } else {
     await dbRun(
@@ -193,19 +268,17 @@ export async function upsertContribution(
         randomUUID(),
         userId,
         input.stationId,
-        input.fuelType,
-        input.pricePerLitre,
-        input.comment,
-        input.rating,
+        fuelType,
+        pricePerLitre,
+        comment,
+        rating,
         now,
         now,
       ]
     );
   }
 
-  const mine = await getMyContribution(userId, input.stationId);
-  if (!mine) throw new Error("Failed to save contribution");
-  return mine;
+  return getMyContribution(userId, input.stationId);
 }
 
 export async function deleteContribution(
@@ -262,7 +335,6 @@ export async function getCommunitySummaries(
       const prevTotal = (summary.avgRating ?? 0) * summary.ratingCount;
       summary.ratingCount += 1;
       summary.avgRating = prevTotal + row.rating;
-      // finalize after loop — store running sum in avgRating temporarily
     }
 
     if (row.comment) {
@@ -288,7 +360,6 @@ export async function getCommunitySummaries(
     }
   }
 
-  // Convert running sums to averages
   for (const summary of Object.values(out)) {
     if (summary.ratingCount > 0 && summary.avgRating != null) {
       summary.avgRating =

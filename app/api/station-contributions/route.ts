@@ -32,7 +32,8 @@ export async function GET(request: NextRequest) {
 
 /**
  * POST /api/station-contributions
- * Upsert the signed-in member's price / rating / comment for a station.
+ * Partial upsert: `{ kind: "price" | "review", … }` updates only that side
+ * so a rating/comment never overwrites a reported pump price (and vice versa).
  */
 export async function POST(request: NextRequest) {
   try {
