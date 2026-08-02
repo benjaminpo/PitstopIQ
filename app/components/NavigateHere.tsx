@@ -45,17 +45,6 @@ export function NavigateHere({
 
   return (
     <div className={cn("space-y-1.5", className)}>
-      {primary && (
-        <p
-          className={cn(
-            "flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide",
-            tone === "light" ? "text-teal-800" : "text-teal-300/90"
-          )}
-        >
-          <Navigation className="h-3 w-3" />
-          Navigate here
-        </p>
-      )}
       <a
         href={googleHref}
         target="_blank"
