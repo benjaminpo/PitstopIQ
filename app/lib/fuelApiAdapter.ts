@@ -25,6 +25,7 @@ function generateMockStations(bounds: MapBounds): FuelStation[] {
     id: string;
     name: string;
     brand: string;
+    postcode: string;
     latOffset: number;
     lngOffset: number;
     distanceOffRouteMiles: number;
@@ -38,6 +39,7 @@ function generateMockStations(bounds: MapBounds): FuelStation[] {
       id: "mock-tesco-slough",
       name: "Tesco Extra Slough",
       brand: "Tesco",
+      postcode: "SL1 1XW",
       latOffset: 0.018,
       lngOffset: -0.042,
       distanceOffRouteMiles: 1.2,
@@ -49,6 +51,7 @@ function generateMockStations(bounds: MapBounds): FuelStation[] {
       id: "mock-bp-heathrow",
       name: "BP Connect Heathrow",
       brand: "BP",
+      postcode: "TW6 2GA",
       latOffset: -0.012,
       lngOffset: 0.028,
       distanceOffRouteMiles: 3.8,
@@ -60,6 +63,7 @@ function generateMockStations(bounds: MapBounds): FuelStation[] {
       id: "mock-moto-m4",
       name: "Moto Reading Services M4",
       brand: "Moto",
+      postcode: "RG2 0QG",
       latOffset: 0.015,
       lngOffset: -0.02,
       distanceOffRouteMiles: 0.4,
@@ -71,6 +75,7 @@ function generateMockStations(bounds: MapBounds): FuelStation[] {
       id: "mock-shell-reading",
       name: "Shell Reading West",
       brand: "Shell",
+      postcode: "RG30 1PR",
       latOffset: 0.032,
       lngOffset: -0.065,
       distanceOffRouteMiles: 2.4,
@@ -82,6 +87,7 @@ function generateMockStations(bounds: MapBounds): FuelStation[] {
       id: "mock-asda-bracknell",
       name: "Asda Bracknell",
       brand: "Asda",
+      postcode: "RG12 1QP",
       latOffset: -0.028,
       lngOffset: -0.038,
       distanceOffRouteMiles: 0.6,
@@ -93,6 +99,7 @@ function generateMockStations(bounds: MapBounds): FuelStation[] {
       id: "mock-esso-maidenhead",
       name: "Esso Maidenhead",
       brand: "Esso",
+      postcode: "SL6 1DN",
       latOffset: 0.008,
       lngOffset: 0.052,
       distanceOffRouteMiles: 4.5,
@@ -104,6 +111,7 @@ function generateMockStations(bounds: MapBounds): FuelStation[] {
       id: "mock-sainsburys-windsor",
       name: "Sainsbury's Windsor",
       brand: "Sainsbury's",
+      postcode: "SL4 1LH",
       latOffset: 0.022,
       lngOffset: 0.015,
       distanceOffRouteMiles: 1.9,
@@ -115,6 +123,7 @@ function generateMockStations(bounds: MapBounds): FuelStation[] {
       id: "mock-morrisons-uxbridge",
       name: "Morrisons Uxbridge",
       brand: "Morrisons",
+      postcode: "UB8 1QG",
       latOffset: -0.035,
       lngOffset: 0.048,
       distanceOffRouteMiles: 5.2,
@@ -129,6 +138,7 @@ function generateMockStations(bounds: MapBounds): FuelStation[] {
     id: t.id,
     name: t.name,
     brand: t.brand,
+    postcode: t.postcode,
     location: {
       lat: centreLat + t.latOffset,
       lng: centreLng + t.lngOffset,

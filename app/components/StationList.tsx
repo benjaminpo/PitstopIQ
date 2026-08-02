@@ -18,6 +18,7 @@ import { usePitstopStore } from "@/app/lib/store";
 import { CORRIDOR_MAX_DISTANCE_MILES } from "@/app/lib/routing";
 import type { StationSortKey, StationWithCalculation } from "@/app/lib/types";
 import { cn } from "@/app/lib/utils";
+import { BrandLogo } from "./BrandLogo";
 import { StationCard } from "./StationCard";
 
 const SORT_OPTIONS: { key: StationSortKey; label: string }[] = [
@@ -215,12 +216,13 @@ export function StationList() {
                   aria-pressed={hidden}
                   onClick={() => toggleExcludedBrand(opt.key)}
                   className={cn(
-                    "rounded-md px-2 py-1 text-[11px] font-medium transition",
+                    "inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-[11px] font-medium transition",
                     hidden
                       ? "bg-rose-500/15 text-rose-300 line-through ring-1 ring-rose-500/40 hover:bg-rose-500/25"
                       : "bg-slate-950/60 text-slate-300 ring-1 ring-slate-700/60 hover:bg-slate-800 hover:text-slate-100"
                   )}
                 >
+                  <BrandLogo brand={opt.label} size="sm" />
                   {opt.label}
                   <span className="ml-1 text-[10px] text-slate-500">
                     {opt.count}

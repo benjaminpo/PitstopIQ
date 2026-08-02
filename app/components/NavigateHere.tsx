@@ -2,7 +2,6 @@
 
 import { Navigation } from "lucide-react";
 import {
-  appleMapsNavigateUrl,
   googleMapsNavigateUrl,
   type NavigateTarget,
 } from "@/app/lib/mapsLinks";
@@ -31,16 +30,6 @@ function googleMapsClass(tone: "dark" | "light", primary: boolean): string {
   return "bg-slate-800 text-slate-100 ring-1 ring-slate-600/60 hover:bg-slate-700";
 }
 
-function appleMapsClass(tone: "dark" | "light", primary: boolean): string {
-  if (tone === "light") {
-    return "bg-slate-200 text-slate-900 hover:bg-slate-300";
-  }
-  if (primary) {
-    return "bg-slate-100 text-slate-900 hover:bg-white";
-  }
-  return "bg-slate-800 text-slate-100 ring-1 ring-slate-600/60 hover:bg-slate-700";
-}
-
 export function NavigateHere({
   target,
   primary = false,
@@ -49,7 +38,6 @@ export function NavigateHere({
   stopPropagation = true,
 }: Readonly<NavigateHereProps>) {
   const googleHref = googleMapsNavigateUrl(target);
-  const appleHref = appleMapsNavigateUrl(target);
 
   const onLinkClick = (e: React.MouseEvent) => {
     if (stopPropagation) e.stopPropagation();
@@ -68,32 +56,18 @@ export function NavigateHere({
           Navigate here
         </p>
       )}
-      <div className="grid grid-cols-2 gap-2">
-        <a
-          href={googleHref}
-          target="_blank"
-          rel="noopener noreferrer"
-          onClick={onLinkClick}
-          className={cn(
-            "inline-flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold transition",
-            googleMapsClass(tone, primary)
-          )}
-        >
-          Google Maps
-        </a>
-        <a
-          href={appleHref}
-          target="_blank"
-          rel="noopener noreferrer"
-          onClick={onLinkClick}
-          className={cn(
-            "inline-flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold transition",
-            appleMapsClass(tone, primary)
-          )}
-        >
-          Apple Maps
-        </a>
-      </div>
+      <a
+        href={googleHref}
+        target="_blank"
+        rel="noopener noreferrer"
+        onClick={onLinkClick}
+        className={cn(
+          "inline-flex w-full items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold transition",
+          googleMapsClass(tone, primary)
+        )}
+      >
+        Google Maps
+      </a>
     </div>
   );
 }

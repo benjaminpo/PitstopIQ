@@ -28,6 +28,7 @@ import type {
   StationWithCalculation,
 } from "@/app/lib/types";
 import { cn } from "@/app/lib/utils";
+import { BrandLogo } from "./BrandLogo";
 import { NavigateHere } from "./NavigateHere";
 import { StatusBadge } from "./StatusBadge";
 
@@ -358,15 +359,28 @@ export default function MapView() {
       >
         <Popup>
           <div className="min-w-[180px] space-y-1.5 text-slate-900">
-            <div className="flex items-center gap-1.5">
-              <p className="font-semibold">{item.station.name}</p>
-              {isBest && (
-                <span className="inline-flex shrink-0 items-center rounded-md bg-teal-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-teal-700 ring-1 ring-teal-500/35">
-                  ★ Best
-                </span>
-              )}
+            <div className="flex items-start gap-2">
+              <BrandLogo brand={item.station.brand} size="md" className="mt-0.5" />
+              <div className="min-w-0">
+                <div className="flex items-center gap-1.5">
+                  <p className="font-semibold">{item.station.name}</p>
+                  {isBest && (
+                    <span className="inline-flex shrink-0 items-center rounded-md bg-teal-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-teal-700 ring-1 ring-teal-500/35">
+                      ★ Best
+                    </span>
+                  )}
+                </div>
+                <p className="text-xs text-slate-600">
+                  {item.station.brand}
+                  {item.station.postcode ? (
+                    <span className="text-slate-500">
+                      {" "}
+                      · {item.station.postcode}
+                    </span>
+                  ) : null}
+                </p>
+              </div>
             </div>
-            <p className="text-xs text-slate-600">{item.station.brand}</p>
             <StatusBadge status={item.calculation.status} />
             <p className="font-mono text-sm">
               £{item.pricePerLitre.toFixed(3)}/L ·{" "}

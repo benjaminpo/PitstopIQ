@@ -327,10 +327,12 @@ function mapStations(
     if (!prices || Object.keys(prices).length === 0) continue;
 
     const location = { lat, lng };
+    const postcode = s.location?.postcode?.trim() || null;
     mapped.push({
       id: s.node_id,
       name: s.trading_name?.trim() || s.brand_name?.trim() || "Forecourt",
       brand: s.brand_name?.trim() || s.trading_name?.trim() || "Unknown",
+      postcode,
       location,
       prices,
       pricesLastUpdatedAt: updatedByNode.get(s.node_id) ?? null,

@@ -182,12 +182,14 @@ export function parseFuelFinderCsv(
 
     const trading = col("forecourts.trading_name", row);
     const brand = col("forecourts.brand_name", row);
+    const postcode = col("forecourts.location.postcode", row) || null;
     const location = { lat, lng };
 
     stations.push({
       id,
       name: trading || brand || "Forecourt",
       brand: brand || trading || "Unknown",
+      postcode,
       location,
       prices,
       pricesLastUpdatedAt: latestUpdatedAt > 0 ? latestUpdatedAt : null,

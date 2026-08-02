@@ -11,6 +11,7 @@ import {
 } from "@/app/lib/freshness";
 import type { FuelType, GeoPoint, StationWithCalculation } from "@/app/lib/types";
 import { cn } from "@/app/lib/utils";
+import { BrandLogo } from "./BrandLogo";
 import { NavigateHere } from "./NavigateHere";
 import { StationContribute } from "./StationContribute";
 import { StatusBadge } from "./StatusBadge";
@@ -82,27 +83,38 @@ export function StationCard({
         className="w-full cursor-pointer text-left"
       >
         <div className="flex items-start justify-between gap-2">
-          <div className="min-w-0">
-            <div className="flex items-center gap-1.5">
-              <p className="truncate text-sm font-semibold text-slate-100">
-                {station.name}
-              </p>
-              {isBest && (
-                <span className="inline-flex shrink-0 items-center gap-0.5 rounded-md bg-teal-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-teal-300 ring-1 ring-teal-500/35">
-                  <Sparkles className="h-2.5 w-2.5" />
-                  Best
-                </span>
-              )}
-            </div>
-            <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5">
-              <p className="text-xs text-slate-400">{station.brand}</p>
-              {ratingCount > 0 && avgRating != null && (
-                <span className="inline-flex items-center gap-0.5 text-[10px] text-amber-300/90">
-                  <Star className="h-2.5 w-2.5 fill-amber-400 text-amber-400" />
-                  {avgRating.toFixed(1)}
-                  <span className="text-slate-500">({ratingCount})</span>
-                </span>
-              )}
+          <div className="flex min-w-0 items-start gap-2.5">
+            <BrandLogo brand={station.brand} size="lg" className="mt-0.5" />
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5">
+                <p className="truncate text-sm font-semibold text-slate-100">
+                  {station.name}
+                </p>
+                {isBest && (
+                  <span className="inline-flex shrink-0 items-center gap-0.5 rounded-md bg-teal-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-teal-300 ring-1 ring-teal-500/35">
+                    <Sparkles className="h-2.5 w-2.5" />
+                    Best
+                  </span>
+                )}
+              </div>
+              <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                <p className="text-xs text-slate-400">
+                  {station.brand}
+                  {station.postcode ? (
+                    <span className="text-slate-500">
+                      {" "}
+                      · {station.postcode}
+                    </span>
+                  ) : null}
+                </p>
+                {ratingCount > 0 && avgRating != null && (
+                  <span className="inline-flex items-center gap-0.5 text-[10px] text-amber-300/90">
+                    <Star className="h-2.5 w-2.5 fill-amber-400 text-amber-400" />
+                    {avgRating.toFixed(1)}
+                    <span className="text-slate-500">({ratingCount})</span>
+                  </span>
+                )}
+              </div>
             </div>
           </div>
           <StatusBadge status={calculation.status} />

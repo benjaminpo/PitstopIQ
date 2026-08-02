@@ -28,6 +28,8 @@ export interface FuelStation {
   id: string;
   name: string;
   brand: string;
+  /** UK postcode when provided by Fuel Finder */
+  postcode?: string | null;
   location: GeoPoint;
   /** Price per litre in GBP for each available fuel grade */
   prices: Partial<Record<FuelType, number>>;
