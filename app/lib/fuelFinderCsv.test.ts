@@ -87,22 +87,29 @@ describe("getFuelFinderTransportSecret", () => {
     delete process.env.FUEL_FINDER_TRANSPORT_SECRET;
   });
 
-  it("uses the env override when set", () => {
+  it("returns the trimmed env value when set", () => {
     process.env.FUEL_FINDER_TRANSPORT_SECRET = " custom-secret ";
     expect(getFuelFinderTransportSecret()).toBe("custom-secret");
   });
 
-  it("falls back to the portal default", () => {
+  it("throws when the env var is missing", () => {
     delete process.env.FUEL_FINDER_TRANSPORT_SECRET;
-    expect(getFuelFinderTransportSecret().length).toBeGreaterThan(20);
+    expect(() => getFuelFinderTransportSecret()).toThrow(
+      /FUEL_FINDER_TRANSPORT_SECRET/
+    );
   });
 });
 
 describe("decryptFuelFinderNxhex + extractCsvPresign", () => {
+  const testSecret = "unit-test-transport-secret-not-for-production";
+
+  afterEach(() => {
+    delete process.env.FUEL_FINDER_TRANSPORT_SECRET;
+  });
+
   it("round-trips the portal AES envelope and extracts redirectUrl", () => {
-    const secret =
-      "wAndRKxKefFpcuAMQyObcik5zkthu80KcrvK7av3oXCUeyjm3HyzZUuFvR9UN97Kd6jGJANMU9K3TITw1dCPLc";
-    const key = createHash("sha256").update(secret).digest();
+    process.env.FUEL_FINDER_TRANSPORT_SECRET = testSecret;
+    const key = createHash("sha256").update(testSecret).digest();
     const iv = randomBytes(16);
     const cipher = createCipheriv("aes-256-cbc", key, iv);
     const payload = {

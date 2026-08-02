@@ -115,9 +115,10 @@ Copy `.env.example` → `.env.local` and set your Information Recipient OAuth cr
 FUEL_FINDER_CLIENT_ID=...
 FUEL_FINDER_CLIENT_SECRET=...
 FUEL_FINDER_BASE_URL=https://www.fuel-finder.service.gov.uk
+FUEL_FINDER_TRANSPORT_SECRET=...   # portal SPA transport key; needed for CSV primary path
 ```
 
-Live loads prefer the national **CSV** snapshot (same file linked from [access latest fuel prices](https://www.developer.fuel-finder.service.gov.uk/fuel-finder/access-latest-fuelprices), via an authenticated presigned URL) and fall back to the paginated JSON API if that fails. Without credentials the app uses mock stations **in development only** (clearly labelled as demo data). In production, missing credentials or a failed live fetch return an error with a retry button instead of fake stations — set `FUEL_FINDER_ALLOW_MOCKS=true` to opt a preview deployment into mock data. The first live fetch caches the national dataset in memory (~1 hour TTL). The stations list shows a **freshness badge** (`Updated Xm ago`) from that sync time.
+Live loads prefer the national **CSV** snapshot (same file linked from [access latest fuel prices](https://www.developer.fuel-finder.service.gov.uk/fuel-finder/access-latest-fuelprices), via an authenticated presigned URL) and fall back to the paginated JSON API if that fails. `FUEL_FINDER_TRANSPORT_SECRET` decrypts the CSV presign response envelope (the portal’s client-side transport key — keep it in env/Vercel, not in source). Without OAuth credentials the app uses mock stations **in development only** (clearly labelled as demo data). In production, missing credentials or a failed live fetch return an error with a retry button instead of fake stations — set `FUEL_FINDER_ALLOW_MOCKS=true` to opt a preview deployment into mock data. The first live fetch caches the national dataset in memory (~1 hour TTL). The stations list shows a **freshness badge** (`Updated Xm ago`) from that sync time.
 
 ## CI / Deploy (GitHub Actions)
 

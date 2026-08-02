@@ -5,13 +5,6 @@ import {
 } from "./fuelPriceParse";
 import type { FuelStation, FuelType, GeoPoint } from "./types";
 
-/**
- * Portal transport secret (NEXT_PUBLIC_SECRET_KEY in the Fuel Finder SPA).
- * Used only to decrypt /internal/... JSON envelopes — not an API credential.
- */
-const DEFAULT_TRANSPORT_SECRET =
-  "wAndRKxKefFpcuAMQyObcik5zkthu80KcrvK7av3oXCUeyjm3HyzZUuFvR9UN97Kd6jGJANMU9K3TITw1dCPLc";
-
 /** CSV fuel grade columns → app FuelType */
 const CSV_FUEL_COLUMNS: Array<{ price: string; updated: string; type: FuelType }> =
   [
@@ -32,10 +25,15 @@ const CSV_FUEL_COLUMNS: Array<{ price: string; updated: string; type: FuelType }
     },
   ];
 
+/** Portal transport key from env (Fuel Finder SPA NEXT_PUBLIC_SECRET_KEY). */
 export function getFuelFinderTransportSecret(): string {
-  return (
-    process.env.FUEL_FINDER_TRANSPORT_SECRET?.trim() || DEFAULT_TRANSPORT_SECRET
-  );
+  const secret = process.env.FUEL_FINDER_TRANSPORT_SECRET?.trim() ?? "";
+  if (!secret) {
+    throw new Error(
+      "FUEL_FINDER_TRANSPORT_SECRET is not set (required to decrypt CSV presign responses)"
+    );
+  }
+  return secret;
 }
 
 /** Decrypt the AES-256-CBC `{ nxhex, iv }` envelope used by Fuel Finder internal APIs. */
