@@ -677,16 +677,33 @@ export const usePitstopStore = create<PitstopState>()(
           return;
         }
         try {
-          const res = await fetch(
-            `/api/station-contributions?ids=${encodeURIComponent(ids.join(","))}`
-          );
-          if (!res.ok) return;
-          const data = (await res.json()) as {
-            summaries?: Record<string, StationCommunitySummary>;
-          };
-          if (data.summaries) {
-            set({ communityByStationId: data.summaries });
+          // POST body — GET ?ids=… blows past CDN/proxy URI limits on long routes.
+          const CHUNK = 100;
+          const chunks: string[][] = [];
+          for (let i = 0; i < ids.length; i += CHUNK) {
+            chunks.push(ids.slice(i, i + CHUNK));
           }
+
+          const parts = await Promise.all(
+            chunks.map(async (chunk) => {
+              const res = await fetch("/api/station-contributions", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ ids: chunk }),
+              });
+              if (!res.ok) return {} as Record<string, StationCommunitySummary>;
+              const data = (await res.json()) as {
+                summaries?: Record<string, StationCommunitySummary>;
+              };
+              return data.summaries ?? {};
+            })
+          );
+
+          const summaries = Object.assign(
+            {} as Record<string, StationCommunitySummary>,
+            ...parts
+          );
+          set({ communityByStationId: summaries });
         } catch {
           // Community data is optional — keep scoring on official prices
         }

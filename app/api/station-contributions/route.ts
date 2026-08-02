@@ -9,9 +9,21 @@ import {
 
 export const dynamic = "force-dynamic";
 
+function parseIdsBody(body: unknown): string[] | null {
+  if (!body || typeof body !== "object" || Array.isArray(body)) return null;
+  const record = body as Record<string, unknown>;
+  // Upsert payloads use `kind` — leave those for the auth-required path.
+  if ("kind" in record) return null;
+  if (!Array.isArray(record.ids)) return null;
+  return record.ids
+    .filter((id): id is string => typeof id === "string")
+    .map((id) => id.trim())
+    .filter(Boolean);
+}
+
 /**
  * GET /api/station-contributions?ids=a,b,c
- * Public aggregates for the given station IDs (max 100).
+ * Public aggregates for the given station IDs (max 100). Prefer POST for large lists.
  */
 export async function GET(request: NextRequest) {
   try {
@@ -32,17 +44,24 @@ export async function GET(request: NextRequest) {
 
 /**
  * POST /api/station-contributions
- * Partial upsert: `{ kind: "price" | "review", … }` updates only that side
- * so a rating/comment never overwrites a reported pump price (and vice versa).
+ * - `{ ids: string[] }` — public community summaries (avoids URI length limits)
+ * - `{ kind: "price" | "review", … }` — authenticated partial upsert
  */
 export async function POST(request: NextRequest) {
   try {
+    const body: unknown = await request.json();
+
+    const lookupIds = parseIdsBody(body);
+    if (lookupIds) {
+      const summaries = await getCommunitySummaries(lookupIds);
+      return NextResponse.json({ summaries });
+    }
+
     const session = await auth.api.getSession({ headers: request.headers });
     if (!session?.user) {
       return NextResponse.json({ error: "Sign in required" }, { status: 401 });
     }
 
-    const body: unknown = await request.json();
     const parsed = parseUpsertBody(body);
     if (!parsed.ok) {
       return NextResponse.json({ error: parsed.error }, { status: 400 });
