@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { Fuel, Loader2, MessageSquare, Star, Trash2 } from "lucide-react";
 import { useSession } from "@/app/lib/auth-client";
 import { ALL_FUEL_TYPES, FUEL_TYPE_LABELS } from "@/app/lib/fuelConstants";
+import { formatPriceAge } from "@/app/lib/freshness";
 import { usePitstopStore } from "@/app/lib/store";
 import type { FuelType, StationCommunitySummary } from "@/app/lib/types";
 import { cn } from "@/app/lib/utils";
@@ -102,6 +103,20 @@ function Stars({
 type SaveKind = "price" | "review";
 type BusyState = SaveKind | "clear-price" | "clear-review" | null;
 
+function commentDateLabel(updatedAt: number, now: number): {
+  relative: string;
+  absolute: string;
+} | null {
+  if (!Number.isFinite(updatedAt) || updatedAt <= 0) return null;
+  return {
+    relative: formatPriceAge(updatedAt, now),
+    absolute: new Date(updatedAt).toLocaleString("en-GB", {
+      dateStyle: "medium",
+      timeStyle: "short",
+    }),
+  };
+}
+
 function CommunitySummaryBlock({
   community,
   comments,
@@ -109,6 +124,7 @@ function CommunitySummaryBlock({
   community?: StationCommunitySummary;
   comments: StationCommunitySummary["recentComments"];
 }>) {
+  const [now] = useState(() => Date.now());
   const hasRatings = (community?.ratingCount ?? 0) > 0;
   if (!hasRatings && comments.length === 0) return null;
 
@@ -125,18 +141,34 @@ function CommunitySummaryBlock({
       )}
       {comments.length > 0 && (
         <ul className="space-y-1.5">
-          {comments.map((c, i) => (
-            <li
-              key={`${c.userName}-${c.updatedAt}-${i}`}
-              className="rounded-lg bg-slate-950/50 px-2.5 py-2 text-[11px]"
-            >
-              <div className="flex items-center justify-between gap-2">
-                <span className="font-medium text-slate-300">{c.userName}</span>
-                {c.rating != null && <Stars value={c.rating} readOnly />}
-              </div>
-              <p className="mt-0.5 text-slate-400">{c.comment}</p>
-            </li>
-          ))}
+          {comments.map((c, i) => {
+            const when = commentDateLabel(c.updatedAt, now);
+            return (
+              <li
+                key={`${c.userName}-${c.updatedAt}-${i}`}
+                className="rounded-lg bg-slate-950/50 px-2.5 py-2 text-[11px]"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <div className="min-w-0 flex items-center gap-1.5">
+                    <span className="truncate font-medium text-slate-300">
+                      {c.userName}
+                    </span>
+                    {when && (
+                      <time
+                        dateTime={new Date(c.updatedAt).toISOString()}
+                        title={when.absolute}
+                        className="shrink-0 font-mono text-[10px] text-slate-500"
+                      >
+                        · {when.relative}
+                      </time>
+                    )}
+                  </div>
+                  {c.rating != null && <Stars value={c.rating} readOnly />}
+                </div>
+                <p className="mt-0.5 text-slate-400">{c.comment}</p>
+              </li>
+            );
+          })}
         </ul>
       )}
     </div>
