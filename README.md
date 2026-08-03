@@ -33,6 +33,14 @@ Query params: `from`, `to` (lat,lng), `fromLabel`, `toLabel`, `fuel`, `mpg`, `ta
 
 Named profiles (fuel grade, MPG, tank size) live in the sidebar. Guests keep them in `localStorage` on this browser; signed-in users sync the same presets to the database so they follow you across devices.
 
+Enter a UK registration under **Find by registration** to pull make, model (when MOT History is configured), fuel type, hybrid flag, first registration, tax / MOT renewal dates, and an **estimated tank size** (official APIs do not publish capacity — confirm against the handbook). Without API keys, development uses demo plates: `AA19 AAA`, `AA19 DSL`, `AA19 MOT`, `HY21 BRD`.
+
+| Variable | Purpose |
+| --- | --- |
+| `DVLA_API_KEY` | [DVLA Vehicle Enquiry](https://developer-portal.driver-vehicle-licensing.api.gov.uk/) — make, fuel, tax, MOT dates |
+| `MOT_HISTORY_*` | [DVSA MOT History](https://documentation.history.mot.api.gov.uk/) — model name (optional) |
+| `VEHICLE_LOOKUP_ALLOW_MOCKS` | Force demo fixtures on/off |
+
 ## Recent searches
 
 Origin and destination picks appear under **Recent searches** in the place autocomplete. Guests keep them in `localStorage`; signed-in users sync the same history to the account across devices.

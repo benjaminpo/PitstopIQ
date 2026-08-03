@@ -3,6 +3,7 @@ import {
   extractCsvPresign,
   parseFuelFinderCsv,
 } from "./fuelFinderCsv";
+import { withoutSuppressedStations } from "./suppressedStations";
 import {
   readFuelDatasetCache,
   writeFuelDatasetCache,
@@ -559,7 +560,7 @@ export async function fetchFuelFinderStations(
     lng: (bounds.east + bounds.west) / 2,
   };
 
-  const stations = all
+  const stations = withoutSuppressedStations(all)
     .filter((s) => inBounds(s.location, bounds))
     .map((s) => ({
       ...s,

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Eye, EyeOff, Loader2, Sparkles } from "lucide-react";
 import { signIn, signUp } from "@/app/lib/auth-client";
+import { joinDisplayName } from "@/app/lib/userName";
 
 const inputClass =
   "w-full rounded-lg border border-slate-700/80 bg-slate-900/60 px-3 py-2 text-sm text-slate-100 outline-none ring-teal-500/40 transition placeholder:text-slate-500 focus:border-teal-500/60 focus:ring-2";
@@ -13,7 +14,8 @@ export function AuthForm({ mode }: Readonly<{ mode: "login" | "register" }>) {
   const router = useRouter();
   const isRegister = mode === "register";
 
-  const [name, setName] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -26,8 +28,15 @@ export function AuthForm({ mode }: Readonly<{ mode: "login" | "register" }>) {
     setSubmitting(true);
     setError(null);
 
+    const name = joinDisplayName(firstName, lastName);
+    if (isRegister && !name) {
+      setError("Enter at least a first or last name.");
+      setSubmitting(false);
+      return;
+    }
+
     const result = isRegister
-      ? await signUp.email({ name: name.trim(), email, password })
+      ? await signUp.email({ name, email, password })
       : await signIn.email({ email, password });
 
     if (result.error) {
@@ -76,18 +85,34 @@ export function AuthForm({ mode }: Readonly<{ mode: "login" | "register" }>) {
 
           <form onSubmit={handleSubmit} className="mt-5 flex flex-col gap-4">
             {isRegister && (
-              <label className="flex flex-col gap-1.5">
-                <span className="text-xs font-medium text-slate-300">Name</span>
-                <input
-                  type="text"
-                  required
-                  autoComplete="name"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="Alex Driver"
-                  className={inputClass}
-                />
-              </label>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <label className="flex flex-col gap-1.5">
+                  <span className="text-xs font-medium text-slate-300">
+                    First name
+                  </span>
+                  <input
+                    type="text"
+                    autoComplete="given-name"
+                    value={firstName}
+                    onChange={(e) => setFirstName(e.target.value)}
+                    placeholder="Alex"
+                    className={inputClass}
+                  />
+                </label>
+                <label className="flex flex-col gap-1.5">
+                  <span className="text-xs font-medium text-slate-300">
+                    Last name
+                  </span>
+                  <input
+                    type="text"
+                    autoComplete="family-name"
+                    value={lastName}
+                    onChange={(e) => setLastName(e.target.value)}
+                    placeholder="Driver"
+                    className={inputClass}
+                  />
+                </label>
+              </div>
             )}
 
             <label className="flex flex-col gap-1.5">
