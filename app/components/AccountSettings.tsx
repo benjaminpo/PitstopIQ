@@ -10,9 +10,9 @@ import {
   Fuel,
   Gauge,
   Loader2,
-  Sparkles,
   UserRound,
 } from "lucide-react";
+import { AppLogo } from "@/app/components/AppLogo";
 import { NumberInput } from "@/app/components/NumberInput";
 import { VehiclePresets } from "@/app/components/VehiclePresets";
 import { VehiclePresetsSync } from "@/app/components/VehiclePresetsSync";
@@ -118,12 +118,7 @@ export function AccountSettings() {
             className="flex items-center gap-2"
             aria-label="PitstopIQ home"
           >
-            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-teal-600 text-white shadow-md shadow-teal-950/50">
-              <Sparkles className="h-4 w-4" />
-            </span>
-            <span className="text-lg font-bold tracking-tight text-white">
-              PitstopIQ
-            </span>
+            <AppLogo />
           </Link>
         </div>
 

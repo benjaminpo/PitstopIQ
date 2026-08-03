@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { Eye, EyeOff, Loader2, Sparkles } from "lucide-react";
+import { Eye, EyeOff, Loader2 } from "lucide-react";
+import { AppLogo } from "@/app/components/AppLogo";
 import { signIn, signUp } from "@/app/lib/auth-client";
 import { joinDisplayName } from "@/app/lib/userName";
 
@@ -65,12 +66,7 @@ export function AuthForm({ mode }: Readonly<{ mode: "login" | "register" }>) {
           className="mb-6 flex items-center justify-center gap-2"
           aria-label="Back to PitstopIQ"
         >
-          <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-teal-600 text-white shadow-md shadow-teal-950/50">
-            <Sparkles className="h-5 w-5" />
-          </span>
-          <span className="text-xl font-bold tracking-tight text-white">
-            PitstopIQ
-          </span>
+          <AppLogo size="md" wordmarkClassName="text-xl" />
         </Link>
 
         <div className="rounded-2xl border border-slate-800/80 bg-slate-950/95 p-6 shadow-2xl shadow-slate-950/60 backdrop-blur-md">

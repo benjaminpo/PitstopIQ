@@ -19,6 +19,7 @@ export const metadata: Metadata = {
   title: "PitstopIQ — Smart Route Cost Calculator",
   description:
     "Calculate whether diverting to a cheaper fuel station is a net financial gain, accounting for MPG, detour distance, and live forecourt prices.",
+  applicationName: "PitstopIQ",
   ...(getAdSenseClient()
     ? {
         other: {

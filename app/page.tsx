@@ -2,8 +2,9 @@
 
 import dynamic from "next/dynamic";
 import { useEffect, useRef, useState } from "react";
-import { Coffee, Crosshair, Loader2, Menu, PanelLeftClose, Sparkles } from "lucide-react";
+import { Coffee, Crosshair, Loader2, Menu, PanelLeftClose } from "lucide-react";
 import { AccountMenu } from "@/app/components/AccountMenu";
+import { AppLogo } from "@/app/components/AppLogo";
 import { FreshnessBadge } from "@/app/components/FreshnessBadge";
 import { RouteForm } from "@/app/components/RouteForm";
 import { SidebarAd } from "@/app/components/AdUnit";
@@ -89,14 +90,9 @@ export default function HomePage() {
       >
         <header className="flex items-start justify-between gap-3 border-b border-slate-800/80 px-5 py-4">
           <div>
-            <div className="flex items-center gap-2">
-              <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-teal-600 text-white shadow-md shadow-teal-950/50">
-                <Sparkles className="h-4 w-4" />
-              </span>
-              <h1 className="text-lg font-bold tracking-tight text-white">
-                PitstopIQ
-              </h1>
-            </div>
+            <h1>
+              <AppLogo />
+            </h1>
           </div>
           <div className="flex items-center gap-2">
             <AccountMenu />
