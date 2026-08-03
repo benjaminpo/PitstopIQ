@@ -95,7 +95,7 @@ export function VehiclePresets() {
           </button>
         </div>
         <p className="text-[11px] text-slate-500">
-          Plate lookup needs a DVLA API key — not available yet.
+          Plate lookup not available yet.
         </p>
       </div>
 
