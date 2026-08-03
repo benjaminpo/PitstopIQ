@@ -38,23 +38,25 @@ export function AccountSettings() {
 
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
-  const [hydratedName, setHydratedName] = useState(false);
+  const [profileUserId, setProfileUserId] = useState<string | null>(null);
   const [savingProfile, setSavingProfile] = useState(false);
   const [profileError, setProfileError] = useState<string | null>(null);
   const [profileSaved, setProfileSaved] = useState(false);
+
+  const sessionUserId = session?.user?.id ?? null;
+  if (session && sessionUserId !== profileUserId) {
+    const parts = splitDisplayName(session.user.name);
+    setProfileUserId(sessionUserId);
+    setFirstName(parts.firstName);
+    setLastName(parts.lastName);
+  }
 
   useEffect(() => {
     if (isPending) return;
     if (!session) {
       router.replace("/login");
-      return;
     }
-    if (hydratedName) return;
-    const parts = splitDisplayName(session.user.name);
-    setFirstName(parts.firstName);
-    setLastName(parts.lastName);
-    setHydratedName(true);
-  }, [session, isPending, router, hydratedName]);
+  }, [session, isPending, router]);
 
   const handleSaveProfile = async (e: FormEvent) => {
     e.preventDefault();

@@ -448,7 +448,6 @@ export function StationContribute({
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- remounted via key={stationId}
   }, [stationId, session?.user?.id, setCommunitySummary]);
 
   const postContribution = async (

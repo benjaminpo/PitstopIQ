@@ -149,7 +149,12 @@ describe("parseReplaceBody", () => {
   });
 
   it("defaults missing name to My car", () => {
-    const { name: _n, ...withoutName } = sample;
+    const withoutName = {
+      id: sample.id,
+      fuelType: sample.fuelType,
+      mpg: sample.mpg,
+      tankCapacityLitres: sample.tankCapacityLitres,
+    };
     const result = parseReplaceBody({
       presets: [withoutName],
       activePresetId: null,

@@ -1,6 +1,5 @@
 "use client";
 
-import { Navigation } from "lucide-react";
 import {
   googleMapsNavigateUrl,
   type NavigateTarget,
