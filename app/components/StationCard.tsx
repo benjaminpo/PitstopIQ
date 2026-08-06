@@ -130,9 +130,33 @@ export function StationCard({
               £{pricePerLitre.toFixed(3)}
             </p>
             {priceFromCommunity ? (
-              <p className="mt-0.5 flex items-center gap-1 font-mono text-[10px] text-teal-400/90">
-                <Users className="h-2.5 w-2.5" />
-                members
+              <p
+                className="mt-0.5 flex flex-wrap items-center gap-x-1 gap-y-0.5 font-mono text-[10px] text-teal-400/90"
+                title={
+                  now != null && priceTone != null
+                    ? stationPriceAgeTitle(priceUpdatedAt, priceTone)
+                    : undefined
+                }
+              >
+                <span className="inline-flex items-center gap-1">
+                  <Users className="h-2.5 w-2.5" />
+                  members
+                </span>
+                {now != null && (
+                  <span
+                    className={cn(
+                      "inline-flex items-center gap-1",
+                      priceTone != null
+                        ? STATION_AGE_TEXT_CLASSES[priceTone]
+                        : "text-slate-500"
+                    )}
+                  >
+                    ·{" "}
+                    {priceUpdatedAt != null
+                      ? formatPriceAge(priceUpdatedAt, now)
+                      : "age unknown"}
+                  </span>
+                )}
               </p>
             ) : (
               now != null &&
