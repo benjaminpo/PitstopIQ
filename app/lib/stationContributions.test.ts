@@ -20,7 +20,7 @@ describe("parseUpsertBody", () => {
     const result = parseUpsertBody({
       stationId: "mock-tesco-slough",
       kind: "price",
-      prices: { E10: 1.349, E5: 1.449, B7_Diesel: 1.399 },
+      prices: { E10: 1.349, E5: 1.449, B7_Diesel: 1.399, B7_Premium: 1.499 },
     });
     expect(result.ok).toBe(true);
     if (result.ok) {
@@ -28,6 +28,7 @@ describe("parseUpsertBody", () => {
         E10: 1.349,
         E5: 1.449,
         B7_Diesel: 1.399,
+        B7_Premium: 1.499,
       });
     }
   });

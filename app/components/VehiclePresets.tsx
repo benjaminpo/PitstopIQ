@@ -3,14 +3,9 @@
 import { useState } from "react";
 import { Car, Plus, Save, Search, Trash2 } from "lucide-react";
 import { useSession } from "@/app/lib/auth-client";
+import { vehicleFuelKind, vehicleFuelLabel } from "@/app/lib/fuelConstants";
 import { usePitstopStore } from "@/app/lib/store";
 import { cn } from "@/app/lib/utils";
-
-const FUEL_SHORT: Record<string, string> = {
-  E10: "E10",
-  E5: "E5",
-  B7_Diesel: "Diesel",
-};
 
 export function VehiclePresets() {
   const { data: session } = useSession();
@@ -33,12 +28,12 @@ export function VehiclePresets() {
   const active = vehiclePresets.find((p) => p.id === activePresetId);
   const dirty =
     active != null &&
-    (active.fuelType !== vehicle.fuelType ||
+    (vehicleFuelKind(active.fuelType) !== vehicleFuelKind(vehicle.fuelType) ||
       active.mpg !== vehicle.mpg ||
       active.tankCapacityLitres !== vehicle.tankCapacityLitres);
 
   const onSaveNew = () => {
-    const defaultName = `${FUEL_SHORT[vehicle.fuelType] ?? vehicle.fuelType} · ${vehicle.mpg} mpg`;
+    const defaultName = `${vehicleFuelLabel(vehicle.fuelType)} · ${vehicle.mpg} mpg`;
     if (!naming) {
       setDraftName(defaultName);
       setNaming(true);
@@ -103,6 +98,7 @@ export function VehiclePresets() {
         <div className="flex flex-wrap gap-1.5">
           {vehiclePresets.map((preset) => {
             const selected = preset.id === activePresetId;
+            const fuelLabel = vehicleFuelLabel(preset.fuelType);
             return (
               <button
                 key={preset.id}
@@ -114,7 +110,7 @@ export function VehiclePresets() {
                     renameVehiclePreset(preset.id, next);
                   }
                 }}
-                title={`${preset.name} · ${FUEL_SHORT[preset.fuelType] ?? preset.fuelType} · ${preset.mpg} mpg · ${preset.tankCapacityLitres} L (double-click to rename)`}
+                title={`${preset.name} · ${fuelLabel} · ${preset.mpg} mpg · ${preset.tankCapacityLitres} L (double-click to rename)`}
                 className={cn(
                   "rounded-md px-2.5 py-1.5 text-left text-[11px] font-semibold transition",
                   selected
@@ -129,8 +125,7 @@ export function VehiclePresets() {
                     selected ? "text-teal-100/80" : "text-slate-500"
                   )}
                 >
-                  {FUEL_SHORT[preset.fuelType] ?? preset.fuelType} ·{" "}
-                  {preset.mpg} mpg · {preset.tankCapacityLitres} L
+                  {fuelLabel} · {preset.mpg} mpg · {preset.tankCapacityLitres} L
                 </div>
               </button>
             );
@@ -188,9 +183,7 @@ export function VehiclePresets() {
           <button
             type="button"
             onClick={() => {
-              if (
-                window.confirm(`Delete preset “${active.name}”?`)
-              ) {
+              if (window.confirm(`Delete preset “${active.name}”?`)) {
                 deleteVehiclePreset(active.id);
               }
             }}

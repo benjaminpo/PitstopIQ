@@ -1,5 +1,5 @@
 /** Fuel grades commonly available at UK forecourts */
-export type FuelType = "E10" | "E5" | "B7_Diesel";
+export type FuelType = "E10" | "E5" | "B7_Diesel" | "B7_Premium";
 
 export interface VehicleProfile {
   fuelType: FuelType;
@@ -28,6 +28,8 @@ export interface FuelStation {
   id: string;
   name: string;
   brand: string;
+  /** Street / locality when provided by Fuel Finder (e.g. "Lower Bridge Street, Pontypool") */
+  address?: string | null;
   /** UK postcode when provided by Fuel Finder */
   postcode?: string | null;
   location: GeoPoint;

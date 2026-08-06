@@ -17,19 +17,13 @@ import { NumberInput } from "@/app/components/NumberInput";
 import { VehiclePresets } from "@/app/components/VehiclePresets";
 import { VehiclePresetsSync } from "@/app/components/VehiclePresetsSync";
 import { updateUser, useSession } from "@/app/lib/auth-client";
+import { VEHICLE_FUEL_OPTIONS, vehicleFuelKind } from "@/app/lib/fuelConstants";
 import { usePitstopStore } from "@/app/lib/store";
-import type { FuelType } from "@/app/lib/types";
 import { joinDisplayName, splitDisplayName } from "@/app/lib/userName";
 import { cn } from "@/app/lib/utils";
 
 const inputClass =
   "w-full rounded-lg border border-slate-700/80 bg-slate-900/60 px-3 py-2 text-sm text-slate-100 outline-none ring-teal-500/40 transition placeholder:text-slate-500 focus:border-teal-500/60 focus:ring-2";
-
-const FUEL_OPTIONS: { value: FuelType; label: string; hint: string }[] = [
-  { value: "E10", label: "E10 Petrol", hint: "Standard" },
-  { value: "E5", label: "E5 Petrol", hint: "Premium" },
-  { value: "B7_Diesel", label: "B7 Diesel", hint: "Diesel" },
-];
 
 export function AccountSettings() {
   const router = useRouter();
@@ -222,32 +216,22 @@ export function AccountSettings() {
                   <Fuel className="h-3.5 w-3.5" />
                   Fuel type
                 </span>
-                <div className="grid grid-cols-3 gap-1.5 rounded-lg bg-slate-900/80 p-1 ring-1 ring-slate-700/60">
-                  {FUEL_OPTIONS.map((opt) => {
-                    const active = vehicle.fuelType === opt.value;
+                <div className="grid grid-cols-2 gap-1.5 rounded-lg bg-slate-900/80 p-1 ring-1 ring-slate-700/60">
+                  {VEHICLE_FUEL_OPTIONS.map((opt) => {
+                    const active = vehicleFuelKind(vehicle.fuelType) === opt.kind;
                     return (
                       <button
                         key={opt.value}
                         type="button"
                         onClick={() => setFuelType(opt.value)}
                         className={cn(
-                          "rounded-md px-2 py-2 text-center transition",
+                          "rounded-md px-2 py-2 text-center text-[11px] font-semibold transition",
                           active
                             ? "bg-teal-600 text-white shadow-sm shadow-teal-900/40"
                             : "text-slate-400 hover:bg-slate-800 hover:text-slate-200"
                         )}
                       >
-                        <div className="text-[11px] font-semibold leading-tight">
-                          {opt.label}
-                        </div>
-                        <div
-                          className={cn(
-                            "mt-0.5 text-[10px]",
-                            active ? "text-teal-100/80" : "text-slate-500"
-                          )}
-                        >
-                          {opt.hint}
-                        </div>
+                        {opt.label}
                       </button>
                     );
                   })}

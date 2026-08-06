@@ -3,6 +3,11 @@
 import { ArrowRightLeft, Clock, Fuel, Route, Sparkles, Star, Users } from "lucide-react";
 import { formatGbp } from "@/app/lib/detourCalculator";
 import {
+  FUEL_TYPE_LABELS,
+  FUEL_TYPE_SHORT,
+  fuelGradesForVehicle,
+} from "@/app/lib/fuelConstants";
+import {
   formatPriceAge,
   stationPriceAgeTitle,
   stationPriceTone,
@@ -28,6 +33,41 @@ interface StationCardProps {
   onSelect?: () => void;
 }
 
+interface GradePriceRow {
+  fuel: FuelType;
+  price: number;
+  fromCommunity: boolean;
+  updatedAt: number | null;
+}
+
+function resolveGradePrices(
+  item: StationWithCalculation,
+  fuelType: FuelType
+): GradePriceRow[] {
+  const grades = fuelGradesForVehicle(fuelType);
+  const community = item.community;
+  const rows: GradePriceRow[] = [];
+
+  for (const fuel of grades) {
+    const communityPrice = community?.communityPrices[fuel];
+    const fromCommunity =
+      communityPrice != null && Number.isFinite(communityPrice);
+    const official = item.station.prices[fuel];
+    const price = fromCommunity ? communityPrice : official;
+    if (price == null || !Number.isFinite(price)) continue;
+    rows.push({
+      fuel,
+      price,
+      fromCommunity,
+      updatedAt: fromCommunity
+        ? community?.communityPriceUpdatedAt[fuel] ?? null
+        : item.station.pricesLastUpdatedAt ?? null,
+    });
+  }
+
+  return rows;
+}
+
 function formatExtraMinutes(minutes: number): string {
   const m = Math.round(minutes);
   if (m < 1) return "<1 min";
@@ -50,6 +90,71 @@ function netColorClass(net: number): string {
   return "text-amber-400";
 }
 
+function PriceFreshness({
+  updatedAt,
+  fromCommunity,
+  now,
+}: Readonly<{
+  updatedAt: number | null;
+  fromCommunity: boolean;
+  now?: number;
+}>) {
+  const priceTone = now != null ? stationPriceTone(updatedAt, now) : null;
+
+  if (fromCommunity) {
+    return (
+      <p
+        className="mt-0.5 flex flex-wrap items-center gap-x-1 gap-y-0.5 font-mono text-[10px] text-teal-400/90"
+        title={
+          now != null && priceTone != null
+            ? stationPriceAgeTitle(updatedAt, priceTone)
+            : undefined
+        }
+      >
+        <span className="inline-flex items-center gap-1">
+          <Users className="h-2.5 w-2.5" />
+          members
+        </span>
+        {now != null && (
+          <span
+            className={cn(
+              "inline-flex items-center gap-1",
+              priceTone != null
+                ? STATION_AGE_TEXT_CLASSES[priceTone]
+                : "text-slate-500"
+            )}
+          >
+            ·{" "}
+            {updatedAt != null
+              ? formatPriceAge(updatedAt, now)
+              : "age unknown"}
+          </span>
+        )}
+      </p>
+    );
+  }
+
+  if (now == null || priceTone == null) return null;
+
+  return (
+    <p
+      className={cn(
+        "mt-0.5 flex items-center gap-1 font-mono text-[10px]",
+        STATION_AGE_TEXT_CLASSES[priceTone]
+      )}
+      title={stationPriceAgeTitle(updatedAt, priceTone)}
+    >
+      <span
+        className={cn(
+          "h-1.5 w-1.5 shrink-0 rounded-full",
+          FRESHNESS_DOT_CLASSES[priceTone]
+        )}
+      />
+      {updatedAt != null ? formatPriceAge(updatedAt, now) : "age unknown"}
+    </p>
+  );
+}
+
 export function StationCard({
   item,
   selected,
@@ -61,10 +166,22 @@ export function StationCard({
 }: Readonly<StationCardProps>) {
   const { station, calculation, pricePerLitre, priceFromCommunity, community } =
     item;
-  const priceUpdatedAt = priceFromCommunity
-    ? community?.communityPriceUpdatedAt[fuelType ?? "E10"] ?? null
-    : station.pricesLastUpdatedAt;
-  const priceTone = now != null ? stationPriceTone(priceUpdatedAt, now) : null;
+  const activeFuel = fuelType ?? "E10";
+  const gradeRows = resolveGradePrices(item, activeFuel);
+  const displayRows =
+    gradeRows.length > 0
+      ? gradeRows
+      : [
+          {
+            fuel: activeFuel,
+            price: pricePerLitre,
+            fromCommunity: Boolean(priceFromCommunity),
+            updatedAt: priceFromCommunity
+              ? community?.communityPriceUpdatedAt[activeFuel] ?? null
+              : station.pricesLastUpdatedAt ?? null,
+          } satisfies GradePriceRow,
+        ];
+  const primaryFreshness = displayRows[0];
   const net = calculation.netAfterTime;
   const showNavigate = Boolean(selected || isBest);
   const avgRating = community?.avgRating;
@@ -98,15 +215,7 @@ export function StationCard({
                 )}
               </div>
               <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5">
-                <p className="text-xs text-slate-400">
-                  {station.brand}
-                  {station.postcode ? (
-                    <span className="text-slate-500">
-                      {" "}
-                      · {station.postcode}
-                    </span>
-                  ) : null}
-                </p>
+                <p className="text-xs text-slate-400">{station.brand}</p>
                 {ratingCount > 0 && avgRating != null && (
                   <span className="inline-flex items-center gap-0.5 text-[10px] text-amber-300/90">
                     <Star className="h-2.5 w-2.5 fill-amber-400 text-amber-400" />
@@ -115,6 +224,11 @@ export function StationCard({
                   </span>
                 )}
               </div>
+              {(station.address || station.postcode) && (
+                <p className="mt-0.5 text-[11px] leading-snug text-slate-500">
+                  {[station.address, station.postcode].filter(Boolean).join(" · ")}
+                </p>
+              )}
             </div>
           </div>
           <StatusBadge status={calculation.status} />
@@ -126,60 +240,27 @@ export function StationCard({
               <Fuel className="h-3 w-3" />
               Price
             </div>
-            <p className="mt-0.5 font-mono text-sm font-semibold text-slate-100">
-              £{pricePerLitre.toFixed(3)}
-            </p>
-            {priceFromCommunity ? (
-              <p
-                className="mt-0.5 flex flex-wrap items-center gap-x-1 gap-y-0.5 font-mono text-[10px] text-teal-400/90"
-                title={
-                  now != null && priceTone != null
-                    ? stationPriceAgeTitle(priceUpdatedAt, priceTone)
-                    : undefined
-                }
-              >
-                <span className="inline-flex items-center gap-1">
-                  <Users className="h-2.5 w-2.5" />
-                  members
-                </span>
-                {now != null && (
-                  <span
-                    className={cn(
-                      "inline-flex items-center gap-1",
-                      priceTone != null
-                        ? STATION_AGE_TEXT_CLASSES[priceTone]
-                        : "text-slate-500"
-                    )}
-                  >
-                    ·{" "}
-                    {priceUpdatedAt != null
-                      ? formatPriceAge(priceUpdatedAt, now)
-                      : "age unknown"}
-                  </span>
-                )}
-              </p>
-            ) : (
-              now != null &&
-              priceTone != null && (
-                <p
-                  className={cn(
-                    "mt-0.5 flex items-center gap-1 font-mono text-[10px]",
-                    STATION_AGE_TEXT_CLASSES[priceTone]
-                  )}
-                  title={stationPriceAgeTitle(priceUpdatedAt, priceTone)}
+            <ul className="mt-0.5 space-y-0.5">
+              {displayRows.map((row) => (
+                <li
+                  key={row.fuel}
+                  className="flex items-baseline justify-between gap-1"
+                  title={FUEL_TYPE_LABELS[row.fuel]}
                 >
-                  <span
-                    className={cn(
-                      "h-1.5 w-1.5 shrink-0 rounded-full",
-                      FRESHNESS_DOT_CLASSES[priceTone]
-                    )}
-                  />
-                  {priceUpdatedAt != null
-                    ? formatPriceAge(priceUpdatedAt, now)
-                    : "age unknown"}
-                </p>
-              )
-            )}
+                  <span className="truncate text-[10px] text-slate-500">
+                    {FUEL_TYPE_SHORT[row.fuel]}
+                  </span>
+                  <span className="font-mono text-sm font-semibold text-slate-100">
+                    £{row.price.toFixed(3)}
+                  </span>
+                </li>
+              ))}
+            </ul>
+            <PriceFreshness
+              updatedAt={primaryFreshness.updatedAt}
+              fromCommunity={primaryFreshness.fromCommunity}
+              now={now}
+            />
           </div>
           <div className="rounded-lg bg-slate-950/50 px-2 py-1.5">
             <div className="flex items-center gap-1 text-[10px] uppercase tracking-wide text-slate-500">

@@ -12,6 +12,7 @@ import {
   parsePriceLastUpdated,
   parsePriceToGbpPerLitre,
 } from "./fuelPriceParse";
+import { formatStationAddress } from "./stationAddress";
 import type { FuelStation, FuelType, GeoPoint, MapBounds } from "./types";
 
 export { parsePriceLastUpdated, parsePriceToGbpPerLitre } from "./fuelPriceParse";
@@ -30,12 +31,12 @@ const CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
 const MAX_BATCHES = 80;
 const USER_AGENT = "PitstopIQ/1.0 (route fuel cost calculator)";
 
-/** API fuel_type → app FuelType (diesel + premium diesel → B7_Diesel) */
+/** API fuel_type → app FuelType */
 const FUEL_TYPE_MAP: Record<string, FuelType> = {
   E10: "E10",
   E5: "E5",
   B7_STANDARD: "B7_Diesel",
-  B7_PREMIUM: "B7_Diesel",
+  B7_PREMIUM: "B7_Premium",
   B7: "B7_Diesel",
 };
 
@@ -54,6 +55,7 @@ type ApiCoord = string | number | null;
 
 interface ApiLocation {
   address_line_1?: string | null;
+  address_line_2?: string | null;
   city?: string | null;
   postcode?: string | null;
   latitude?: ApiCoord;
@@ -330,10 +332,16 @@ function mapStations(
 
     const location = { lat, lng };
     const postcode = s.location?.postcode?.trim() || null;
+    const address = formatStationAddress({
+      addressLine1: s.location?.address_line_1,
+      addressLine2: s.location?.address_line_2,
+      city: s.location?.city,
+    });
     mapped.push({
       id: s.node_id,
       name: s.trading_name?.trim() || s.brand_name?.trim() || "Forecourt",
       brand: s.brand_name?.trim() || s.trading_name?.trim() || "Unknown",
+      address,
       postcode,
       location,
       prices,

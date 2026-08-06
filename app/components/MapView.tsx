@@ -17,6 +17,10 @@ import "react-leaflet-cluster/dist/assets/MarkerCluster.Default.css";
 import { usePitstopStore } from "@/app/lib/store";
 import { formatGbp } from "@/app/lib/detourCalculator";
 import {
+  FUEL_TYPE_SHORT,
+  fuelGradesForVehicle,
+} from "@/app/lib/fuelConstants";
+import {
   formatPriceAge,
   stationPriceAgeTitle,
   stationPriceTone,
@@ -24,6 +28,7 @@ import {
 } from "@/app/lib/freshness";
 import type {
   DetourStatus,
+  FuelType,
   GeoPoint,
   StationWithCalculation,
 } from "@/app/lib/types";
@@ -31,6 +36,26 @@ import { cn } from "@/app/lib/utils";
 import { BrandLogo } from "./BrandLogo";
 import { NavigateHere } from "./NavigateHere";
 import { StatusBadge } from "./StatusBadge";
+
+function popupGradePrices(
+  item: StationWithCalculation,
+  fuelType: FuelType
+): Array<{ fuel: FuelType; price: number }> {
+  const rows: Array<{ fuel: FuelType; price: number }> = [];
+  for (const fuel of fuelGradesForVehicle(fuelType)) {
+    const communityPrice = item.community?.communityPrices[fuel];
+    const price =
+      communityPrice != null && Number.isFinite(communityPrice)
+        ? communityPrice
+        : item.station.prices[fuel];
+    if (price == null || !Number.isFinite(price)) continue;
+    rows.push({ fuel, price });
+  }
+  if (rows.length === 0) {
+    rows.push({ fuel: fuelType, price: item.pricePerLitre });
+  }
+  return rows;
+}
 
 function statusColor(status: DetourStatus): string {
   switch (status) {
@@ -275,6 +300,7 @@ export default function MapView() {
     getEnrichedStations,
     selectedStationId,
     setSelectedStationId,
+    vehicle,
   } = usePitstopStore();
 
   const enriched = getEnrichedStations();
@@ -370,20 +396,26 @@ export default function MapView() {
                     </span>
                   )}
                 </div>
-                <p className="text-xs text-slate-600">
-                  {item.station.brand}
-                  {item.station.postcode ? (
-                    <span className="text-slate-500">
-                      {" "}
-                      · {item.station.postcode}
-                    </span>
-                  ) : null}
-                </p>
+                <p className="text-xs text-slate-600">{item.station.brand}</p>
+                {(item.station.address || item.station.postcode) && (
+                  <p className="text-[11px] leading-snug text-slate-500">
+                    {[item.station.address, item.station.postcode]
+                      .filter(Boolean)
+                      .join(" · ")}
+                  </p>
+                )}
               </div>
             </div>
             <StatusBadge status={item.calculation.status} />
-            <p className="font-mono text-sm">
-              £{item.pricePerLitre.toFixed(3)}/L ·{" "}
+            <ul className="space-y-0.5 font-mono text-sm">
+              {popupGradePrices(item, vehicle.fuelType).map((row) => (
+                <li key={row.fuel} className="flex justify-between gap-3">
+                  <span className="text-slate-600">{FUEL_TYPE_SHORT[row.fuel]}</span>
+                  <span>£{row.price.toFixed(3)}/L</span>
+                </li>
+              ))}
+            </ul>
+            <p className="font-mono text-sm text-slate-700">
               {item.station.distanceOffRouteMiles.toFixed(1)} mi ·{" "}
               {item.calculation.detourExtraMinutes < 0.5
                 ? "<1 min"

@@ -3,9 +3,10 @@ import {
   parsePriceLastUpdated,
   parsePriceToGbpPerLitre,
 } from "./fuelPriceParse";
+import { formatStationAddress } from "./stationAddress";
 import type { FuelStation, FuelType, GeoPoint } from "./types";
 
-/** CSV fuel grade columns → app FuelType (B7S diesel + B7P premium diesel) */
+/** CSV fuel grade columns → app FuelType */
 const CSV_FUEL_COLUMNS: Array<{ price: string; updated: string; type: FuelType }> =
   [
     {
@@ -26,7 +27,7 @@ const CSV_FUEL_COLUMNS: Array<{ price: string; updated: string; type: FuelType }
     {
       price: "forecourts.fuel_price.B7P",
       updated: "forecourts.price_submission_timestamp.B7P",
-      type: "B7_Diesel",
+      type: "B7_Premium",
     },
   ];
 
@@ -176,11 +177,7 @@ export function parseFuelFinderCsv(
     for (const fuel of CSV_FUEL_COLUMNS) {
       const gbp = parsePriceToGbpPerLitre(col(fuel.price, row));
       if (gbp === undefined) continue;
-      const existing = prices[fuel.type];
-      // Keep cheapest when both B7S (diesel) and B7P (premium diesel) are present.
-      if (existing === undefined || gbp < existing) {
-        prices[fuel.type] = gbp;
-      }
+      prices[fuel.type] = gbp;
       const updatedAt = parsePriceLastUpdated(col(fuel.updated, row));
       if (updatedAt !== undefined && updatedAt > latestUpdatedAt) {
         latestUpdatedAt = updatedAt;
@@ -192,12 +189,18 @@ export function parseFuelFinderCsv(
     const trading = col("forecourts.trading_name", row);
     const brand = col("forecourts.brand_name", row);
     const postcode = col("forecourts.location.postcode", row) || null;
+    const address = formatStationAddress({
+      addressLine1: col("forecourts.location.address_line_1", row),
+      addressLine2: col("forecourts.location.address_line_2", row),
+      city: col("forecourts.location.city", row),
+    });
     const location = { lat, lng };
 
     stations.push({
       id,
       name: trading || brand || "Forecourt",
       brand: brand || trading || "Unknown",
+      address,
       postcode,
       location,
       prices,

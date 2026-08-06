@@ -18,7 +18,7 @@ import {
   remainingRangeMiles,
 } from "./detourCalculator";
 import { computeBaselineRoutePrice } from "./baselinePrice";
-import { DEFAULT_BASE_ROUTE_AVG_PRICE } from "./fuelConstants";
+import { DEFAULT_BASE_ROUTE_AVG_PRICE, vehicleFuelKind } from "./fuelConstants";
 import {
   getBrowserPosition,
   reverseGeocode,
@@ -79,7 +79,7 @@ function presetMatchesVehicle(
   vehicle: VehicleProfile
 ): boolean {
   return (
-    preset.fuelType === vehicle.fuelType &&
+    vehicleFuelKind(preset.fuelType) === vehicleFuelKind(vehicle.fuelType) &&
     preset.mpg === vehicle.mpg &&
     preset.tankCapacityLitres === vehicle.tankCapacityLitres
   );

@@ -25,7 +25,7 @@ const inputClass =
   "w-full rounded-lg border border-slate-700/80 bg-slate-950/60 px-2.5 py-1.5 text-sm text-slate-100 outline-none ring-teal-500/40 transition placeholder:text-slate-500 focus:border-teal-500/60 focus:ring-2";
 
 function emptyPriceDrafts(): Record<FuelType, string> {
-  return { E10: "", E5: "", B7_Diesel: "" };
+  return { E10: "", E5: "", B7_Diesel: "", B7_Premium: "" };
 }
 
 function pricesFromMine(mine: MineContribution | null | undefined): FuelPriceMap {

@@ -7,7 +7,7 @@ import {
   type RouteAvoidOptions,
 } from "./routeAvoid";
 
-const FUEL_TYPES: readonly FuelType[] = ["E10", "E5", "B7_Diesel"];
+const FUEL_TYPES: readonly FuelType[] = ["E10", "E5", "B7_Diesel", "B7_Premium"];
 
 export interface TripSnapshot {
   origin: string;

@@ -13,6 +13,129 @@ export interface FuelApiAdapter {
   fetchNearbyFuelStations(bounds: MapBounds): Promise<FuelStation[]>;
 }
 
+type MockStationTemplate = {
+  id: string;
+  name: string;
+  brand: string;
+  address: string;
+  postcode: string;
+  latOffset: number;
+  lngOffset: number;
+  distanceOffRouteMiles: number;
+  /** Rough detour minutes at ~35 mph for mock demos */
+  detourExtraSeconds: number;
+  prices: Partial<Record<FuelType, number>>;
+  /** Simulated age of the price report, for demo realism */
+  priceAgeMinutes: number;
+};
+
+const MOCK_STATION_TEMPLATES: MockStationTemplate[] = [
+  {
+    id: "mock-tesco-slough",
+    name: "Tesco Extra Slough",
+    brand: "Tesco",
+    address: "Wellington Street, Slough",
+    postcode: "SL1 1XW",
+    latOffset: 0.018,
+    lngOffset: -0.042,
+    distanceOffRouteMiles: 1.2,
+    detourExtraSeconds: 120,
+    prices: { E10: 1.329, E5: 1.429, B7_Diesel: 1.389 },
+    priceAgeMinutes: 45,
+  },
+  {
+    id: "mock-bp-heathrow",
+    name: "BP Connect Heathrow",
+    brand: "BP",
+    address: "Bath Road, Heathrow",
+    postcode: "TW6 2GA",
+    latOffset: -0.012,
+    lngOffset: 0.028,
+    distanceOffRouteMiles: 3.8,
+    detourExtraSeconds: 390,
+    prices: { E10: 1.459, E5: 1.559, B7_Diesel: 1.499 },
+    priceAgeMinutes: 130,
+  },
+  {
+    id: "mock-moto-m4",
+    name: "Moto Reading Services M4",
+    brand: "Moto",
+    address: "M4 Junction 11, Reading",
+    postcode: "RG2 0QG",
+    latOffset: 0.015,
+    lngOffset: -0.02,
+    distanceOffRouteMiles: 0.4,
+    detourExtraSeconds: 45,
+    prices: { E10: 1.489, E5: 1.589, B7_Diesel: 1.529 },
+    priceAgeMinutes: 25,
+  },
+  {
+    id: "mock-shell-reading",
+    name: "Shell Reading West",
+    brand: "Shell",
+    address: "Oxford Road, Reading",
+    postcode: "RG30 1PR",
+    latOffset: 0.032,
+    lngOffset: -0.065,
+    distanceOffRouteMiles: 2.4,
+    detourExtraSeconds: 250,
+    prices: { E10: 1.389, E5: 1.489, B7_Diesel: 1.419 },
+    priceAgeMinutes: 310,
+  },
+  {
+    id: "mock-asda-bracknell",
+    name: "Asda Bracknell",
+    brand: "Asda",
+    address: "The Peel Centre, Bracknell",
+    postcode: "RG12 1QP",
+    latOffset: -0.028,
+    lngOffset: -0.038,
+    distanceOffRouteMiles: 0.6,
+    detourExtraSeconds: 60,
+    prices: { E10: 1.299, E5: 1.399, B7_Diesel: 1.349 },
+    priceAgeMinutes: 75,
+  },
+  {
+    id: "mock-esso-maidenhead",
+    name: "Esso Maidenhead",
+    brand: "Esso",
+    address: "Bridge Road, Maidenhead",
+    postcode: "SL6 1DN",
+    latOffset: 0.008,
+    lngOffset: 0.052,
+    distanceOffRouteMiles: 4.5,
+    detourExtraSeconds: 460,
+    prices: { E10: 1.279, E5: 1.379, B7_Diesel: 1.329 },
+    priceAgeMinutes: 220,
+  },
+  {
+    id: "mock-sainsburys-windsor",
+    name: "Sainsbury's Windsor",
+    brand: "Sainsbury's",
+    address: "Dedworth Road, Windsor",
+    postcode: "SL4 1LH",
+    latOffset: 0.022,
+    lngOffset: 0.015,
+    distanceOffRouteMiles: 1.9,
+    detourExtraSeconds: 195,
+    prices: { E10: 1.349, E5: 1.449, B7_Diesel: 1.379 },
+    priceAgeMinutes: 15,
+  },
+  {
+    id: "mock-morrisons-uxbridge",
+    name: "Morrisons Uxbridge",
+    brand: "Morrisons",
+    address: "High Street, Uxbridge",
+    postcode: "UB8 1QG",
+    latOffset: -0.035,
+    lngOffset: 0.048,
+    distanceOffRouteMiles: 5.2,
+    detourExtraSeconds: 535,
+    prices: { E10: 1.319, E5: 1.419, B7_Diesel: 1.359 },
+    priceAgeMinutes: 480,
+  },
+];
+
 /**
  * Mock forecourt generator — returns ≥5 stations with varied prices and
  * off-route distances so the app works without live API keys.
@@ -20,124 +143,13 @@ export interface FuelApiAdapter {
 function generateMockStations(bounds: MapBounds): FuelStation[] {
   const centreLat = (bounds.north + bounds.south) / 2;
   const centreLng = (bounds.east + bounds.west) / 2;
-
-  const templates: Array<{
-    id: string;
-    name: string;
-    brand: string;
-    postcode: string;
-    latOffset: number;
-    lngOffset: number;
-    distanceOffRouteMiles: number;
-    /** Rough detour minutes at ~35 mph for mock demos */
-    detourExtraSeconds: number;
-    prices: Partial<Record<FuelType, number>>;
-    /** Simulated age of the price report, for demo realism */
-    priceAgeMinutes: number;
-  }> = [
-    {
-      id: "mock-tesco-slough",
-      name: "Tesco Extra Slough",
-      brand: "Tesco",
-      postcode: "SL1 1XW",
-      latOffset: 0.018,
-      lngOffset: -0.042,
-      distanceOffRouteMiles: 1.2,
-      detourExtraSeconds: 120,
-      prices: { E10: 1.329, E5: 1.429, B7_Diesel: 1.389 },
-      priceAgeMinutes: 45,
-    },
-    {
-      id: "mock-bp-heathrow",
-      name: "BP Connect Heathrow",
-      brand: "BP",
-      postcode: "TW6 2GA",
-      latOffset: -0.012,
-      lngOffset: 0.028,
-      distanceOffRouteMiles: 3.8,
-      detourExtraSeconds: 390,
-      prices: { E10: 1.459, E5: 1.559, B7_Diesel: 1.499 },
-      priceAgeMinutes: 130,
-    },
-    {
-      id: "mock-moto-m4",
-      name: "Moto Reading Services M4",
-      brand: "Moto",
-      postcode: "RG2 0QG",
-      latOffset: 0.015,
-      lngOffset: -0.02,
-      distanceOffRouteMiles: 0.4,
-      detourExtraSeconds: 45,
-      prices: { E10: 1.489, E5: 1.589, B7_Diesel: 1.529 },
-      priceAgeMinutes: 25,
-    },
-    {
-      id: "mock-shell-reading",
-      name: "Shell Reading West",
-      brand: "Shell",
-      postcode: "RG30 1PR",
-      latOffset: 0.032,
-      lngOffset: -0.065,
-      distanceOffRouteMiles: 2.4,
-      detourExtraSeconds: 250,
-      prices: { E10: 1.389, E5: 1.489, B7_Diesel: 1.419 },
-      priceAgeMinutes: 310,
-    },
-    {
-      id: "mock-asda-bracknell",
-      name: "Asda Bracknell",
-      brand: "Asda",
-      postcode: "RG12 1QP",
-      latOffset: -0.028,
-      lngOffset: -0.038,
-      distanceOffRouteMiles: 0.6,
-      detourExtraSeconds: 60,
-      prices: { E10: 1.299, E5: 1.399, B7_Diesel: 1.349 },
-      priceAgeMinutes: 75,
-    },
-    {
-      id: "mock-esso-maidenhead",
-      name: "Esso Maidenhead",
-      brand: "Esso",
-      postcode: "SL6 1DN",
-      latOffset: 0.008,
-      lngOffset: 0.052,
-      distanceOffRouteMiles: 4.5,
-      detourExtraSeconds: 460,
-      prices: { E10: 1.279, E5: 1.379, B7_Diesel: 1.329 },
-      priceAgeMinutes: 220,
-    },
-    {
-      id: "mock-sainsburys-windsor",
-      name: "Sainsbury's Windsor",
-      brand: "Sainsbury's",
-      postcode: "SL4 1LH",
-      latOffset: 0.022,
-      lngOffset: 0.015,
-      distanceOffRouteMiles: 1.9,
-      detourExtraSeconds: 195,
-      prices: { E10: 1.349, E5: 1.449, B7_Diesel: 1.379 },
-      priceAgeMinutes: 15,
-    },
-    {
-      id: "mock-morrisons-uxbridge",
-      name: "Morrisons Uxbridge",
-      brand: "Morrisons",
-      postcode: "UB8 1QG",
-      latOffset: -0.035,
-      lngOffset: 0.048,
-      distanceOffRouteMiles: 5.2,
-      detourExtraSeconds: 535,
-      prices: { E10: 1.319, E5: 1.419, B7_Diesel: 1.359 },
-      priceAgeMinutes: 480,
-    },
-  ];
-
   const now = Date.now();
-  return templates.map((t) => ({
+
+  return MOCK_STATION_TEMPLATES.map((t) => ({
     id: t.id,
     name: t.name,
     brand: t.brand,
+    address: t.address,
     postcode: t.postcode,
     location: {
       lat: centreLat + t.latOffset,
@@ -201,7 +213,9 @@ export async function fetchNearbyFuelStations(
           "Live fuel prices are temporarily unavailable. Please try again in a minute."
         );
       }
-      console.warn("[fuelApiAdapter] Falling back to mock demo stations (non-production)");
+      console.warn(
+        "[fuelApiAdapter] Falling back to mock demo stations (non-production)"
+      );
     }
   } else if (!mockDataAllowed()) {
     throw new FuelDataUnavailableError(
