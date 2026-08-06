@@ -9,7 +9,7 @@ import {
 } from "./fuelFinderCsv";
 
 const HEADER =
-  "forecourts.node_id,forecourts.trading_name,forecourts.brand_name,forecourts.temporary_closure,forecourts.permanent_closure,forecourts.location.postcode,forecourts.location.latitude,forecourts.location.longitude,forecourts.fuel_price.E5,forecourts.price_submission_timestamp.E5,forecourts.fuel_price.E10,forecourts.price_submission_timestamp.E10,forecourts.fuel_price.B7S,forecourts.price_submission_timestamp.B7S";
+  "forecourts.node_id,forecourts.trading_name,forecourts.brand_name,forecourts.temporary_closure,forecourts.permanent_closure,forecourts.location.postcode,forecourts.location.latitude,forecourts.location.longitude,forecourts.fuel_price.E5,forecourts.price_submission_timestamp.E5,forecourts.fuel_price.E10,forecourts.price_submission_timestamp.E10,forecourts.fuel_price.B7S,forecourts.price_submission_timestamp.B7S,forecourts.fuel_price.B7P,forecourts.price_submission_timestamp.B7P";
 
 describe("parseCsvRecords", () => {
   it("handles quoted fields, escaped quotes, and CR", () => {
@@ -40,18 +40,20 @@ describe("parseCsvRecords", () => {
 describe("parseFuelFinderCsv", () => {
   it("maps open stations with E10/E5/B7 prices and skips closures", () => {
     const csv = `${HEADER}
-abc123,PONTYPOOL SUPERSTORE,TESCO,false,false,NP4 0XB,51.7000700,-3.0402500,,,154.9000,Fri Jul 31 2026 16:15:08 GMT+0000 (Coordinated Universal Time),135.9000,Fri Jul 31 2026 16:15:08 GMT+0000 (Coordinated Universal Time)
-closed1,CLOSED SITE,GULF,true,false,OX15 6ER,51.96,-1.95,,,161.7000,Fri Jul 31 2026 14:36:15 GMT+0000 (Coordinated Universal Time),,
-perm1,GONE,BP,false,yes,SW1A 1AA,51.5,-0.1,,,130.0,Fri Jul 31 2026 14:36:15 GMT+0000 (Coordinated Universal Time),,
-quoted,"SHELL, READING",SHELL,false,false,RG1 8EQ,51.45,-0.97,142.9000,Fri Jul 31 2026 14:36:15 GMT+0000 (Coordinated Universal Time),132.9000,Fri Jul 31 2026 14:36:15 GMT+0000 (Coordinated Universal Time),,
+abc123,PONTYPOOL SUPERSTORE,TESCO,false,false,NP4 0XB,51.7000700,-3.0402500,,,154.9000,Fri Jul 31 2026 16:15:08 GMT+0000 (Coordinated Universal Time),135.9000,Fri Jul 31 2026 16:15:08 GMT+0000 (Coordinated Universal Time),145.9000,Fri Jul 31 2026 16:15:08 GMT+0000 (Coordinated Universal Time)
+closed1,CLOSED SITE,GULF,true,false,OX15 6ER,51.96,-1.95,,,161.7000,Fri Jul 31 2026 14:36:15 GMT+0000 (Coordinated Universal Time),,,,
+perm1,GONE,BP,false,yes,SW1A 1AA,51.5,-0.1,,,130.0,Fri Jul 31 2026 14:36:15 GMT+0000 (Coordinated Universal Time),,,,
+quoted,"SHELL, READING",SHELL,false,false,RG1 8EQ,51.45,-0.97,142.9000,Fri Jul 31 2026 14:36:15 GMT+0000 (Coordinated Universal Time),132.9000,Fri Jul 31 2026 14:36:15 GMT+0000 (Coordinated Universal Time),,,,
+premiumOnly,PREMIUM ONLY,SHELL,false,false,RG2 0AA,51.44,-0.96,,,,,,,149.9000,Fri Jul 31 2026 12:00:00 GMT+0000 (Coordinated Universal Time)
 `;
     const stations = parseFuelFinderCsv(csv);
-    expect(stations).toHaveLength(2);
+    expect(stations).toHaveLength(3);
 
     const tesco = stations.find((s) => s.id === "abc123");
     expect(tesco?.brand).toBe("TESCO");
     expect(tesco?.postcode).toBe("NP4 0XB");
     expect(tesco?.prices.E10).toBe(1.549);
+    // B7S (1.359) wins over more expensive B7P (1.459)
     expect(tesco?.prices.B7_Diesel).toBe(1.359);
     expect(tesco?.pricesLastUpdatedAt).toBe(
       Date.parse("Fri Jul 31 2026 16:15:08 GMT+0000 (Coordinated Universal Time)")
@@ -62,6 +64,9 @@ quoted,"SHELL, READING",SHELL,false,false,RG1 8EQ,51.45,-0.97,142.9000,Fri Jul 3
     expect(shell?.postcode).toBe("RG1 8EQ");
     expect(shell?.prices.E5).toBe(1.429);
     expect(shell?.prices.E10).toBe(1.329);
+
+    const premiumOnly = stations.find((s) => s.id === "premiumOnly");
+    expect(premiumOnly?.prices.B7_Diesel).toBe(1.499);
 
     expect(stations.some((s) => s.id === "closed1")).toBe(false);
     expect(stations.some((s) => s.id === "perm1")).toBe(false);

@@ -30,11 +30,12 @@ const CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
 const MAX_BATCHES = 80;
 const USER_AGENT = "PitstopIQ/1.0 (route fuel cost calculator)";
 
-/** API fuel_type → app FuelType */
+/** API fuel_type → app FuelType (diesel + premium diesel → B7_Diesel) */
 const FUEL_TYPE_MAP: Record<string, FuelType> = {
   E10: "E10",
   E5: "E5",
   B7_STANDARD: "B7_Diesel",
+  B7_PREMIUM: "B7_Diesel",
   B7: "B7_Diesel",
 };
 

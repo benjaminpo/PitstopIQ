@@ -5,7 +5,7 @@ import {
 } from "./fuelPriceParse";
 import type { FuelStation, FuelType, GeoPoint } from "./types";
 
-/** CSV fuel grade columns → app FuelType */
+/** CSV fuel grade columns → app FuelType (B7S diesel + B7P premium diesel) */
 const CSV_FUEL_COLUMNS: Array<{ price: string; updated: string; type: FuelType }> =
   [
     {
@@ -21,6 +21,11 @@ const CSV_FUEL_COLUMNS: Array<{ price: string; updated: string; type: FuelType }
     {
       price: "forecourts.fuel_price.B7S",
       updated: "forecourts.price_submission_timestamp.B7S",
+      type: "B7_Diesel",
+    },
+    {
+      price: "forecourts.fuel_price.B7P",
+      updated: "forecourts.price_submission_timestamp.B7P",
       type: "B7_Diesel",
     },
   ];
@@ -171,7 +176,11 @@ export function parseFuelFinderCsv(
     for (const fuel of CSV_FUEL_COLUMNS) {
       const gbp = parsePriceToGbpPerLitre(col(fuel.price, row));
       if (gbp === undefined) continue;
-      prices[fuel.type] = gbp;
+      const existing = prices[fuel.type];
+      // Keep cheapest when both B7S (diesel) and B7P (premium diesel) are present.
+      if (existing === undefined || gbp < existing) {
+        prices[fuel.type] = gbp;
+      }
       const updatedAt = parsePriceLastUpdated(col(fuel.updated, row));
       if (updatedAt !== undefined && updatedAt > latestUpdatedAt) {
         latestUpdatedAt = updatedAt;
