@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import localFont from "next/font/local";
 import { GoogleAdSense } from "@/app/components/GoogleAdSense";
+import { GoogleAnalytics } from "@/app/components/GoogleAnalytics";
 import { getAdSenseClient } from "@/app/lib/adsense";
 import "./globals.css";
 
@@ -40,6 +41,7 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} min-h-dvh bg-slate-950 font-sans text-slate-100 antialiased`}
       >
         {children}
+        <GoogleAnalytics />
         <GoogleAdSense />
       </body>
     </html>

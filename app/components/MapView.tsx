@@ -40,19 +40,48 @@ import { StatusBadge } from "./StatusBadge";
 function popupGradePrices(
   item: StationWithCalculation,
   fuelType: FuelType
-): Array<{ fuel: FuelType; price: number }> {
-  const rows: Array<{ fuel: FuelType; price: number }> = [];
+): Array<{
+  fuel: FuelType;
+  price: number;
+  fromCommunity: boolean;
+  updatedAt: number | null;
+}> {
+  const rows: Array<{
+    fuel: FuelType;
+    price: number;
+    fromCommunity: boolean;
+    updatedAt: number | null;
+  }> = [];
   for (const fuel of fuelGradesForVehicle(fuelType)) {
     const communityPrice = item.community?.communityPrices[fuel];
-    const price =
-      communityPrice != null && Number.isFinite(communityPrice)
-        ? communityPrice
-        : item.station.prices[fuel];
+    const fromCommunity =
+      communityPrice != null && Number.isFinite(communityPrice);
+    const price = fromCommunity
+      ? communityPrice
+      : item.station.prices[fuel];
     if (price == null || !Number.isFinite(price)) continue;
-    rows.push({ fuel, price });
+    rows.push({
+      fuel,
+      price,
+      fromCommunity,
+      updatedAt: fromCommunity
+        ? item.community?.communityPriceUpdatedAt[fuel] ?? null
+        : item.station.pricesUpdatedAt?.[fuel] ??
+          item.station.pricesLastUpdatedAt ??
+          null,
+    });
   }
   if (rows.length === 0) {
-    rows.push({ fuel: fuelType, price: item.pricePerLitre });
+    rows.push({
+      fuel: fuelType,
+      price: item.pricePerLitre,
+      fromCommunity: Boolean(item.priceFromCommunity),
+      updatedAt: item.priceFromCommunity
+        ? item.community?.communityPriceUpdatedAt[fuelType] ?? null
+        : item.station.pricesUpdatedAt?.[fuelType] ??
+          item.station.pricesLastUpdatedAt ??
+          null,
+    });
   }
   return rows;
 }
@@ -379,8 +408,7 @@ export default function MapView() {
   const renderStationMarker = (item: StationWithCalculation) => {
     const isSelected = selectedStationId === item.station.id;
     const isBest = bestId === item.station.id;
-    const priceUpdatedAt = item.station.pricesLastUpdatedAt;
-    const priceTone = stationPriceTone(priceUpdatedAt, now);
+    const gradeRows = popupGradePrices(item, vehicle.fuelType);
     let zIndexOffset = 0;
     if (isSelected) zIndexOffset = 1000;
     else if (isBest) zIndexOffset = 500;
@@ -418,30 +446,38 @@ export default function MapView() {
               </div>
             </div>
             <StatusBadge status={item.calculation.status} />
-            <ul className="space-y-0.5 font-mono text-sm">
-              {popupGradePrices(item, vehicle.fuelType).map((row) => (
-                <li key={row.fuel} className="flex justify-between gap-3">
-                  <span className="text-slate-600">{FUEL_TYPE_SHORT[row.fuel]}</span>
-                  <span>£{row.price.toFixed(3)}/L</span>
-                </li>
-              ))}
+            <ul className="space-y-1 font-mono text-sm">
+              {gradeRows.map((row) => {
+                const rowTone = stationPriceTone(row.updatedAt, now);
+                return (
+                  <li key={row.fuel} className="space-y-0.5">
+                    <div className="flex justify-between gap-3">
+                      <span className="text-slate-600">
+                        {FUEL_TYPE_SHORT[row.fuel]}
+                        {row.fromCommunity ? " · members" : ""}
+                      </span>
+                      <span>£{row.price.toFixed(3)}/L</span>
+                    </div>
+                    <p
+                      className={cn(
+                        "text-[10px]",
+                        STATION_AGE_TEXT_CLASSES_LIGHT[rowTone]
+                      )}
+                      title={stationPriceAgeTitle(row.updatedAt, rowTone)}
+                    >
+                      {row.updatedAt != null
+                        ? `Updated ${formatPriceAge(row.updatedAt, now)}`
+                        : "Update time unknown"}
+                    </p>
+                  </li>
+                );
+              })}
             </ul>
             <p className="font-mono text-sm text-slate-700">
               {item.station.distanceOffRouteMiles.toFixed(1)} mi ·{" "}
               {item.calculation.detourExtraMinutes < 0.5
                 ? "<1 min"
                 : `+${Math.round(item.calculation.detourExtraMinutes)} min`}
-            </p>
-            <p
-              className={cn(
-                "font-mono text-xs",
-                STATION_AGE_TEXT_CLASSES_LIGHT[priceTone]
-              )}
-              title={stationPriceAgeTitle(priceUpdatedAt, priceTone)}
-            >
-              {priceUpdatedAt != null
-                ? `Price updated ${formatPriceAge(priceUpdatedAt, now)}`
-                : "Price update time unknown"}
             </p>
             <p className="font-mono text-sm font-bold">
               Net {formatGbp(item.calculation.netAfterTime)}

@@ -316,6 +316,7 @@ async function fetchAllBatches<T>(path: string): Promise<T[]> {
 function mapStations(
   stations: ApiStation[],
   pricesByNode: Map<string, Partial<Record<FuelType, number>>>,
+  updatedByGradeByNode: Map<string, Partial<Record<FuelType, number>>>,
   updatedByNode: Map<string, number>,
   routeCentre: GeoPoint
 ): FuelStation[] {
@@ -337,6 +338,7 @@ function mapStations(
       addressLine2: s.location?.address_line_2,
       city: s.location?.city,
     });
+    const pricesUpdatedAt = updatedByGradeByNode.get(s.node_id);
     mapped.push({
       id: s.node_id,
       name: s.trading_name?.trim() || s.brand_name?.trim() || "Forecourt",
@@ -345,6 +347,10 @@ function mapStations(
       postcode,
       location,
       prices,
+      pricesUpdatedAt:
+        pricesUpdatedAt && Object.keys(pricesUpdatedAt).length > 0
+          ? pricesUpdatedAt
+          : undefined,
       pricesLastUpdatedAt: updatedByNode.get(s.node_id) ?? null,
       distanceOffRouteMiles: Number(
         haversineMiles(routeCentre, location).toFixed(2)
@@ -358,48 +364,59 @@ function mapStations(
 
 /**
  * Merge one API fuel price into the station's price map (keeping the
- * cheapest per grade) and return its last-updated timestamp, if usable.
+ * cheapest per grade) and record that grade's last-updated timestamp.
  */
 function mergeFuelPrice(
   prices: Partial<Record<FuelType, number>>,
+  pricesUpdatedAt: Partial<Record<FuelType, number>>,
   fp: ApiFuelPrice
-): number | undefined {
+): void {
   const mapped = FUEL_TYPE_MAP[fp.fuel_type];
-  if (!mapped) return undefined;
+  if (!mapped) return;
   const gbp = parsePriceToGbpPerLitre(fp.price);
-  if (gbp === undefined) return undefined;
+  if (gbp === undefined) return;
   const existing = prices[mapped];
-  if (existing === undefined || gbp < existing) {
-    prices[mapped] = gbp;
+  if (existing !== undefined && gbp >= existing) return;
+  prices[mapped] = gbp;
+  const updatedAt = parsePriceLastUpdated(fp.price_last_updated);
+  if (updatedAt !== undefined) {
+    pricesUpdatedAt[mapped] = updatedAt;
+  } else {
+    delete pricesUpdatedAt[mapped];
   }
-  return parsePriceLastUpdated(fp.price_last_updated);
 }
 
 function aggregatePriceRows(priceRows: ApiPriceStation[]): {
   pricesByNode: Map<string, Partial<Record<FuelType, number>>>;
+  updatedByGradeByNode: Map<string, Partial<Record<FuelType, number>>>;
   updatedByNode: Map<string, number>;
 } {
   const pricesByNode = new Map<string, Partial<Record<FuelType, number>>>();
+  const updatedByGradeByNode = new Map<
+    string,
+    Partial<Record<FuelType, number>>
+  >();
   const updatedByNode = new Map<string, number>();
 
   for (const row of priceRows) {
     const prices: Partial<Record<FuelType, number>> = {};
-    let latestUpdatedAt = 0;
+    const pricesUpdatedAt: Partial<Record<FuelType, number>> = {};
     for (const fp of row.fuel_prices ?? []) {
-      const updatedAt = mergeFuelPrice(prices, fp);
-      if (updatedAt !== undefined && updatedAt > latestUpdatedAt) {
-        latestUpdatedAt = updatedAt;
+      mergeFuelPrice(prices, pricesUpdatedAt, fp);
+    }
+    if (Object.keys(prices).length === 0) continue;
+    pricesByNode.set(row.node_id, prices);
+    if (Object.keys(pricesUpdatedAt).length > 0) {
+      updatedByGradeByNode.set(row.node_id, pricesUpdatedAt);
+      let latest = 0;
+      for (const t of Object.values(pricesUpdatedAt)) {
+        if (t != null && t > latest) latest = t;
       }
-    }
-    if (Object.keys(prices).length > 0) {
-      pricesByNode.set(row.node_id, prices);
-    }
-    if (latestUpdatedAt > 0) {
-      updatedByNode.set(row.node_id, latestUpdatedAt);
+      if (latest > 0) updatedByNode.set(row.node_id, latest);
     }
   }
 
-  return { pricesByNode, updatedByNode };
+  return { pricesByNode, updatedByGradeByNode, updatedByNode };
 }
 
 async function refreshFromCsv(): Promise<CachedDataset> {
@@ -458,10 +475,17 @@ async function refreshFromApi(): Promise<CachedDataset> {
   const stations = await fetchAllBatches<ApiStation>(PFS_PATH);
   const priceRows = await fetchAllBatches<ApiPriceStation>(PRICES_PATH);
 
-  const { pricesByNode, updatedByNode } = aggregatePriceRows(priceRows);
+  const { pricesByNode, updatedByGradeByNode, updatedByNode } =
+    aggregatePriceRows(priceRows);
 
   const UK_CENTRE: GeoPoint = { lat: 54.0, lng: -2.5 };
-  const mapped = mapStations(stations, pricesByNode, updatedByNode, UK_CENTRE);
+  const mapped = mapStations(
+    stations,
+    pricesByNode,
+    updatedByGradeByNode,
+    updatedByNode,
+    UK_CENTRE
+  );
 
   return { fetchedAt: Date.now(), stations: mapped };
 }

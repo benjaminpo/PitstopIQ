@@ -19,6 +19,7 @@ import { CORRIDOR_MAX_DISTANCE_MILES } from "@/app/lib/routing";
 import type { StationSortKey, StationWithCalculation } from "@/app/lib/types";
 import { cn } from "@/app/lib/utils";
 import { BrandLogo } from "./BrandLogo";
+import { ReportMissingStation } from "./ReportMissingStation";
 import { StationCard } from "./StationCard";
 
 const SORT_OPTIONS: { key: StationSortKey; label: string }[] = [
@@ -250,10 +251,13 @@ export function StationList() {
       )}
 
       {!loading && stations.length === 0 && !error && dataSource && (
-        <p className="rounded-lg border border-dashed border-slate-700 px-3 py-8 text-center text-sm text-slate-500">
-          No forecourts within {CORRIDOR_MAX_DISTANCE_MILES} mi of your driving
-          route. Try a longer corridor trip or a different origin/destination.
-        </p>
+        <div className="mb-3 space-y-3">
+          <p className="rounded-lg border border-dashed border-slate-700 px-3 py-8 text-center text-sm text-slate-500">
+            No forecourts within {CORRIDOR_MAX_DISTANCE_MILES} mi of your driving
+            route. Try a longer corridor trip or a different origin/destination.
+          </p>
+          <ReportMissingStation defaultOpen />
+        </div>
       )}
 
       {!loading &&
@@ -261,21 +265,24 @@ export function StationList() {
         enriched.length === 0 &&
         !error &&
         excludedBrands.length > 0 && (
-          <div className="rounded-lg border border-dashed border-slate-700 px-3 py-8 text-center text-sm text-slate-500">
-            <p>
-              Every in-range forecourt is hidden by your brand exclusions
-              {brandFilter !== "all"
-                ? ` or the ${filterLabel.toLowerCase()} filter`
-                : ""}
-              .
-            </p>
-            <button
-              type="button"
-              onClick={clearExcludedBrands}
-              className="mt-2 text-[12px] font-semibold text-teal-300 transition hover:text-teal-200"
-            >
-              Show all brands
-            </button>
+          <div className="mb-3 space-y-3">
+            <div className="rounded-lg border border-dashed border-slate-700 px-3 py-8 text-center text-sm text-slate-500">
+              <p>
+                Every in-range forecourt is hidden by your brand exclusions
+                {brandFilter !== "all"
+                  ? ` or the ${filterLabel.toLowerCase()} filter`
+                  : ""}
+                .
+              </p>
+              <button
+                type="button"
+                onClick={clearExcludedBrands}
+                className="mt-2 text-[12px] font-semibold text-teal-300 transition hover:text-teal-200"
+              >
+                Show all brands
+              </button>
+            </div>
+            <ReportMissingStation />
           </div>
         )}
 
@@ -285,11 +292,14 @@ export function StationList() {
         !error &&
         excludedBrands.length === 0 &&
         brandFilter !== "all" && (
-          <p className="rounded-lg border border-dashed border-slate-700 px-3 py-8 text-center text-sm text-slate-500">
-            No {filterLabel.toLowerCase()} forecourts within your{" "}
-            {rangeMiles.toFixed(0)} mi remaining range. Try another brand filter
-            or top up the fill %.
-          </p>
+          <div className="mb-3 space-y-3">
+            <p className="rounded-lg border border-dashed border-slate-700 px-3 py-8 text-center text-sm text-slate-500">
+              No {filterLabel.toLowerCase()} forecourts within your{" "}
+              {rangeMiles.toFixed(0)} mi remaining range. Try another brand filter
+              or top up the fill %.
+            </p>
+            <ReportMissingStation />
+          </div>
         )}
 
       {!loading &&
@@ -298,11 +308,14 @@ export function StationList() {
         !error &&
         excludedBrands.length === 0 &&
         brandFilter === "all" && (
-          <p className="rounded-lg border border-dashed border-slate-700 px-3 py-8 text-center text-sm text-slate-500">
-            No corridor forecourts within your {rangeMiles.toFixed(0)} mi
-            remaining range (from {vehicle.fillPercentage}% fill). Increase fill
-            % or start closer to a station.
-          </p>
+          <div className="mb-3 space-y-3">
+            <p className="rounded-lg border border-dashed border-slate-700 px-3 py-8 text-center text-sm text-slate-500">
+              No corridor forecourts within your {rangeMiles.toFixed(0)} mi
+              remaining range (from {vehicle.fillPercentage}% fill). Increase fill
+              % or start closer to a station.
+            </p>
+            <ReportMissingStation />
+          </div>
         )}
 
       {!loading && stations.length === 0 && !error && !dataSource && (
@@ -325,6 +338,12 @@ export function StationList() {
           />
         ))}
       </div>
+
+      {!loading && dataSource && enriched.length > 0 && (
+        <div className="mt-3">
+          <ReportMissingStation />
+        </div>
+      )}
     </div>
   );
 }

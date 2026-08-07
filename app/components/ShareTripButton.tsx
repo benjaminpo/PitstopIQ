@@ -5,17 +5,37 @@ import { Check, Link2 } from "lucide-react";
 import { usePitstopStore } from "@/app/lib/store";
 import { tripToShareUrl } from "@/app/lib/tripUrl";
 
+/** Push the trip snapshot into the address bar so native share picks up vias. */
+function syncTripUrlToAddressBar(url: string) {
+  if (typeof window === "undefined") return;
+  try {
+    const next = new URL(url);
+    const nextPath = `${next.pathname}${next.search}`;
+    const current = `${window.location.pathname}${window.location.search}`;
+    if (nextPath !== current) {
+      window.history.replaceState(window.history.state, "", nextPath);
+    }
+  } catch {
+    // ignore malformed URL — clipboard/share still get the string
+  }
+}
+
 export function ShareTripButton() {
-  const getTripSnapshot = usePitstopStore((s) => s.getTripSnapshot);
   const [copied, setCopied] = useState(false);
 
   const onShare = async () => {
-    const url = tripToShareUrl(getTripSnapshot());
+    // Read live store state (not a possibly-stale selector closure)
+    const snap = usePitstopStore.getState().getTripSnapshot();
+    const url = tripToShareUrl(snap);
+    // Safari / some Web Share implementations share location.href instead of
+    // the `url` field — sync the bar first so multi-stop `via` is included.
+    syncTripUrlToAddressBar(url);
+
     try {
       if (navigator.share) {
         await navigator.share({
           title: "PitstopIQ trip",
-          text: "Fuel detour plan",
+          text: `Fuel detour plan\n${url}`,
           url,
         });
         return;

@@ -36,6 +36,11 @@ export interface FuelStation {
   /** Price per litre in GBP for each available fuel grade */
   prices: Partial<Record<FuelType, number>>;
   /**
+   * Epoch ms when each fuel grade was last reported.
+   * Prefer this over `pricesLastUpdatedAt` when showing per-grade freshness.
+   */
+  pricesUpdatedAt?: Partial<Record<FuelType, number>>;
+  /**
    * Epoch ms when the station last reported a price update
    * (latest across grades); null when the API didn't provide it.
    */

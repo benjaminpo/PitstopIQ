@@ -61,7 +61,9 @@ function resolveGradePrices(
       fromCommunity,
       updatedAt: fromCommunity
         ? community?.communityPriceUpdatedAt[fuel] ?? null
-        : item.station.pricesLastUpdatedAt ?? null,
+        : item.station.pricesUpdatedAt?.[fuel] ??
+          item.station.pricesLastUpdatedAt ??
+          null,
     });
   }
 
@@ -178,10 +180,11 @@ export function StationCard({
             fromCommunity: Boolean(priceFromCommunity),
             updatedAt: priceFromCommunity
               ? community?.communityPriceUpdatedAt[activeFuel] ?? null
-              : station.pricesLastUpdatedAt ?? null,
+              : station.pricesUpdatedAt?.[activeFuel] ??
+                station.pricesLastUpdatedAt ??
+                null,
           } satisfies GradePriceRow,
         ];
-  const primaryFreshness = displayRows[0];
   const net = calculation.netAfterTime;
   const showNavigate = Boolean(selected || isBest);
   const avgRating = community?.avgRating;
@@ -240,27 +243,25 @@ export function StationCard({
               <Fuel className="h-3 w-3" />
               Price
             </div>
-            <ul className="mt-0.5 space-y-0.5">
+            <ul className="mt-0.5 space-y-1">
               {displayRows.map((row) => (
-                <li
-                  key={row.fuel}
-                  className="flex items-baseline justify-between gap-1"
-                  title={FUEL_TYPE_LABELS[row.fuel]}
-                >
-                  <span className="truncate text-[10px] text-slate-500">
-                    {FUEL_TYPE_SHORT[row.fuel]}
-                  </span>
-                  <span className="font-mono text-sm font-semibold text-slate-100">
-                    £{row.price.toFixed(3)}
-                  </span>
+                <li key={row.fuel} title={FUEL_TYPE_LABELS[row.fuel]}>
+                  <div className="flex items-baseline justify-between gap-1">
+                    <span className="truncate text-[10px] text-slate-500">
+                      {FUEL_TYPE_SHORT[row.fuel]}
+                    </span>
+                    <span className="font-mono text-sm font-semibold text-slate-100">
+                      £{row.price.toFixed(3)}
+                    </span>
+                  </div>
+                  <PriceFreshness
+                    updatedAt={row.updatedAt}
+                    fromCommunity={row.fromCommunity}
+                    now={now}
+                  />
                 </li>
               ))}
             </ul>
-            <PriceFreshness
-              updatedAt={primaryFreshness.updatedAt}
-              fromCommunity={primaryFreshness.fromCommunity}
-              now={now}
-            />
           </div>
           <div className="rounded-lg bg-slate-950/50 px-2 py-1.5">
             <div className="flex items-center gap-1 text-[10px] uppercase tracking-wide text-slate-500">

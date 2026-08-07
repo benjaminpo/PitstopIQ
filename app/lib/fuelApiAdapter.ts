@@ -145,21 +145,35 @@ function generateMockStations(bounds: MapBounds): FuelStation[] {
   const centreLng = (bounds.east + bounds.west) / 2;
   const now = Date.now();
 
-  return MOCK_STATION_TEMPLATES.map((t) => ({
-    id: t.id,
-    name: t.name,
-    brand: t.brand,
-    address: t.address,
-    postcode: t.postcode,
-    location: {
-      lat: centreLat + t.latOffset,
-      lng: centreLng + t.lngOffset,
-    },
-    prices: t.prices,
-    pricesLastUpdatedAt: now - t.priceAgeMinutes * 60_000,
-    distanceOffRouteMiles: t.distanceOffRouteMiles,
-    detourExtraSeconds: t.detourExtraSeconds,
-  }));
+  return MOCK_STATION_TEMPLATES.map((t) => {
+    const pricesUpdatedAt: Partial<Record<FuelType, number>> = {};
+    const baseAge = now - t.priceAgeMinutes * 60_000;
+    for (const fuel of Object.keys(t.prices) as FuelType[]) {
+      // Spread mock ages slightly per grade so UI can show distinct times
+      let offsetMins = 0;
+      if (fuel === "E5") offsetMins = 40;
+      else if (fuel === "B7_Diesel") offsetMins = 90;
+      else if (fuel === "B7_Premium") offsetMins = 180;
+      pricesUpdatedAt[fuel] = baseAge - offsetMins * 60_000;
+    }
+    const latest = Math.max(...Object.values(pricesUpdatedAt));
+    return {
+      id: t.id,
+      name: t.name,
+      brand: t.brand,
+      address: t.address,
+      postcode: t.postcode,
+      location: {
+        lat: centreLat + t.latOffset,
+        lng: centreLng + t.lngOffset,
+      },
+      prices: t.prices,
+      pricesUpdatedAt,
+      pricesLastUpdatedAt: latest,
+      distanceOffRouteMiles: t.distanceOffRouteMiles,
+      detourExtraSeconds: t.detourExtraSeconds,
+    };
+  });
 }
 
 /** Thrown when live data is unavailable and mock fallback is not allowed. */

@@ -172,6 +172,7 @@ export function parseFuelFinderCsv(
     if (!id || !Number.isFinite(lat) || !Number.isFinite(lng)) continue;
 
     const prices: Partial<Record<FuelType, number>> = {};
+    const pricesUpdatedAt: Partial<Record<FuelType, number>> = {};
     let latestUpdatedAt = 0;
 
     for (const fuel of CSV_FUEL_COLUMNS) {
@@ -179,8 +180,9 @@ export function parseFuelFinderCsv(
       if (gbp === undefined) continue;
       prices[fuel.type] = gbp;
       const updatedAt = parsePriceLastUpdated(col(fuel.updated, row));
-      if (updatedAt !== undefined && updatedAt > latestUpdatedAt) {
-        latestUpdatedAt = updatedAt;
+      if (updatedAt !== undefined) {
+        pricesUpdatedAt[fuel.type] = updatedAt;
+        if (updatedAt > latestUpdatedAt) latestUpdatedAt = updatedAt;
       }
     }
 
@@ -204,6 +206,8 @@ export function parseFuelFinderCsv(
       postcode,
       location,
       prices,
+      pricesUpdatedAt:
+        Object.keys(pricesUpdatedAt).length > 0 ? pricesUpdatedAt : undefined,
       pricesLastUpdatedAt: latestUpdatedAt > 0 ? latestUpdatedAt : null,
       distanceOffRouteMiles: Number(
         haversineMiles(routeCentre, location).toFixed(2)

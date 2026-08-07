@@ -34,6 +34,7 @@ export default function HomePage() {
     loadStations,
     locateCurrentPosition,
     locating,
+    loading,
     route,
     routing,
     routeError,
@@ -143,6 +144,18 @@ export default function HomePage() {
 
       {/* Map pane */}
       <main className="relative z-10 min-w-0 flex-1">
+        {loading && (
+          <div
+            className="pointer-events-none absolute inset-0 z-[600] flex items-center justify-center bg-slate-950/35 backdrop-blur-[1px]"
+            aria-live="polite"
+            aria-busy="true"
+          >
+            <div className="pointer-events-none flex items-center gap-3 rounded-xl border border-slate-700/80 bg-slate-950/95 px-5 py-3.5 text-sm font-medium text-slate-100 shadow-2xl shadow-slate-950/50">
+              <Loader2 className="h-5 w-5 shrink-0 animate-spin text-teal-400" />
+              {routing ? "Calculating driving route…" : "Loading Fuel Finder…"}
+            </div>
+          </div>
+        )}
         <div className="absolute left-3 top-3 z-[500] flex gap-2 md:left-4 md:top-4">
           <button
             type="button"
@@ -182,12 +195,7 @@ export default function HomePage() {
         </div>
 
         <div className="absolute bottom-4 right-3 z-[500] flex flex-col items-end gap-2 md:right-4">
-          {routing && (
-            <div className="rounded-lg border border-slate-700/80 bg-slate-950/90 px-3 py-2 text-xs text-slate-300 shadow-lg backdrop-blur">
-              Calculating driving route…
-            </div>
-          )}
-          {!routing && route && selectedStationId === null && (
+          {!loading && route && selectedStationId === null && (
             <div className="rounded-lg border border-teal-800/50 bg-slate-950/90 px-3 py-2 text-xs shadow-lg backdrop-blur">
               <p className="font-semibold text-teal-300">Driving route</p>
               <p className="font-mono text-slate-300">
@@ -196,7 +204,7 @@ export default function HomePage() {
               </p>
             </div>
           )}
-          {!routing && route && selectedStationId !== null && (
+          {!loading && route && selectedStationId !== null && (
             <button
               type="button"
               onClick={() => setSelectedStationId(null)}
