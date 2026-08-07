@@ -204,6 +204,25 @@ describe("fetchDrivingRoute / fetchStationDetours", () => {
     expect(String(fetchMock.mock.calls[0][0])).toContain("viaLng=");
   });
 
+  it("requests multiple via waypoints for multi-stop trips", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        distanceMiles: 55,
+        durationSeconds: 4500,
+        coordinates: route,
+        bounds: { north: 1, south: 0, east: 1, west: 0 },
+      }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const via2 = { lat: 51.48, lng: -0.6 };
+    await fetchDrivingRoute(origin, dest, [mid, via2]);
+    const url = String(fetchMock.mock.calls[0][0]);
+    expect(url.match(/viaLat=/g)?.length).toBe(2);
+    expect(url).toContain(`viaLat=${mid.lat}`);
+    expect(url).toContain("viaLat=51.48");
+  });
+
   it("passes avoid flags to the route API", async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,

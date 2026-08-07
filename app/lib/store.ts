@@ -9,9 +9,11 @@ import type {
   StationCommunitySummary,
   StationSortKey,
   StationWithCalculation,
+  TripStop,
   VehiclePreset,
   VehicleProfile,
 } from "./types";
+import { MAX_TRIP_STOPS } from "./types";
 import {
   calculateDetourSavings,
   DEFAULT_VALUE_OF_TIME_GBP_PER_HOUR,
@@ -50,6 +52,19 @@ import {
   sanitizeRecentPlaces,
 } from "./locationHistory";
 import type { PlaceSuggestion } from "./placeSearch";
+import {
+  emptyTripStop,
+  insertPointOnNearestSegment,
+  tripViaCoords,
+  tripWaypointCoords,
+} from "./tripPath";
+
+export type LocateTarget = "origin" | "destination" | `stop:${string}`;
+
+function parseLocateStopId(target: LocateTarget): string | null {
+  if (!target.startsWith("stop:")) return null;
+  return target.slice(5) || null;
+}
 
 const SETTINGS_STORAGE_KEY = "pitstopiq-vehicle-settings";
 /** Max stations to refine with live OSRM A→station→B routing. */
@@ -91,12 +106,14 @@ interface PitstopState {
   /** Null until the user picks a place, uses their location, or opens a shared link */
   originCoords: GeoPoint | null;
   destinationCoords: GeoPoint | null;
+  /** Intermediate stops between origin and destination */
+  stops: TripStop[];
   /** Google Maps–style avoid motorways / tolls / ferries */
   routeAvoid: RouteAvoidOptions;
   route: DrivingRoute | null;
   routing: boolean;
   routeError: string | null;
-  /** A→selected station→B geometry when a forecourt is selected */
+  /** Planned path with selected station inserted (map overlay) */
   detourRoute: DrivingRoute | null;
   detourRouting: boolean;
   detourRouteError: string | null;
@@ -127,16 +144,24 @@ interface PitstopState {
   sidebarOpen: boolean;
   loading: boolean;
   locating: boolean;
-  locatingTarget: "origin" | "destination" | null;
+  locatingTarget: LocateTarget | null;
   error: string | null;
   locationError: string | null;
   destinationLocationError: string | null;
+  /** Errors for intermediate stops, keyed by stop id */
+  stopLocationErrors: Record<string, string>;
 
   setOrigin: (v: string) => void;
   setDestination: (v: string) => void;
   setOriginPlace: (label: string, coords: GeoPoint) => void;
   setDestinationPlace: (label: string, coords: GeoPoint) => void;
   swapEnds: () => void;
+  addStop: () => string | null;
+  removeStop: (id: string) => void;
+  setStopLabel: (id: string, label: string) => void;
+  setStopPlace: (id: string, label: string, coords: GeoPoint) => void;
+  /** Reorder full itinerary: ["origin", stopId…, "destination"] */
+  reorderTripEnds: (order: string[]) => void;
   setRouteAvoid: (patch: Partial<RouteAvoidOptions>) => void;
   setVehicle: (patch: Partial<VehicleProfile>) => void;
   setFuelType: (fuelType: FuelType) => void;
@@ -165,7 +190,7 @@ interface PitstopState {
     presets: VehiclePreset[],
     activePresetId: string | null
   ) => void;
-  locateCurrentPosition: (target?: "origin" | "destination") => Promise<void>;
+  locateCurrentPosition: (target?: LocateTarget) => Promise<void>;
   loadStations: () => Promise<void>;
   loadCommunitySummaries: (stationIds?: string[]) => Promise<void>;
   setCommunitySummary: (
@@ -233,6 +258,7 @@ export const usePitstopStore = create<PitstopState>()(
       destination: "",
       originCoords: null,
       destinationCoords: null,
+      stops: [],
       routeAvoid: DEFAULT_ROUTE_AVOID,
       route: null,
       routing: false,
@@ -263,6 +289,7 @@ export const usePitstopStore = create<PitstopState>()(
       error: null,
       locationError: null,
       destinationLocationError: null,
+      stopLocationErrors: {},
 
       setOrigin: (origin) => set({ origin }),
       setDestination: (destination) => set({ destination }),
@@ -289,8 +316,90 @@ export const usePitstopStore = create<PitstopState>()(
           destination: s.origin,
           originCoords: s.destinationCoords,
           destinationCoords: s.originCoords,
+          stops: [...s.stops].reverse(),
           locationError: null,
           destinationLocationError: null,
+          stopLocationErrors: {},
+        });
+        void get().loadStations();
+      },
+      addStop: () => {
+        const { stops } = get();
+        if (stops.length >= MAX_TRIP_STOPS) return null;
+        const stop = emptyTripStop();
+        set({ stops: [...stops, stop] });
+        return stop.id;
+      },
+      removeStop: (id) => {
+        set((s) => {
+          const restErrors = { ...s.stopLocationErrors };
+          delete restErrors[id];
+          return {
+            stops: s.stops.filter((st) => st.id !== id),
+            stopLocationErrors: restErrors,
+          };
+        });
+        void get().loadStations();
+      },
+      setStopLabel: (id, label) => {
+        set((s) => ({
+          stops: s.stops.map((st) =>
+            st.id === id ? { ...st, label } : st
+          ),
+        }));
+      },
+      setStopPlace: (id, label, coords) => {
+        set((s) => {
+          const restErrors = { ...s.stopLocationErrors };
+          delete restErrors[id];
+          return {
+            stops: s.stops.map((st) =>
+              st.id === id ? { ...st, label, coords } : st
+            ),
+            stopLocationErrors: restErrors,
+          };
+        });
+        void get().loadStations();
+      },
+      reorderTripEnds: (order) => {
+        const s = get();
+        const byId = new Map(s.stops.map((st) => [st.id, st]));
+        type Slot = { label: string; coords: GeoPoint | null; stopId?: string };
+        const slots: Slot[] = [];
+        for (const key of order) {
+          if (key === "origin") {
+            slots.push({ label: s.origin, coords: s.originCoords });
+          } else if (key === "destination") {
+            slots.push({ label: s.destination, coords: s.destinationCoords });
+          } else {
+            const stop = byId.get(key);
+            if (stop) {
+              slots.push({
+                label: stop.label,
+                coords: stop.coords,
+                stopId: stop.id,
+              });
+            }
+          }
+        }
+        if (slots.length < 2) return;
+        const first = slots[0];
+        const last = slots.at(-1);
+        if (!first || !last) return;
+        const middle = slots.slice(1, -1);
+        set({
+          origin: first.label,
+          originCoords: first.coords,
+          destination: last.label,
+          destinationCoords: last.coords,
+          stops: middle.map((slot) => ({
+            id: slot.stopId ?? emptyTripStop().id,
+            label: slot.label,
+            coords: slot.coords,
+          })),
+          locationError: null,
+          destinationLocationError: null,
+          stopLocationErrors: {},
         });
         void get().loadStations();
       },
@@ -378,6 +487,7 @@ export const usePitstopStore = create<PitstopState>()(
           stations,
           originCoords,
           destinationCoords,
+          stops,
           selectedStationId,
           routeAvoid,
         } = get();
@@ -396,10 +506,20 @@ export const usePitstopStore = create<PitstopState>()(
 
         set({ detourRouting: true, detourRouteError: null });
         try {
-          const detourRoute = await fetchDrivingRoute(
+          const planned = tripWaypointCoords(
             originCoords,
-            destinationCoords,
-            station.location,
+            stops,
+            destinationCoords
+          );
+          if (!planned) return;
+          const withStation = insertPointOnNearestSegment(
+            planned,
+            station.location
+          );
+          const detourRoute = await fetchDrivingRoute(
+            withStation[0],
+            withStation.at(-1)!,
+            withStation.slice(1, -1),
             routeAvoid
           );
           // Ignore stale responses if the user picked another station
@@ -506,7 +626,7 @@ export const usePitstopStore = create<PitstopState>()(
         set({ vehiclePresets: next, activePresetId: active });
       },
 
-      locateCurrentPosition: async (target = "origin") => {
+      locateCurrentPosition: async (target: LocateTarget = "origin") => {
         set({
           locating: true,
           locatingTarget: target,
@@ -516,8 +636,23 @@ export const usePitstopStore = create<PitstopState>()(
         try {
           const point = await getBrowserPosition();
           const label = await reverseGeocode(point);
+          const stopId = parseLocateStopId(target);
 
-          if (target === "destination") {
+          if (stopId) {
+            set((s) => {
+              const restErrors = { ...s.stopLocationErrors };
+              delete restErrors[stopId];
+              return {
+                stops: s.stops.map((st) =>
+                  st.id === stopId ? { ...st, label, coords: point } : st
+                ),
+                locating: false,
+                locatingTarget: null,
+                stopLocationErrors: restErrors,
+              };
+            });
+            await get().loadStations();
+          } else if (target === "destination") {
             set({
               destinationCoords: point,
               destination: label,
@@ -539,20 +674,38 @@ export const usePitstopStore = create<PitstopState>()(
         } catch (e) {
           const message =
             e instanceof Error ? e.message : "Could not get current location";
-          set({
-            locating: false,
-            locatingTarget: null,
-            ...(target === "destination"
-              ? { destinationLocationError: message }
-              : { locationError: message }),
-          });
+          const stopId = parseLocateStopId(target);
+          if (stopId) {
+            set({
+              locating: false,
+              locatingTarget: null,
+              stopLocationErrors: {
+                ...get().stopLocationErrors,
+                [stopId]: message,
+              },
+            });
+          } else if (target === "destination") {
+            set({
+              locating: false,
+              locatingTarget: null,
+              destinationLocationError: message,
+            });
+          } else {
+            set({
+              locating: false,
+              locatingTarget: null,
+              locationError: message,
+            });
+          }
         }
       },
 
       loadStations: async () => {
-        const { originCoords, destinationCoords, routeAvoid } = get();
+        const { originCoords, destinationCoords, stops, routeAvoid } = get();
         // Nothing to search until both ends of the trip are chosen
         if (!originCoords || !destinationCoords) return;
+
+        const vias = tripViaCoords(stops);
 
         set({
           loading: true,
@@ -569,7 +722,7 @@ export const usePitstopStore = create<PitstopState>()(
             route = await fetchDrivingRoute(
               originCoords,
               destinationCoords,
-              null,
+              vias,
               routeAvoid
             );
             set({ route, routing: false, routeError: null });
@@ -582,21 +735,32 @@ export const usePitstopStore = create<PitstopState>()(
                   ? e.message
                   : "Could not calculate driving route",
             });
+            const fallbackPts = [
+              originCoords,
+              ...vias,
+              destinationCoords,
+            ];
             route = {
               distanceMiles: 0,
               durationSeconds: 0,
-              coordinates: [originCoords, destinationCoords],
+              coordinates: fallbackPts,
               bounds: (() => {
                 const pad = corridorPadDegrees();
+                let north = -Infinity;
+                let south = Infinity;
+                let east = -Infinity;
+                let west = Infinity;
+                for (const p of fallbackPts) {
+                  north = Math.max(north, p.lat);
+                  south = Math.min(south, p.lat);
+                  east = Math.max(east, p.lng);
+                  west = Math.min(west, p.lng);
+                }
                 return {
-                  north:
-                    Math.max(originCoords.lat, destinationCoords.lat) + pad,
-                  south:
-                    Math.min(originCoords.lat, destinationCoords.lat) - pad,
-                  east:
-                    Math.max(originCoords.lng, destinationCoords.lng) + pad,
-                  west:
-                    Math.min(originCoords.lng, destinationCoords.lng) - pad,
+                  north: north + pad,
+                  south: south - pad,
+                  east: east + pad,
+                  west: west - pad,
                 };
               })(),
             };
@@ -640,7 +804,8 @@ export const usePitstopStore = create<PitstopState>()(
             candidates,
             route.coordinates,
             route,
-            routeAvoid
+            routeAvoid,
+            vias
           );
 
           const stations: FuelStation[] = withApprox.map((s) => {
@@ -860,6 +1025,7 @@ export const usePitstopStore = create<PitstopState>()(
           destination: s.destination,
           originCoords: s.originCoords,
           destinationCoords: s.destinationCoords,
+          stops: s.stops,
           routeAvoid: s.routeAvoid,
           vehicle: s.vehicle,
           litresToRefill: s.litresToRefill,
@@ -898,6 +1064,15 @@ export const usePitstopStore = create<PitstopState>()(
           ...(snap.destinationCoords
             ? { destinationCoords: snap.destinationCoords }
             : {}),
+          ...(snap.stops != null
+            ? {
+                stops: snap.stops.slice(0, MAX_TRIP_STOPS).map((st) => ({
+                  id: st.id || emptyTripStop().id,
+                  label: st.label ?? "",
+                  coords: st.coords ?? null,
+                })),
+              }
+            : {}),
           ...(snap.routeAvoid
             ? { routeAvoid: normalizeRouteAvoid(snap.routeAvoid) }
             : {}),
@@ -919,6 +1094,7 @@ export const usePitstopStore = create<PitstopState>()(
             : {}),
           locationError: null,
           destinationLocationError: null,
+          stopLocationErrors: {},
         });
 
         void get().loadStations();

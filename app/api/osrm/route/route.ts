@@ -17,10 +17,26 @@ function parseAvoid(sp: URLSearchParams): RouteAvoidOptions {
   });
 }
 
+function parseVias(sp: URLSearchParams): GeoPoint[] {
+  const viaLats = sp.getAll("viaLat");
+  const viaLngs = sp.getAll("viaLng");
+  const n = Math.min(viaLats.length, viaLngs.length);
+  const vias: GeoPoint[] = [];
+  for (let i = 0; i < n; i++) {
+    const lat = Number(viaLats[i]);
+    const lng = Number(viaLngs[i]);
+    if (Number.isFinite(lat) && Number.isFinite(lng)) {
+      vias.push({ lat, lng });
+    }
+  }
+  return vias;
+}
+
 /**
- * GET /api/osrm/route?fromLat&fromLng&toLat&toLng[&viaLat&viaLng]
+ * GET /api/osrm/route?fromLat&fromLng&toLat&toLng[&viaLat&viaLng…]
  *   [&avoidMotorways=1][&avoidTolls=1][&avoidFerries=1]
  * Proxies driving directions (OSRM, with Valhalla fallback for avoid options).
+ * Repeat viaLat/viaLng pairs for multiple intermediate stops.
  */
 export async function GET(request: NextRequest) {
   const sp = request.nextUrl.searchParams;
@@ -28,23 +44,17 @@ export async function GET(request: NextRequest) {
   const fromLng = Number(sp.get("fromLng"));
   const toLat = Number(sp.get("toLat"));
   const toLng = Number(sp.get("toLng"));
-  const viaLat = sp.get("viaLat");
-  const viaLng = sp.get("viaLng");
   const avoid = parseAvoid(sp);
 
   if (![fromLat, fromLng, toLat, toLng].every(Number.isFinite)) {
     return NextResponse.json({ error: "Invalid coordinates" }, { status: 400 });
   }
 
-  const points: GeoPoint[] = [{ lat: fromLat, lng: fromLng }];
-  if (viaLat != null && viaLng != null) {
-    const vLat = Number(viaLat);
-    const vLng = Number(viaLng);
-    if (Number.isFinite(vLat) && Number.isFinite(vLng)) {
-      points.push({ lat: vLat, lng: vLng });
-    }
-  }
-  points.push({ lat: toLat, lng: toLng });
+  const points: GeoPoint[] = [
+    { lat: fromLat, lng: fromLng },
+    ...parseVias(sp),
+    { lat: toLat, lng: toLng },
+  ];
 
   try {
     const payload: DrivingRoute | null = await resolveDrivingRoute(

@@ -1,8 +1,7 @@
 "use client";
 
-import { useState, type DragEvent, type KeyboardEvent } from "react";
+import { useState, type DragEvent } from "react";
 import {
-  ArrowUpDown,
   ChevronDown,
   Crosshair,
   Clock,
@@ -10,7 +9,9 @@ import {
   Gauge,
   GripVertical,
   Loader2,
+  Plus,
   SlidersHorizontal,
+  X,
 } from "lucide-react";
 import { NumberInput } from "@/app/components/NumberInput";
 import { PlaceAutocomplete } from "@/app/components/PlaceAutocomplete";
@@ -23,6 +24,7 @@ import {
   type RouteAvoidOptions,
 } from "@/app/lib/routeAvoid";
 import { VEHICLE_FUEL_OPTIONS, vehicleFuelKind } from "@/app/lib/fuelConstants";
+import { MAX_TRIP_STOPS } from "@/app/lib/types";
 import { cn } from "@/app/lib/utils";
 
 const AVOID_OPTIONS: {
@@ -34,10 +36,12 @@ const AVOID_OPTIONS: {
   { key: "ferries", label: "Ferries" },
 ];
 
-type RouteEnd = "origin" | "destination";
+type TripRowKey = string; // "origin" | "destination" | stop id
 
-interface RouteEndRowProps {
-  end: RouteEnd;
+interface TripRowProps {
+  rowKey: TripRowKey;
+  roleLabel: string;
+  ariaLabel: string;
   value: string;
   onChange: (value: string) => void;
   onSelectPlace: (place: PlaceSuggestion) => void;
@@ -47,20 +51,22 @@ interface RouteEndRowProps {
   locatingThis: boolean;
   locationError: string | null;
   onLocate: () => void;
-  canSwap: boolean;
-  dragging: RouteEnd | null;
-  dropTarget: RouteEnd | null;
-  onDragStart: (end: RouteEnd) => (e: DragEvent) => void;
-  onDragOver: (end: RouteEnd) => (e: DragEvent) => void;
-  onDragLeave: (end: RouteEnd) => () => void;
-  onDrop: (end: RouteEnd) => (e: DragEvent) => void;
+  canReorder: boolean;
+  canRemove: boolean;
+  onRemove?: () => void;
+  dragging: TripRowKey | null;
+  dropTarget: TripRowKey | null;
+  onDragStart: (key: TripRowKey) => (e: DragEvent) => void;
+  onDragOver: (key: TripRowKey) => (e: DragEvent) => void;
+  onDragLeave: (key: TripRowKey) => () => void;
+  onDrop: (key: TripRowKey) => (e: DragEvent) => void;
   onDragEnd: () => void;
-  onGripKeyDown: (e: KeyboardEvent) => void;
-  gripAriaLabel: string;
 }
 
-function RouteEndRow({
-  end,
+function TripRow({
+  rowKey,
+  roleLabel,
+  ariaLabel,
   value,
   onChange,
   onSelectPlace,
@@ -70,7 +76,9 @@ function RouteEndRow({
   locatingThis,
   locationError,
   onLocate,
-  canSwap,
+  canReorder,
+  canRemove,
+  onRemove,
   dragging,
   dropTarget,
   onDragStart,
@@ -78,33 +86,30 @@ function RouteEndRow({
   onDragLeave,
   onDrop,
   onDragEnd,
-  onGripKeyDown,
-  gripAriaLabel,
-}: Readonly<RouteEndRowProps>) {
+}: Readonly<TripRowProps>) {
   return (
     <div
-      onDragOver={onDragOver(end)}
-      onDragLeave={onDragLeave(end)}
-      onDrop={onDrop(end)}
+      onDragOver={onDragOver(rowKey)}
+      onDragLeave={onDragLeave(rowKey)}
+      onDrop={onDrop(rowKey)}
       className={cn(
         "rounded-xl transition",
-        dropTarget === end && "bg-teal-950/40 ring-1 ring-teal-600/50",
-        dragging === end && "opacity-40"
+        dropTarget === rowKey && "bg-teal-950/40 ring-1 ring-teal-600/50",
+        dragging === rowKey && "opacity-40"
       )}
     >
       <div className="flex items-start gap-1">
         <button
           type="button"
-          draggable={canSwap}
-          onDragStart={onDragStart(end)}
+          draggable={canReorder}
+          onDragStart={onDragStart(rowKey)}
           onDragEnd={onDragEnd}
-          onKeyDown={onGripKeyDown}
-          disabled={!canSwap}
-          aria-label={gripAriaLabel}
+          disabled={!canReorder}
+          aria-label={`Drag to reorder ${roleLabel.toLowerCase()}`}
           title="Drag to reorder"
           className={cn(
             "mt-7 shrink-0 rounded p-0.5 text-slate-500 outline-none ring-teal-500/40 focus-visible:ring-2",
-            canSwap
+            canReorder
               ? "cursor-grab active:cursor-grabbing hover:text-slate-300"
               : "cursor-default opacity-40"
           )}
@@ -112,7 +117,7 @@ function RouteEndRow({
           <GripVertical className="h-4 w-4" />
         </button>
         <div className="w-4 shrink-0" />
-        <div className="min-w-0 flex-1 space-y-1.5 py-1 pr-10">
+        <div className="min-w-0 flex-1 space-y-1.5 py-1 pr-2">
           <div className="flex items-center justify-between gap-2">
             <button
               type="button"
@@ -127,6 +132,22 @@ function RouteEndRow({
               )}
               {locatingThis ? "Locating…" : "Use my location"}
             </button>
+            <div className="flex items-center gap-1">
+              <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                {roleLabel}
+              </span>
+              {canRemove && onRemove && (
+                <button
+                  type="button"
+                  onClick={onRemove}
+                  className="rounded p-1 text-slate-500 transition hover:bg-slate-800 hover:text-rose-300"
+                  aria-label={`Remove ${roleLabel.toLowerCase()}`}
+                  title="Remove stop"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
           </div>
           <PlaceAutocomplete
             value={value}
@@ -135,7 +156,7 @@ function RouteEndRow({
             recentPlaces={recentPlaces}
             onClearRecent={onClearRecent}
             placeholder="Type a place, address, or postcode…"
-            ariaLabel={end === "origin" ? "Origin" : "Destination"}
+            ariaLabel={ariaLabel}
           />
           {locationError && (
             <p className="text-[11px] leading-snug text-rose-400">
@@ -154,12 +175,27 @@ function submitButtonLabel(loading: boolean, tripReady: boolean): string {
   return "Find cheaper pit stops";
 }
 
+function moveKeyInOrder(
+  order: TripRowKey[],
+  from: TripRowKey,
+  to: TripRowKey
+): TripRowKey[] {
+  const next = [...order];
+  const fromIdx = next.indexOf(from);
+  const toIdx = next.indexOf(to);
+  if (fromIdx < 0 || toIdx < 0 || fromIdx === toIdx) return order;
+  next.splice(fromIdx, 1);
+  next.splice(toIdx, 0, from);
+  return next;
+}
+
 export function RouteForm() {
   const {
     origin,
     destination,
     originCoords,
     destinationCoords,
+    stops,
     routeAvoid,
     vehicle,
     baseRouteAvgPricePerLitre,
@@ -173,7 +209,11 @@ export function RouteForm() {
     setDestination,
     setOriginPlace,
     setDestinationPlace,
-    swapEnds,
+    addStop,
+    removeStop,
+    setStopLabel,
+    setStopPlace,
+    reorderTripEnds,
     setRouteAvoid,
     setVehicle,
     setFuelType,
@@ -188,66 +228,64 @@ export function RouteForm() {
     locatingTarget,
     locationError,
     destinationLocationError,
+    stopLocationErrors,
   } = usePitstopStore();
 
-  const [dragging, setDragging] = useState<RouteEnd | null>(null);
-  const [dropTarget, setDropTarget] = useState<RouteEnd | null>(null);
+  const [dragging, setDragging] = useState<TripRowKey | null>(null);
+  const [dropTarget, setDropTarget] = useState<TripRowKey | null>(null);
   const [optionsOpen, setOptionsOpen] = useState(false);
 
   const maxRefill = vehicle.tankCapacityLitres;
   const refillPct = Math.round((litresToRefill / maxRefill) * 100);
   const tripReady = originCoords !== null && destinationCoords !== null;
-  const locatingOrigin = locating && locatingTarget === "origin";
-  const locatingDestination = locating && locatingTarget === "destination";
-  const canSwap = Boolean(origin || destination);
+  const rowOrder: TripRowKey[] = [
+    "origin",
+    ...stops.map((s) => s.id),
+    "destination",
+  ];
+  const canReorder = rowOrder.length >= 2;
+  const canAddStop = stops.length < MAX_TRIP_STOPS;
 
   const clearDrag = () => {
     setDragging(null);
     setDropTarget(null);
   };
 
-  const onDragStart = (end: RouteEnd) => (e: DragEvent) => {
-    if (!canSwap) {
+  const onDragStart = (key: TripRowKey) => (e: DragEvent) => {
+    if (!canReorder) {
       e.preventDefault();
       return;
     }
-    setDragging(end);
+    setDragging(key);
     e.dataTransfer.effectAllowed = "move";
-    e.dataTransfer.setData("text/plain", end);
+    e.dataTransfer.setData("text/plain", key);
   };
 
-  const onDragOver = (end: RouteEnd) => (e: DragEvent) => {
-    if (!dragging || dragging === end) return;
+  const onDragOver = (key: TripRowKey) => (e: DragEvent) => {
+    if (!dragging || dragging === key) return;
     e.preventDefault();
     e.dataTransfer.dropEffect = "move";
-    setDropTarget(end);
+    setDropTarget(key);
   };
 
-  const onDragLeave = (end: RouteEnd) => () => {
-    setDropTarget((current) => (current === end ? null : current));
+  const onDragLeave = (key: TripRowKey) => () => {
+    setDropTarget((current) => (current === key ? null : current));
   };
 
-  const onDrop = (end: RouteEnd) => (e: DragEvent) => {
+  const onDrop = (key: TripRowKey) => (e: DragEvent) => {
     e.preventDefault();
     const from = dragging;
     clearDrag();
-    if (from && from !== end) swapEnds();
+    if (!from || from === key) return;
+    reorderTripEnds(moveKeyInOrder(rowOrder, from, key));
   };
 
   const onDragEnd = () => {
     clearDrag();
   };
 
-  const onGripKeyDown = (e: KeyboardEvent) => {
-    if (!canSwap) return;
-    if (e.key === "Enter" || e.key === " ") {
-      e.preventDefault();
-      swapEnds();
-    }
-  };
-
   const dragHandlers = {
-    canSwap,
+    canReorder,
     dragging,
     dropTarget,
     onDragStart,
@@ -255,7 +293,6 @@ export function RouteForm() {
     onDragLeave,
     onDrop,
     onDragEnd,
-    onGripKeyDown,
   };
 
   return (
@@ -274,25 +311,19 @@ export function RouteForm() {
         >
           <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-teal-400 ring-2 ring-teal-400/30" />
           <span className="w-px flex-1 bg-slate-600" />
+          {stops.map((stop) => (
+            <span key={stop.id} className="contents">
+              <span className="h-2 w-2 shrink-0 rounded-full bg-amber-400/90 ring-2 ring-amber-400/25" />
+              <span className="w-px flex-1 bg-slate-600" />
+            </span>
+          ))}
           <span className="h-2.5 w-2.5 shrink-0 rounded-sm bg-rose-400 ring-2 ring-rose-400/30" />
         </div>
 
-        {/* Floating swap control */}
-        <div className="pointer-events-none absolute right-1 top-1/2 z-10 -translate-y-1/2">
-          <button
-            type="button"
-            onClick={() => swapEnds()}
-            disabled={!canSwap}
-            className="pointer-events-auto flex h-8 w-8 items-center justify-center rounded-full border border-slate-700/80 bg-slate-900 text-slate-300 shadow-lg shadow-slate-950/50 transition hover:border-teal-600/50 hover:bg-teal-950/70 hover:text-teal-200 disabled:cursor-not-allowed disabled:opacity-40"
-            aria-label="Swap origin and destination"
-            title="Swap origin and destination"
-          >
-            <ArrowUpDown className="h-3.5 w-3.5" />
-          </button>
-        </div>
-
-        <RouteEndRow
-          end="origin"
+        <TripRow
+          rowKey="origin"
+          roleLabel="Start"
+          ariaLabel="Origin"
           value={origin}
           onChange={setOrigin}
           onSelectPlace={(place) => {
@@ -302,15 +333,47 @@ export function RouteForm() {
           recentPlaces={recentPlaces}
           onClearRecent={clearRecentPlaces}
           locating={locating}
-          locatingThis={locatingOrigin}
+          locatingThis={locating && locatingTarget === "origin"}
           locationError={locationError}
           onLocate={() => void locateCurrentPosition("origin")}
-          gripAriaLabel="Drag to swap with destination"
+          canRemove={false}
           {...dragHandlers}
         />
 
-        <RouteEndRow
-          end="destination"
+        {stops.map((stop, index) => (
+          <TripRow
+            key={stop.id}
+            rowKey={stop.id}
+            roleLabel={`Stop ${index + 1}`}
+            ariaLabel={`Stop ${index + 1}`}
+            value={stop.label}
+            onChange={(label) => setStopLabel(stop.id, label)}
+            onSelectPlace={(place) => {
+              addRecentPlace(place);
+              setStopPlace(
+                stop.id,
+                formatPlaceSelection(place),
+                place.location
+              );
+            }}
+            recentPlaces={recentPlaces}
+            onClearRecent={clearRecentPlaces}
+            locating={locating}
+            locatingThis={
+              locating && locatingTarget === `stop:${stop.id}`
+            }
+            locationError={stopLocationErrors[stop.id] ?? null}
+            onLocate={() => void locateCurrentPosition(`stop:${stop.id}`)}
+            canRemove
+            onRemove={() => removeStop(stop.id)}
+            {...dragHandlers}
+          />
+        ))}
+
+        <TripRow
+          rowKey="destination"
+          roleLabel="Destination"
+          ariaLabel="Destination"
           value={destination}
           onChange={setDestination}
           onSelectPlace={(place) => {
@@ -320,12 +383,23 @@ export function RouteForm() {
           recentPlaces={recentPlaces}
           onClearRecent={clearRecentPlaces}
           locating={locating}
-          locatingThis={locatingDestination}
+          locatingThis={locating && locatingTarget === "destination"}
           locationError={destinationLocationError}
           onLocate={() => void locateCurrentPosition("destination")}
-          gripAriaLabel="Drag to swap with origin"
+          canRemove={false}
           {...dragHandlers}
         />
+
+        {canAddStop && (
+          <button
+            type="button"
+            onClick={() => addStop()}
+            className="mt-1 ml-9 inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-teal-300 transition hover:bg-teal-950/50 hover:text-teal-200"
+          >
+            <Plus className="h-3.5 w-3.5" />
+            Add stop
+          </button>
+        )}
       </div>
 
       <div className="space-y-2">

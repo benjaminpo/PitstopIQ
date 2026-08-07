@@ -150,6 +150,7 @@ function sampleRoute(coords: GeoPoint[], maxSamples = 40): GeoPoint[] {
 interface FitPointsInputs {
   originCoords: GeoPoint | null;
   destinationCoords: GeoPoint | null;
+  stopCoords: GeoPoint[];
   showingDetour: boolean;
   detourRoute: { coordinates: GeoPoint[] } | null;
   selected: StationWithCalculation | undefined;
@@ -161,6 +162,7 @@ function computeFitPoints(args: FitPointsInputs): GeoPoint[] {
   const {
     originCoords,
     destinationCoords,
+    stopCoords,
     showingDetour,
     detourRoute,
     selected,
@@ -169,6 +171,7 @@ function computeFitPoints(args: FitPointsInputs): GeoPoint[] {
   } = args;
   const pts: GeoPoint[] = [];
   if (originCoords) pts.push(originCoords);
+  pts.push(...stopCoords);
   if (destinationCoords) pts.push(destinationCoords);
   if (showingDetour && detourRoute?.coordinates?.length) {
     pts.push(...sampleRoute(detourRoute.coordinates));
@@ -195,6 +198,7 @@ function useFitPoints(args: FitPointsInputs): GeoPoint[] {
   const {
     originCoords,
     destinationCoords,
+    stopCoords,
     showingDetour,
     detourRoute,
     selected,
@@ -207,6 +211,7 @@ function useFitPoints(args: FitPointsInputs): GeoPoint[] {
       computeFitPoints({
         originCoords,
         destinationCoords,
+        stopCoords,
         showingDetour,
         detourRoute,
         selected,
@@ -216,6 +221,7 @@ function useFitPoints(args: FitPointsInputs): GeoPoint[] {
     [
       originCoords,
       destinationCoords,
+      stopCoords,
       showingDetour,
       detourRoute,
       selected,
@@ -295,6 +301,7 @@ export default function MapView() {
     destination,
     originCoords,
     destinationCoords,
+    stops,
     route,
     detourRoute,
     getEnrichedStations,
@@ -304,6 +311,9 @@ export default function MapView() {
   } = usePitstopStore();
 
   const enriched = getEnrichedStations();
+  const stopCoords = stops
+    .map((s) => s.coords)
+    .filter((c): c is NonNullable<typeof c> => c != null);
 
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
@@ -337,10 +347,10 @@ export default function MapView() {
       return toLatLngs(route.coordinates);
     }
     if (originCoords && destinationCoords) {
-      return toLatLngs([originCoords, destinationCoords]);
+      return toLatLngs([originCoords, ...stopCoords, destinationCoords]);
     }
     return null;
-  }, [route, originCoords, destinationCoords]);
+  }, [route, originCoords, destinationCoords, stopCoords]);
 
   const detourLine = useMemo(() => {
     if (!detourRoute?.coordinates?.length) return null;
@@ -358,6 +368,7 @@ export default function MapView() {
   const fitPoints = useFitPoints({
     originCoords,
     destinationCoords,
+    stopCoords,
     showingDetour,
     detourRoute,
     selected,
@@ -531,6 +542,19 @@ export default function MapView() {
         >
           <Popup>Origin · {origin}</Popup>
         </Marker>
+      )}
+      {stops.map((stop, index) =>
+        stop.coords ? (
+          <Marker
+            key={stop.id}
+            position={[stop.coords.lat, stop.coords.lng]}
+            icon={endpointIcon(String(index + 1), "#d97706")}
+          >
+            <Popup>
+              Stop {index + 1} · {stop.label || "Stop"}
+            </Popup>
+          </Marker>
+        ) : null
       )}
       {destinationCoords && (
         <Marker

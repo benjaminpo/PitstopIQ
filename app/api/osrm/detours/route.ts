@@ -5,6 +5,7 @@ import {
   type RouteAvoidOptions,
 } from "@/app/lib/routeAvoid";
 import { resolveRouteLeg } from "@/app/lib/serverRouting";
+import { insertPointOnNearestSegment } from "@/app/lib/tripPath";
 import type { GeoPoint } from "@/app/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -12,10 +13,13 @@ export const maxDuration = 60;
 
 const CONCURRENCY = 3;
 const MAX_STATIONS = 25;
+const MAX_WAYPOINTS = 5;
 
 interface DetourBody {
   origin: GeoPoint;
   destination: GeoPoint;
+  /** Intermediate trip stops between origin and destination */
+  waypoints?: GeoPoint[];
   stations: Array<{ id: string; lat: number; lng: number }>;
   avoid?: Partial<RouteAvoidOptions>;
 }
@@ -46,16 +50,34 @@ async function mapPool<T, R>(
   return results;
 }
 
+function parseWaypoints(raw: unknown): GeoPoint[] {
+  if (!Array.isArray(raw)) return [];
+  const out: GeoPoint[] = [];
+  for (const p of raw.slice(0, MAX_WAYPOINTS)) {
+    if (
+      p &&
+      typeof p === "object" &&
+      Number.isFinite((p as GeoPoint).lat) &&
+      Number.isFinite((p as GeoPoint).lng)
+    ) {
+      out.push({ lat: (p as GeoPoint).lat, lng: (p as GeoPoint).lng });
+    }
+  }
+  return out;
+}
+
 /**
  * POST /api/osrm/detours
- * Body: { origin, destination, stations: [{id,lat,lng}], avoid? }
- * Returns extra driving miles + seconds for A→station→B vs direct A→B.
+ * Body: { origin, destination, waypoints?, stations: [{id,lat,lng}], avoid? }
+ * Returns extra driving miles + seconds when inserting a station on the
+ * planned path (origin → waypoints → destination) vs that direct path.
  */
 export async function POST(request: NextRequest) {
   try {
     const body = (await request.json()) as DetourBody;
     const { origin, destination, stations } = body;
     const avoid = normalizeRouteAvoid(body.avoid);
+    const waypoints = parseWaypoints(body.waypoints);
 
     if (
       !origin ||
@@ -68,7 +90,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
     }
 
-    const direct = await resolveRouteLeg([origin, destination], avoid);
+    const plannedPath = [origin, ...waypoints, destination];
+    const direct = await resolveRouteLeg(plannedPath, avoid);
     if (direct == null) {
       return NextResponse.json(
         { error: "Could not resolve direct route" },
@@ -81,10 +104,9 @@ export async function POST(request: NextRequest) {
       .slice(0, MAX_STATIONS);
 
     const extras = await mapPool(limited, CONCURRENCY, async (s) => {
-      const via = await resolveRouteLeg(
-        [origin, { lat: s.lat, lng: s.lng }, destination],
-        avoid
-      );
+      const stationPoint = { lat: s.lat, lng: s.lng };
+      const viaPath = insertPointOnNearestSegment(plannedPath, stationPoint);
+      const via = await resolveRouteLeg(viaPath, avoid);
       if (via == null) {
         return {
           id: s.id,

@@ -12,6 +12,7 @@ const sample: TripSnapshot = {
   destination: "Heathrow Airport, UK",
   originCoords: { lat: 51.4543, lng: -0.9781 },
   destinationCoords: { lat: 51.47, lng: -0.4543 },
+  stops: [],
   routeAvoid: { motorways: false, tolls: false, ferries: false },
   vehicle: {
     fuelType: "E10",
@@ -36,6 +37,26 @@ describe("trip URL round-trip", () => {
     expect(parsed!.vehicle?.mpg).toBe(45);
     expect(parsed!.litresToRefill).toBe(40);
     expect(parsed!.valueOfTimeGbpPerHour).toBe(12);
+  });
+
+  it("round-trips intermediate stops via via / viaLabel", () => {
+    const withStops: TripSnapshot = {
+      ...sample,
+      stops: [
+        {
+          id: "s1",
+          label: "Oxford Services",
+          coords: { lat: 51.75, lng: -1.25 },
+        },
+      ],
+    };
+    const params = buildTripSearchParams(withStops);
+    expect(params.get("via")).toContain("51.75000");
+    expect(params.get("viaLabel")).toBe("Oxford Services");
+    const parsed = parseTripSearchParams(`?${params.toString()}`);
+    expect(parsed?.stops).toHaveLength(1);
+    expect(parsed!.stops![0].label).toBe("Oxford Services");
+    expect(parsed!.stops![0].coords?.lat).toBeCloseTo(51.75, 4);
   });
 
   it("includes manual base price when set", () => {

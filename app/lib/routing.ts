@@ -252,11 +252,24 @@ export function formatDuration(seconds: number): string {
   return rem ? `${h} h ${rem} min` : `${h} h`;
 }
 
-/** Client helper: fetch driving route from our routing proxy. */
+function normalizeVias(
+  via?: GeoPoint | GeoPoint[] | null
+): GeoPoint[] {
+  if (via == null) return [];
+  const list = Array.isArray(via) ? via : [via];
+  return list.filter(
+    (p) => p && Number.isFinite(p.lat) && Number.isFinite(p.lng)
+  );
+}
+
+/**
+ * Client helper: fetch driving route from our routing proxy.
+ * `via` may be a single point (station detour) or ordered intermediate stops.
+ */
 export async function fetchDrivingRoute(
   origin: GeoPoint,
   destination: GeoPoint,
-  via?: GeoPoint | null,
+  via?: GeoPoint | GeoPoint[] | null,
   avoid: RouteAvoidOptions = DEFAULT_ROUTE_AVOID
 ): Promise<DrivingRoute> {
   const params = new URLSearchParams({
@@ -265,9 +278,9 @@ export async function fetchDrivingRoute(
     toLat: String(destination.lat),
     toLng: String(destination.lng),
   });
-  if (via && Number.isFinite(via.lat) && Number.isFinite(via.lng)) {
-    params.set("viaLat", String(via.lat));
-    params.set("viaLng", String(via.lng));
+  for (const v of normalizeVias(via)) {
+    params.append("viaLat", String(v.lat));
+    params.append("viaLng", String(v.lng));
   }
   if (avoid.motorways) params.set("avoidMotorways", "1");
   if (avoid.tolls) params.set("avoidTolls", "1");
@@ -288,7 +301,8 @@ export interface StationDetourMetrics {
 }
 
 /**
- * Ask the server to compute A→station→B extra miles + time vs the direct route.
+ * Ask the server to compute extra miles + time vs the planned path
+ * (origin → optional waypoints → destination) when inserting a station.
  * Falls back to approximateDetourMiles / approximateDetourSeconds for gaps.
  */
 export async function fetchStationDetours(
@@ -297,7 +311,8 @@ export async function fetchStationDetours(
   stations: Array<{ id: string; location: GeoPoint }>,
   routeCoords: GeoPoint[],
   routeTiming?: Pick<DrivingRoute, "distanceMiles" | "durationSeconds"> | null,
-  avoid: RouteAvoidOptions = DEFAULT_ROUTE_AVOID
+  avoid: RouteAvoidOptions = DEFAULT_ROUTE_AVOID,
+  waypoints: GeoPoint[] = []
 ): Promise<Record<string, StationDetourMetrics>> {
   if (stations.length === 0) return {};
 
@@ -308,6 +323,7 @@ export async function fetchStationDetours(
       body: JSON.stringify({
         origin,
         destination,
+        waypoints,
         stations: stations.map((s) => ({
           id: s.id,
           lat: s.location.lat,

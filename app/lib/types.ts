@@ -129,6 +129,16 @@ export interface RoutePlan {
   destinationCoords: GeoPoint | null;
 }
 
+/** Intermediate stop between origin and destination (Google Maps–style). */
+export interface TripStop {
+  id: string;
+  label: string;
+  coords: GeoPoint | null;
+}
+
+/** Max intermediate stops a trip can include. */
+export const MAX_TRIP_STOPS = 5;
+
 export interface AppCalculationParams {
   vehicle: VehicleProfile;
   baseRouteAvgPricePerLitre: number;

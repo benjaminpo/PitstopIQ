@@ -1,4 +1,5 @@
-import type { FuelType, GeoPoint, VehicleProfile } from "./types";
+import type { FuelType, GeoPoint, TripStop, VehicleProfile } from "./types";
+import { MAX_TRIP_STOPS } from "./types";
 import {
   DEFAULT_ROUTE_AVOID,
   parseRouteAvoidParam,
@@ -6,6 +7,7 @@ import {
   serializeRouteAvoid,
   type RouteAvoidOptions,
 } from "./routeAvoid";
+import { emptyTripStop } from "./tripPath";
 
 const FUEL_TYPES: readonly FuelType[] = ["E10", "E5", "B7_Diesel", "B7_Premium"];
 
@@ -15,6 +17,8 @@ export interface TripSnapshot {
   /** Null when the user hasn't picked that end of the trip yet */
   originCoords: GeoPoint | null;
   destinationCoords: GeoPoint | null;
+  /** Intermediate stops between origin and destination */
+  stops: TripStop[];
   routeAvoid: RouteAvoidOptions;
   vehicle: VehicleProfile;
   litresToRefill: number;
@@ -48,6 +52,29 @@ function isFuelType(v: string): v is FuelType {
   return (FUEL_TYPES as readonly string[]).includes(v);
 }
 
+function parseViaStops(
+  viaRaw: string | null,
+  labelsRaw: string | null
+): TripStop[] {
+  if (!viaRaw?.trim()) return [];
+  const labels = labelsRaw?.split("|") ?? [];
+  const stops: TripStop[] = [];
+  for (const part of viaRaw.split("|")) {
+    if (stops.length >= MAX_TRIP_STOPS) break;
+    const coords = parseCoordPair(part.trim());
+    if (!coords) continue;
+    const label =
+      labels[stops.length]?.trim() ||
+      `${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)}`;
+    stops.push({
+      id: emptyTripStop().id,
+      label,
+      coords,
+    });
+  }
+  return stops;
+}
+
 /**
  * Read a shareable trip from the URL query string.
  * Returns null when there are no trip coordinates (normal first visit).
@@ -61,6 +88,7 @@ export function parseTripSearchParams(
 
   const originCoords = parseCoordPair(params.get("from"));
   const destinationCoords = parseCoordPair(params.get("to"));
+  const stops = parseViaStops(params.get("via"), params.get("viaLabel"));
 
   const hasVehicleHints =
     params.has("fuel") ||
@@ -70,7 +98,8 @@ export function parseTripSearchParams(
     params.has("refill") ||
     params.has("vot") ||
     params.has("base") ||
-    params.has("avoid");
+    params.has("avoid") ||
+    params.has("via");
 
   if (!originCoords && !destinationCoords && !hasVehicleHints) {
     return null;
@@ -90,6 +119,7 @@ export function parseTripSearchParams(
       params.get("toLabel")?.trim() ||
       `${destinationCoords.lat.toFixed(4)}, ${destinationCoords.lng.toFixed(4)}`;
   }
+  if (stops.length > 0) snap.stops = stops;
 
   const avoid = parseRouteAvoidParam(params.get("avoid"));
   if (avoid) snap.routeAvoid = avoid;
@@ -141,6 +171,21 @@ export function buildTripSearchParams(trip: TripSnapshot): URLSearchParams {
     if (trip.destination.trim()) params.set("toLabel", trip.destination.trim());
   }
 
+  const resolvedStops = (trip.stops ?? []).filter((s) => s.coords != null);
+  if (resolvedStops.length > 0) {
+    params.set(
+      "via",
+      resolvedStops
+        .map(
+          (s) =>
+            `${s.coords!.lat.toFixed(5)},${s.coords!.lng.toFixed(5)}`
+        )
+        .join("|")
+    );
+    const labels = resolvedStops.map((s) => s.label.trim()).filter(Boolean);
+    if (labels.length > 0) params.set("viaLabel", labels.join("|"));
+  }
+
   params.set("fuel", trip.vehicle.fuelType);
   params.set("mpg", String(Number(trip.vehicle.mpg.toFixed(1))));
   params.set("tank", String(Math.round(trip.vehicle.tankCapacityLitres)));
@@ -178,12 +223,23 @@ function coordsEqual(a: GeoPoint | null, b: GeoPoint | null): boolean {
   return a.lat === b.lat && a.lng === b.lng;
 }
 
+function stopsEqual(a: TripStop[] | undefined, b: TripStop[] | undefined): boolean {
+  const left = a ?? [];
+  const right = b ?? [];
+  if (left.length !== right.length) return false;
+  return left.every(
+    (s, i) =>
+      s.label === right[i].label && coordsEqual(s.coords, right[i].coords)
+  );
+}
+
 export function tripFieldsEqual(a: TripSnapshot, b: TripSnapshot): boolean {
   return (
     a.origin === b.origin &&
     a.destination === b.destination &&
     coordsEqual(a.originCoords, b.originCoords) &&
     coordsEqual(a.destinationCoords, b.destinationCoords) &&
+    stopsEqual(a.stops, b.stops) &&
     routeAvoidEqual(
       a.routeAvoid ?? DEFAULT_ROUTE_AVOID,
       b.routeAvoid ?? DEFAULT_ROUTE_AVOID
