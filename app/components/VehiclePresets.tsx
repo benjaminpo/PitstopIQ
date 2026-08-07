@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Car, Plus, Save, Search, Trash2 } from "lucide-react";
+import { Car, Plus, Save, Trash2 } from "lucide-react";
 import { useSession } from "@/app/lib/auth-client";
 import { vehicleFuelKind, vehicleFuelLabel } from "@/app/lib/fuelConstants";
 import { usePitstopStore } from "@/app/lib/store";
@@ -54,44 +54,6 @@ export function VehiclePresets() {
         <span className="text-[10px] text-slate-500">
           {signedIn ? "synced to your account" : "saved in this browser"}
         </span>
-      </div>
-
-      <div className="space-y-1.5">
-        <div className="flex items-center justify-between gap-2">
-          <label
-            htmlFor="vehicle-registration"
-            className="text-[10px] font-medium tracking-wide text-slate-500"
-          >
-            Find by registration
-          </label>
-          <span className="rounded bg-slate-800/80 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-slate-400">
-            Coming soon
-          </span>
-        </div>
-        <div className="flex gap-1.5">
-          <input
-            id="vehicle-registration"
-            type="text"
-            disabled
-            placeholder="e.g. AB12 CDE"
-            autoComplete="off"
-            spellCheck={false}
-            className="min-w-0 flex-1 cursor-not-allowed rounded-lg border border-slate-700/50 bg-slate-900/40 px-3 py-1.5 font-mono text-sm uppercase tracking-wider text-slate-500 outline-none placeholder:normal-case placeholder:tracking-normal placeholder:text-slate-600"
-            aria-label="UK registration plate"
-            aria-disabled="true"
-          />
-          <button
-            type="button"
-            disabled
-            className="inline-flex cursor-not-allowed items-center gap-1 rounded-lg bg-slate-800/60 px-2.5 py-1.5 text-[11px] font-semibold text-slate-500 ring-1 ring-slate-700/40 opacity-60"
-          >
-            <Search className="h-3.5 w-3.5" />
-            Look up
-          </button>
-        </div>
-        <p className="text-[11px] text-slate-500">
-          Plate lookup not available yet.
-        </p>
       </div>
 
       {vehiclePresets.length > 0 ? (
