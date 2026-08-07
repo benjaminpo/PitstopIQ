@@ -1,11 +1,16 @@
 "use client";
 
 import { useState } from "react";
-import { Car, Plus, Save, Trash2 } from "lucide-react";
+import { Car, Pencil, Plus, Save, Trash2 } from "lucide-react";
 import { useSession } from "@/app/lib/auth-client";
 import { vehicleFuelKind, vehicleFuelLabel } from "@/app/lib/fuelConstants";
 import { usePitstopStore } from "@/app/lib/store";
 import { cn } from "@/app/lib/utils";
+
+type NameMode =
+  | { kind: "idle" }
+  | { kind: "save" }
+  | { kind: "rename"; id: string };
 
 export function VehiclePresets() {
   const { data: session } = useSession();
@@ -22,7 +27,7 @@ export function VehiclePresets() {
     renameVehiclePreset,
   } = usePitstopStore();
 
-  const [naming, setNaming] = useState(false);
+  const [nameMode, setNameMode] = useState<NameMode>({ kind: "idle" });
   const [draftName, setDraftName] = useState("");
 
   const active = vehiclePresets.find((p) => p.id === activePresetId);
@@ -32,16 +37,40 @@ export function VehiclePresets() {
       active.mpg !== vehicle.mpg ||
       active.tankCapacityLitres !== vehicle.tankCapacityLitres);
 
-  const onSaveNew = () => {
-    const defaultName = `${vehicleFuelLabel(vehicle.fuelType)} · ${vehicle.mpg} mpg`;
-    if (!naming) {
-      setDraftName(defaultName);
-      setNaming(true);
+  const naming = nameMode.kind !== "idle";
+
+  const resetNaming = () => {
+    setNameMode({ kind: "idle" });
+    setDraftName("");
+  };
+
+  const startRename = (id: string, currentName: string) => {
+    setDraftName(currentName);
+    setNameMode({ kind: "rename", id });
+  };
+
+  const onConfirmName = () => {
+    if (nameMode.kind === "save") {
+      saveVehiclePreset(draftName);
+      resetNaming();
       return;
     }
-    saveVehiclePreset(draftName);
-    setNaming(false);
-    setDraftName("");
+    if (nameMode.kind === "rename") {
+      if (draftName.trim()) {
+        renameVehiclePreset(nameMode.id, draftName);
+      }
+      resetNaming();
+    }
+  };
+
+  const onSaveNew = () => {
+    if (nameMode.kind !== "save") {
+      const defaultName = `${vehicleFuelLabel(vehicle.fuelType)} · ${vehicle.mpg} mpg`;
+      setDraftName(defaultName);
+      setNameMode({ kind: "save" });
+      return;
+    }
+    onConfirmName();
   };
 
   return (
@@ -66,12 +95,7 @@ export function VehiclePresets() {
                 key={preset.id}
                 type="button"
                 onClick={() => applyVehiclePreset(preset.id)}
-                onDoubleClick={() => {
-                  const next = window.prompt("Rename preset", preset.name);
-                  if (next?.trim()) {
-                    renameVehiclePreset(preset.id, next);
-                  }
-                }}
+                onDoubleClick={() => startRename(preset.id, preset.name)}
                 title={`${preset.name} · ${fuelLabel} · ${preset.mpg} mpg · ${preset.tankCapacityLitres} L (double-click to rename)`}
                 className={cn(
                   "rounded-md px-2.5 py-1.5 text-left text-[11px] font-semibold transition",
@@ -107,17 +131,19 @@ export function VehiclePresets() {
           onKeyDown={(e) => {
             if (e.key === "Enter") {
               e.preventDefault();
-              onSaveNew();
+              onConfirmName();
             }
             if (e.key === "Escape") {
-              setNaming(false);
-              setDraftName("");
+              resetNaming();
             }
           }}
-          placeholder="Preset name"
+          placeholder="Vehicle name"
+          maxLength={40}
           className="w-full rounded-lg border border-slate-700/80 bg-slate-900/60 px-3 py-1.5 text-sm text-slate-100 outline-none ring-teal-500/40 focus:border-teal-500/60 focus:ring-2"
           autoFocus
-          aria-label="New preset name"
+          aria-label={
+            nameMode.kind === "rename" ? "Rename vehicle" : "New preset name"
+          }
         />
       )}
 
@@ -125,13 +151,13 @@ export function VehiclePresets() {
         <button
           type="button"
           onClick={onSaveNew}
-          disabled={vehiclePresets.length >= 8 && !naming}
+          disabled={vehiclePresets.length >= 8 && nameMode.kind !== "save"}
           className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-semibold text-teal-300 transition hover:bg-teal-950/60 disabled:cursor-not-allowed disabled:opacity-50"
         >
           <Plus className="h-3 w-3" />
-          {naming ? "Confirm save" : "Save current"}
+          {nameMode.kind === "save" ? "Confirm save" : "Save current"}
         </button>
-        {active && dirty && (
+        {active && dirty && nameMode.kind === "idle" && (
           <button
             type="button"
             onClick={() => updateVehiclePreset(active.id)}
@@ -141,7 +167,27 @@ export function VehiclePresets() {
             Update “{active.name}”
           </button>
         )}
-        {active && (
+        {active && nameMode.kind === "idle" && (
+          <button
+            type="button"
+            onClick={() => startRename(active.id, active.name)}
+            className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-semibold text-slate-300 transition hover:bg-slate-800"
+          >
+            <Pencil className="h-3 w-3" />
+            Rename
+          </button>
+        )}
+        {nameMode.kind === "rename" && (
+          <button
+            type="button"
+            onClick={onConfirmName}
+            className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-semibold text-teal-300 transition hover:bg-teal-950/60"
+          >
+            <Pencil className="h-3 w-3" />
+            Confirm rename
+          </button>
+        )}
+        {active && nameMode.kind === "idle" && (
           <button
             type="button"
             onClick={() => {
@@ -158,10 +204,7 @@ export function VehiclePresets() {
         {naming && (
           <button
             type="button"
-            onClick={() => {
-              setNaming(false);
-              setDraftName("");
-            }}
+            onClick={resetNaming}
             className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-semibold text-slate-400 transition hover:bg-slate-800"
           >
             Cancel
