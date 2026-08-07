@@ -3,13 +3,14 @@
 import { useState, type DragEvent, type KeyboardEvent } from "react";
 import {
   ArrowUpDown,
+  ChevronDown,
   Crosshair,
   Clock,
   Fuel,
   Gauge,
   GripVertical,
   Loader2,
-  Route,
+  SlidersHorizontal,
 } from "lucide-react";
 import { NumberInput } from "@/app/components/NumberInput";
 import { PlaceAutocomplete } from "@/app/components/PlaceAutocomplete";
@@ -17,7 +18,10 @@ import { VehiclePresets } from "@/app/components/VehiclePresets";
 import { remainingRangeMiles } from "@/app/lib/detourCalculator";
 import { usePitstopStore } from "@/app/lib/store";
 import { formatPlaceSelection, type PlaceSuggestion } from "@/app/lib/placeSearch";
-import type { RouteAvoidOptions } from "@/app/lib/routeAvoid";
+import {
+  hasRouteAvoid,
+  type RouteAvoidOptions,
+} from "@/app/lib/routeAvoid";
 import { VEHICLE_FUEL_OPTIONS, vehicleFuelKind } from "@/app/lib/fuelConstants";
 import { cn } from "@/app/lib/utils";
 
@@ -188,6 +192,7 @@ export function RouteForm() {
 
   const [dragging, setDragging] = useState<RouteEnd | null>(null);
   const [dropTarget, setDropTarget] = useState<RouteEnd | null>(null);
+  const [optionsOpen, setOptionsOpen] = useState(false);
 
   const maxRefill = vehicle.tankCapacityLitres;
   const refillPct = Math.round((litresToRefill / maxRefill) * 100);
@@ -323,44 +328,68 @@ export function RouteForm() {
         />
       </div>
 
-      <fieldset className="space-y-2">
-        <legend className="flex items-center gap-1.5 text-xs font-medium tracking-wide text-slate-400">
-          <Route className="h-3.5 w-3.5" />
-          Route options
-        </legend>
-        <div className="space-y-1.5 rounded-lg bg-slate-900/80 p-2 ring-1 ring-slate-700/60">
-          <p className="px-2 text-xs font-medium tracking-wide text-slate-400">
-            Avoid
-          </p>
-          {AVOID_OPTIONS.map((opt) => {
-            const checked = routeAvoid[opt.key];
-            const id = `avoid-${opt.key}`;
-            return (
-              <label
-                key={opt.key}
-                htmlFor={id}
-                className={cn(
-                  "flex cursor-pointer items-center gap-2.5 rounded-md px-2 py-1.5 text-sm transition",
-                  checked
-                    ? "bg-teal-950/50 text-teal-100"
-                    : "text-slate-300 hover:bg-slate-800/80"
-                )}
-              >
-                <input
-                  id={id}
-                  type="checkbox"
-                  checked={checked}
-                  onChange={(e) =>
-                    setRouteAvoid({ [opt.key]: e.target.checked })
-                  }
-                  className="h-3.5 w-3.5 rounded border-slate-600 bg-slate-900 accent-teal-500"
-                />
-                {opt.label}
-              </label>
-            );
-          })}
-        </div>
-      </fieldset>
+      <div className="space-y-2">
+        <button
+          type="button"
+          onClick={() => setOptionsOpen((open) => !open)}
+          aria-expanded={optionsOpen}
+          aria-controls="route-options-panel"
+          className={cn(
+            "inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition",
+            optionsOpen || hasRouteAvoid(routeAvoid)
+              ? "bg-teal-950/60 text-teal-200 ring-1 ring-teal-600/40 hover:bg-teal-950/80"
+              : "bg-slate-900/80 text-slate-300 ring-1 ring-slate-700/60 hover:bg-slate-800 hover:text-slate-100"
+          )}
+        >
+          <SlidersHorizontal className="h-3.5 w-3.5" />
+          Options
+          <ChevronDown
+            className={cn(
+              "h-3.5 w-3.5 transition-transform",
+              optionsOpen && "rotate-180"
+            )}
+          />
+        </button>
+
+        {optionsOpen && (
+          <fieldset
+            id="route-options-panel"
+            className="space-y-1.5 rounded-lg bg-slate-900/80 p-2 ring-1 ring-slate-700/60"
+          >
+            <legend className="sr-only">Route options</legend>
+            <p className="px-2 text-xs font-medium tracking-wide text-slate-400">
+              Avoid
+            </p>
+            {AVOID_OPTIONS.map((opt) => {
+              const checked = routeAvoid[opt.key];
+              const id = `avoid-${opt.key}`;
+              return (
+                <label
+                  key={opt.key}
+                  htmlFor={id}
+                  className={cn(
+                    "flex cursor-pointer items-center gap-2.5 rounded-md px-2 py-1.5 text-sm transition",
+                    checked
+                      ? "bg-teal-950/50 text-teal-100"
+                      : "text-slate-300 hover:bg-slate-800/80"
+                  )}
+                >
+                  <input
+                    id={id}
+                    type="checkbox"
+                    checked={checked}
+                    onChange={(e) =>
+                      setRouteAvoid({ [opt.key]: e.target.checked })
+                    }
+                    className="h-3.5 w-3.5 rounded border-slate-600 bg-slate-900 accent-teal-500"
+                  />
+                  {opt.label}
+                </label>
+              );
+            })}
+          </fieldset>
+        )}
+      </div>
 
       <VehiclePresets />
 
