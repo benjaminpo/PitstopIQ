@@ -43,9 +43,31 @@ interface ValhallaRouteResponse {
   };
 }
 
+interface OsrmTableResponse {
+  code: string;
+  distances?: Array<Array<number | null>>;
+  durations?: Array<Array<number | null>>;
+}
+
+interface ValhallaMatrixCell {
+  distance: number | null;
+  time: number | null;
+  from_index: number;
+  to_index: number;
+}
+
+interface ValhallaMatrixResponse {
+  sources_to_targets?: ValhallaMatrixCell[][];
+}
+
 export interface RouteLegMetrics {
   distanceMeters: number;
   durationSeconds: number;
+}
+
+export interface RouteMatrix {
+  distanceMeters: Array<Array<number | null>>;
+  durationSeconds: Array<Array<number | null>>;
 }
 
 interface ResolvedLeg {
@@ -105,10 +127,7 @@ async function fetchValhallaRoute(
   avoid: RouteAvoidOptions,
   wantGeometry: boolean
 ): Promise<ResolvedLeg | null> {
-  const costingOptions: Record<string, number> = {};
-  if (avoid.motorways) costingOptions.use_highways = 0;
-  if (avoid.tolls) costingOptions.use_tolls = 0;
-  if (avoid.ferries) costingOptions.use_ferry = 0;
+  const costingOptions = valhallaCostingOptions(avoid);
 
   const body: Record<string, unknown> = {
     locations: points.map((p) => ({ lat: p.lat, lon: p.lng })),
@@ -156,6 +175,120 @@ async function fetchValhallaRoute(
   }
   if (coordinates.length === 0) return { metrics };
   return { metrics, coordinates };
+}
+
+function valhallaCostingOptions(
+  avoid: RouteAvoidOptions
+): Record<string, number> {
+  const costingOptions: Record<string, number> = {};
+  if (avoid.motorways) costingOptions.use_highways = 0;
+  if (avoid.tolls) costingOptions.use_tolls = 0;
+  if (avoid.ferries) costingOptions.use_ferry = 0;
+  return costingOptions;
+}
+
+async function fetchValhallaMatrix(
+  sources: GeoPoint[],
+  targets: GeoPoint[],
+  avoid: RouteAvoidOptions
+): Promise<RouteMatrix | null> {
+  const body: Record<string, unknown> = {
+    sources: sources.map((p) => ({ lat: p.lat, lon: p.lng })),
+    targets: targets.map((p) => ({ lat: p.lat, lon: p.lng })),
+    costing: "auto",
+    units: "kilometers",
+    // Verbose cells include from/to indexes, which lets us safely map sparse
+    // source and target sets without relying on provider-specific compact keys.
+    verbose: true,
+  };
+  const costingOptions = valhallaCostingOptions(avoid);
+  if (Object.keys(costingOptions).length > 0) {
+    body.costing_options = { auto: costingOptions };
+  }
+
+  const res = await fetch(`${VALHALLA_BASE}/sources_to_targets`, {
+    method: "POST",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+    cache: "no-store",
+  });
+  if (!res.ok) return null;
+
+  const data = (await res.json()) as ValhallaMatrixResponse;
+  if (!Array.isArray(data.sources_to_targets)) return null;
+  const distanceMeters = Array.from({ length: sources.length }, () =>
+    new Array<number | null>(targets.length).fill(null)
+  );
+  const durationSeconds = Array.from({ length: sources.length }, () =>
+    new Array<number | null>(targets.length).fill(null)
+  );
+  for (const row of data.sources_to_targets) {
+    for (const cell of row) {
+      if (
+        cell.from_index < 0 ||
+        cell.from_index >= sources.length ||
+        cell.to_index < 0 ||
+        cell.to_index >= targets.length
+      ) {
+        continue;
+      }
+      if (typeof cell.distance === "number") {
+        distanceMeters[cell.from_index][cell.to_index] =
+          cell.distance * 1000;
+      }
+      if (typeof cell.time === "number") {
+        durationSeconds[cell.from_index][cell.to_index] = cell.time;
+      }
+    }
+  }
+  return { distanceMeters, durationSeconds };
+}
+
+async function fetchOsrmMatrix(
+  sources: GeoPoint[],
+  targets: GeoPoint[],
+  avoid: RouteAvoidOptions
+): Promise<RouteMatrix | null> {
+  if (hasRouteAvoid(avoid) && !osrmLikelySupportsExclude(OSRM_BASE)) {
+    return null;
+  }
+  const points = [...sources, ...targets];
+  const path = points.map((p) => `${p.lng},${p.lat}`).join(";");
+  const url = new URL(`${OSRM_BASE}/table/v1/driving/${path}`);
+  url.searchParams.set("annotations", "distance,duration");
+  url.searchParams.set(
+    "sources",
+    sources.map((_, index) => String(index)).join(";")
+  );
+  url.searchParams.set(
+    "destinations",
+    targets
+      .map((_, index) => String(sources.length + index))
+      .join(";")
+  );
+  if (hasRouteAvoid(avoid)) {
+    url.searchParams.set("exclude", osrmExcludeClasses(avoid).join(","));
+  }
+  const res = await fetch(url.toString(), {
+    headers: { Accept: "application/json" },
+    cache: "no-store",
+  });
+  if (!res.ok) return null;
+  const data = (await res.json()) as OsrmTableResponse;
+  if (
+    data.code !== "Ok" ||
+    !Array.isArray(data.distances) ||
+    !Array.isArray(data.durations)
+  ) {
+    return null;
+  }
+  return {
+    distanceMeters: data.distances,
+    durationSeconds: data.durations,
+  };
 }
 
 async function resolveLeg(
@@ -216,4 +349,16 @@ export async function resolveRouteLeg(
 ): Promise<RouteLegMetrics | null> {
   const leg = await resolveLeg(points, avoid, false);
   return leg?.metrics ?? null;
+}
+
+/** One provider request for all pairwise route distances and durations. */
+export async function resolveRouteMatrix(
+  sources: GeoPoint[],
+  avoid: RouteAvoidOptions,
+  targets: GeoPoint[] = sources
+): Promise<RouteMatrix | null> {
+  if (sources.length === 0 || targets.length === 0) return null;
+  const osrm = await fetchOsrmMatrix(sources, targets, avoid);
+  if (osrm) return osrm;
+  return fetchValhallaMatrix(sources, targets, avoid);
 }

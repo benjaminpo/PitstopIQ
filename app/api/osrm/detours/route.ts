@@ -4,7 +4,11 @@ import {
   normalizeRouteAvoid,
   type RouteAvoidOptions,
 } from "@/app/lib/routeAvoid";
-import { resolveRouteLeg } from "@/app/lib/serverRouting";
+import {
+  resolveRouteLeg,
+  resolveRouteMatrix,
+  type RouteMatrix,
+} from "@/app/lib/serverRouting";
 import { insertPointOnNearestSegment } from "@/app/lib/tripPath";
 import type { GeoPoint } from "@/app/lib/types";
 
@@ -66,6 +70,55 @@ function parseWaypoints(raw: unknown): GeoPoint[] {
   return out;
 }
 
+function metricsFromMatrix(
+  plannedPath: GeoPoint[],
+  stations: Array<{ id: string; lat: number; lng: number }>,
+  outbound: RouteMatrix,
+  inbound: RouteMatrix
+): Record<string, StationDetourMetrics> {
+  const detours: Record<string, StationDetourMetrics> = {};
+  for (let i = 0; i < stations.length; i++) {
+    const station = stations[i];
+    const point = { lat: station.lat, lng: station.lng };
+    const inserted = insertPointOnNearestSegment(plannedPath, point);
+    const segment = inserted.indexOf(point) - 1;
+    const next = segment + 1;
+    const pathTargetOffset = stations.length;
+
+    const baseDistance =
+      outbound.distanceMeters[segment]?.[pathTargetOffset + next];
+    const outDistance = outbound.distanceMeters[segment]?.[i];
+    const backDistance = inbound.distanceMeters[i]?.[next];
+    const baseDuration =
+      outbound.durationSeconds[segment]?.[pathTargetOffset + next];
+    const outDuration = outbound.durationSeconds[segment]?.[i];
+    const backDuration = inbound.durationSeconds[i]?.[next];
+    if (
+      baseDistance == null ||
+      outDistance == null ||
+      backDistance == null ||
+      baseDuration == null ||
+      outDuration == null ||
+      backDuration == null
+    ) {
+      continue;
+    }
+
+    detours[station.id] = {
+      miles: Number(
+        metersToMiles(
+          Math.max(0, outDistance + backDistance - baseDistance)
+        ).toFixed(2)
+      ),
+      extraSeconds: Math.max(
+        0,
+        Math.round(outDuration + backDuration - baseDuration)
+      ),
+    };
+  }
+  return detours;
+}
+
 /**
  * POST /api/osrm/detours
  * Body: { origin, destination, waypoints?, stations: [{id,lat,lng}], avoid? }
@@ -91,7 +144,19 @@ export async function POST(request: NextRequest) {
     }
 
     const plannedPath = [origin, ...waypoints, destination];
-    const direct = await resolveRouteLeg(plannedPath, avoid);
+    const limited = stations
+      .filter((s) => Number.isFinite(s.lat) && Number.isFinite(s.lng))
+      .slice(0, MAX_STATIONS);
+    const stationPoints = limited.map((s) => ({ lat: s.lat, lng: s.lng }));
+    const [direct, outbound, inbound] = await Promise.all([
+      resolveRouteLeg(plannedPath, avoid),
+      resolveRouteMatrix(
+        plannedPath,
+        avoid,
+        [...stationPoints, ...plannedPath]
+      ),
+      resolveRouteMatrix(stationPoints, avoid, plannedPath),
+    ]);
     if (direct == null) {
       return NextResponse.json(
         { error: "Could not resolve direct route" },
@@ -99,10 +164,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const limited = stations
-      .filter((s) => Number.isFinite(s.lat) && Number.isFinite(s.lng))
-      .slice(0, MAX_STATIONS);
+    if (outbound && inbound) {
+      return NextResponse.json({
+        directDistanceMiles: Number(
+          metersToMiles(direct.distanceMeters).toFixed(2)
+        ),
+        directDurationSeconds: Math.round(direct.durationSeconds),
+        detours: metricsFromMatrix(plannedPath, limited, outbound, inbound),
+      });
+    }
 
+    // Compatibility fallback for providers without a matrix service.
     const extras = await mapPool(limited, CONCURRENCY, async (s) => {
       const stationPoint = { lat: s.lat, lng: s.lng };
       const viaPath = insertPointOnNearestSegment(plannedPath, stationPoint);

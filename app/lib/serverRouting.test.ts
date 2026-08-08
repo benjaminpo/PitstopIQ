@@ -84,6 +84,70 @@ describe("server routing", () => {
     );
   });
 
+  it("resolves all OSRM matrix cells in one request", async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(
+      Response.json({
+        code: "Ok",
+        distances: [
+          [0, 2500],
+          [2400, 0],
+        ],
+        durations: [
+          [0, 180],
+          [175, 0],
+        ],
+      })
+    );
+    const { resolveRouteMatrix } = await loadRouting();
+
+    await expect(resolveRouteMatrix(points, noAvoid)).resolves.toEqual({
+      distanceMeters: [
+        [0, 2500],
+        [2400, 0],
+      ],
+      durationSeconds: [
+        [0, 180],
+        [175, 0],
+      ],
+    });
+    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(fetch).mock.calls[0]?.[0]).toContain(
+      "/table/v1/driving/"
+    );
+  });
+
+  it("uses one Valhalla matrix request when avoid options are active", async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(
+      Response.json({
+        sources_to_targets: [
+          [
+            { from_index: 0, to_index: 0, distance: 0, time: 0 },
+            { from_index: 0, to_index: 1, distance: 2.5, time: 180 },
+          ],
+          [
+            { from_index: 1, to_index: 0, distance: 2.4, time: 175 },
+            { from_index: 1, to_index: 1, distance: 0, time: 0 },
+          ],
+        ],
+      })
+    );
+    const { resolveRouteMatrix } = await loadRouting();
+
+    const matrix = await resolveRouteMatrix(points, {
+      motorways: false,
+      tolls: true,
+      ferries: false,
+    });
+
+    expect(matrix?.distanceMeters[0][1]).toBe(2500);
+    expect(matrix?.durationSeconds[1][0]).toBe(175);
+    const [url, init] = vi.mocked(fetch).mock.calls[0]!;
+    expect(url).toBe("https://valhalla.example/sources_to_targets");
+    expect(JSON.parse(String(init?.body))).toMatchObject({
+      costing_options: { auto: { use_tolls: 0 } },
+    });
+  });
+
   it("uses Valhalla for avoid options unsupported by public OSRM", async () => {
     const firstShape = encodePolyline(points);
     const continuation = encodePolyline([points[1], { lat: 51.52, lng: -0.14 }]);
