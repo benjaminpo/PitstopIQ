@@ -50,7 +50,7 @@ export function NavigateHere({
         rel="noopener noreferrer"
         onClick={onLinkClick}
         className={cn(
-          "inline-flex w-full items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs text-white font-semibold transition",
+          "inline-flex w-full items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold !text-white transition",
           googleMapsClass(tone, primary)
         )}
       >
