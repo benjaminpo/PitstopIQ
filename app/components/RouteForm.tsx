@@ -211,7 +211,7 @@ export function RouteForm() {
     setOriginPlace,
     setDestinationPlace,
     swapEnds,
-    addStop,
+    addDestination,
     removeTripLocation,
     setStopLabel,
     setStopPlace,
@@ -285,12 +285,6 @@ export function RouteForm() {
 
   const onDragEnd = () => {
     clearDrag();
-  };
-
-  const addDestination = () => {
-    const newDestinationId = addStop();
-    if (!newDestinationId) return;
-    reorderTripEnds([...rowOrder, newDestinationId]);
   };
 
   const dragHandlers = {

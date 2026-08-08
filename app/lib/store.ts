@@ -174,6 +174,8 @@ interface PitstopState {
   setDestinationPlace: (label: string, coords: GeoPoint) => void;
   swapEnds: () => void;
   addStop: () => string | null;
+  /** Move the current destination to the waypoint list and add a new final destination. */
+  addDestination: () => string | null;
   removeStop: (id: string) => void;
   /** Remove any itinerary row while keeping at least an origin and destination. */
   removeTripLocation: (key: string) => void;
@@ -350,6 +352,23 @@ export const usePitstopStore = create<PitstopState>()(
         if (stops.length >= MAX_TRIP_STOPS) return null;
         const stop = emptyTripStop();
         set({ stops: [...stops, stop] });
+        return stop.id;
+      },
+      addDestination: () => {
+        const { stops, destination, destinationCoords } = get();
+        if (stops.length >= MAX_TRIP_STOPS) return null;
+
+        const stop = {
+          ...emptyTripStop(),
+          label: destination,
+          coords: destinationCoords,
+        };
+        set({
+          stops: [...stops, stop],
+          destination: "",
+          destinationCoords: null,
+          destinationLocationError: null,
+        });
         return stop.id;
       },
       removeStop: (id) => {
