@@ -175,6 +175,8 @@ interface PitstopState {
   swapEnds: () => void;
   addStop: () => string | null;
   removeStop: (id: string) => void;
+  /** Remove any itinerary row while keeping at least an origin and destination. */
+  removeTripLocation: (key: string) => void;
   setStopLabel: (id: string, label: string) => void;
   setStopPlace: (id: string, label: string, coords: GeoPoint) => void;
   /** Reorder full itinerary: ["origin", stopId…, "destination"] */
@@ -360,6 +362,15 @@ export const usePitstopStore = create<PitstopState>()(
           };
         });
         void get().loadStations();
+      },
+      removeTripLocation: (key) => {
+        const keys = [
+          "origin",
+          ...get().stops.map((stop) => stop.id),
+          "destination",
+        ];
+        if (keys.length <= 2 || !keys.includes(key)) return;
+        get().reorderTripEnds(keys.filter((candidate) => candidate !== key));
       },
       setStopLabel: (id, label) => {
         set((s) => ({

@@ -2,6 +2,7 @@
 
 import { useState, type DragEvent } from "react";
 import {
+  ArrowUpDown,
   ChevronDown,
   Crosshair,
   Clock,
@@ -142,7 +143,7 @@ function TripRow({
                   onClick={onRemove}
                   className="rounded p-1 text-slate-500 transition hover:bg-slate-800 hover:text-rose-300"
                   aria-label={`Remove ${roleLabel.toLowerCase()}`}
-                  title="Remove stop"
+                  title="Remove location"
                 >
                   <X className="h-3.5 w-3.5" />
                 </button>
@@ -209,8 +210,9 @@ export function RouteForm() {
     setDestination,
     setOriginPlace,
     setDestinationPlace,
+    swapEnds,
     addStop,
-    removeStop,
+    removeTripLocation,
     setStopLabel,
     setStopPlace,
     reorderTripEnds,
@@ -244,6 +246,7 @@ export function RouteForm() {
     "destination",
   ];
   const canReorder = rowOrder.length >= 2;
+  const canRemoveLocation = rowOrder.length >= 3;
   const canAddStop = stops.length < MAX_TRIP_STOPS;
 
   const clearDrag = () => {
@@ -339,7 +342,8 @@ export function RouteForm() {
           }
           locationError={locationError}
           onLocate={() => void locateCurrentPosition("origin")}
-          canRemove={false}
+          canRemove={canRemoveLocation}
+          onRemove={() => removeTripLocation("origin")}
           {...dragHandlers}
         />
 
@@ -367,8 +371,8 @@ export function RouteForm() {
             }
             locationError={stopLocationErrors[stop.id] ?? null}
             onLocate={() => void locateCurrentPosition(`stop:${stop.id}`)}
-            canRemove
-            onRemove={() => removeStop(stop.id)}
+            canRemove={canRemoveLocation}
+            onRemove={() => removeTripLocation(stop.id)}
             {...dragHandlers}
           />
         ))}
@@ -392,20 +396,35 @@ export function RouteForm() {
           }
           locationError={destinationLocationError}
           onLocate={() => void locateCurrentPosition("destination")}
-          canRemove={false}
+          canRemove={canRemoveLocation}
+          onRemove={() => removeTripLocation("destination")}
           {...dragHandlers}
         />
 
-        {canAddStop && (
-          <button
-            type="button"
-            onClick={() => addStop()}
-            className="mt-1 ml-9 inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-teal-300 transition hover:bg-teal-950/50 hover:text-teal-200"
-          >
-            <Plus className="h-3.5 w-3.5" />
-            Add stop
-          </button>
-        )}
+        <div className="mt-1 ml-9 flex flex-wrap items-center gap-1">
+          {stops.length === 0 && (
+            <button
+              type="button"
+              onClick={swapEnds}
+              className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-teal-300 transition hover:bg-teal-950/50 hover:text-teal-200"
+              aria-label="Swap start and destination"
+              title="Swap start and destination"
+            >
+              <ArrowUpDown className="h-3.5 w-3.5" />
+              Swap
+            </button>
+          )}
+          {canAddStop && (
+            <button
+              type="button"
+              onClick={() => addStop()}
+              className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-teal-300 transition hover:bg-teal-950/50 hover:text-teal-200"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              Add stop
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="space-y-2">
