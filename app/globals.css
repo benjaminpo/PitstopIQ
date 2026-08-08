@@ -74,6 +74,10 @@ code,
   margin: 12px 14px;
 }
 
+.leaflet-popup-content p {
+  margin: 0;
+}
+
 /* Range inputs */
 input[type="range"] {
   height: 6px;
