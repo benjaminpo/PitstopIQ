@@ -333,7 +333,10 @@ export function RouteForm() {
           recentPlaces={recentPlaces}
           onClearRecent={clearRecentPlaces}
           locating={locating}
-          locatingThis={locating && locatingTarget === "origin"}
+          locatingThis={
+            locating &&
+            (locatingTarget === "origin" || locatingTarget === "both")
+          }
           locationError={locationError}
           onLocate={() => void locateCurrentPosition("origin")}
           canRemove={false}
@@ -383,7 +386,10 @@ export function RouteForm() {
           recentPlaces={recentPlaces}
           onClearRecent={clearRecentPlaces}
           locating={locating}
-          locatingThis={locating && locatingTarget === "destination"}
+          locatingThis={
+            locating &&
+            (locatingTarget === "destination" || locatingTarget === "both")
+          }
           locationError={destinationLocationError}
           onLocate={() => void locateCurrentPosition("destination")}
           canRemove={false}

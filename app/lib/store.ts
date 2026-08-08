@@ -59,11 +59,22 @@ import {
   tripWaypointCoords,
 } from "./tripPath";
 
-export type LocateTarget = "origin" | "destination" | `stop:${string}`;
+export type LocateTarget =
+  | "origin"
+  | "destination"
+  | "both"
+  | `stop:${string}`;
 
 function parseLocateStopId(target: LocateTarget): string | null {
   if (!target.startsWith("stop:")) return null;
   return target.slice(5) || null;
+}
+
+function isSameLocation(a: GeoPoint, b: GeoPoint): boolean {
+  return (
+    Math.abs(a.lat - b.lat) < 0.00001 &&
+    Math.abs(a.lng - b.lng) < 0.00001
+  );
 }
 
 const SETTINGS_STORAGE_KEY = "pitstopiq-vehicle-settings";
@@ -506,22 +517,35 @@ export const usePitstopStore = create<PitstopState>()(
 
         set({ detourRouting: true, detourRouteError: null });
         try {
-          const planned = tripWaypointCoords(
-            originCoords,
-            stops,
-            destinationCoords
-          );
-          if (!planned) return;
-          const withStation = insertPointOnNearestSegment(
-            planned,
-            station.location
-          );
-          const detourRoute = await fetchDrivingRoute(
-            withStation[0],
-            withStation.at(-1)!,
-            withStation.slice(1, -1),
-            routeAvoid
-          );
+          const nearbySearch =
+            stops.length === 0 &&
+            isSameLocation(originCoords, destinationCoords);
+          let detourRoute: DrivingRoute;
+          if (nearbySearch) {
+            detourRoute = await fetchDrivingRoute(
+              originCoords,
+              station.location,
+              null,
+              routeAvoid
+            );
+          } else {
+            const planned = tripWaypointCoords(
+              originCoords,
+              stops,
+              destinationCoords
+            );
+            if (!planned) return;
+            const withStation = insertPointOnNearestSegment(
+              planned,
+              station.location
+            );
+            detourRoute = await fetchDrivingRoute(
+              withStation[0],
+              withStation.at(-1)!,
+              withStation.slice(1, -1),
+              routeAvoid
+            );
+          }
           // Ignore stale responses if the user picked another station
           if (get().selectedStationId !== stationId) return;
           set({ detourRoute, detourRouting: false, detourRouteError: null });
@@ -652,6 +676,18 @@ export const usePitstopStore = create<PitstopState>()(
               };
             });
             await get().loadStations();
+          } else if (target === "both") {
+            set({
+              originCoords: point,
+              origin: label,
+              destinationCoords: point,
+              destination: label,
+              locating: false,
+              locatingTarget: null,
+              locationError: null,
+              destinationLocationError: null,
+            });
+            await get().loadStations();
           } else if (target === "destination") {
             set({
               destinationCoords: point,
@@ -683,6 +719,13 @@ export const usePitstopStore = create<PitstopState>()(
                 ...get().stopLocationErrors,
                 [stopId]: message,
               },
+            });
+          } else if (target === "both") {
+            set({
+              locating: false,
+              locatingTarget: null,
+              locationError: message,
+              destinationLocationError: message,
             });
           } else if (target === "destination") {
             set({
@@ -824,7 +867,7 @@ export const usePitstopStore = create<PitstopState>()(
             get().selectedStationId != null &&
             stations.some((s) => s.id === get().selectedStationId);
 
-          const selectedId = selectedStillVisible
+          let selectedId = selectedStillVisible
             ? get().selectedStationId
             : null;
 
@@ -847,6 +890,25 @@ export const usePitstopStore = create<PitstopState>()(
                 }
               : {}),
           });
+
+          const nearbySearch =
+            stops.length === 0 &&
+            isSameLocation(originCoords, destinationCoords);
+          if (!selectedId && nearbySearch) {
+            const enriched = get().getEnrichedStations();
+            let best: StationWithCalculation | undefined;
+            for (const item of enriched) {
+              if (
+                !best ||
+                item.calculation.netAfterTime >
+                  best.calculation.netAfterTime
+              ) {
+                best = item;
+              }
+            }
+            selectedId = best?.station.id ?? null;
+            if (selectedId) set({ selectedStationId: selectedId });
+          }
 
           if (selectedId) {
             void get().loadDetourRoute(selectedId);

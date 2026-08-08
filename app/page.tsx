@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { Coffee, Crosshair, Loader2, Menu, PanelLeftClose } from "lucide-react";
 import { AccountMenu } from "@/app/components/AccountMenu";
 import { AppLogo } from "@/app/components/AppLogo";
@@ -15,7 +15,6 @@ import { RecentPlacesSync } from "@/app/components/RecentPlacesSync";
 import { VehiclePresetsSync } from "@/app/components/VehiclePresetsSync";
 import { usePitstopStore } from "@/app/lib/store";
 import { formatDuration } from "@/app/lib/routing";
-import { parseTripSearchParams } from "@/app/lib/tripUrl";
 import { cn } from "@/app/lib/utils";
 
 const MapView = dynamic(() => import("@/app/components/MapView"), {
@@ -31,10 +30,12 @@ export default function HomePage() {
   const {
     sidebarOpen,
     setSidebarOpen,
-    loadStations,
     locateCurrentPosition,
     locating,
     loading,
+    originCoords,
+    destinationCoords,
+    stops,
     route,
     routing,
     routeError,
@@ -46,8 +47,12 @@ export default function HomePage() {
     dataSource,
     pricesFetchedAt,
   } = usePitstopStore();
-
-  const bootstrapped = useRef(false);
+  const nearbySearch =
+    originCoords !== null &&
+    destinationCoords !== null &&
+    stops.length === 0 &&
+    Math.abs(originCoords.lat - destinationCoords.lat) < 0.00001 &&
+    Math.abs(originCoords.lng - destinationCoords.lng) < 0.00001;
 
   // Ticking clock so the "Updated X ago" badge stays current
   const [now, setNow] = useState(() => Date.now());
@@ -56,17 +61,6 @@ export default function HomePage() {
     const id = window.setInterval(() => setNow(Date.now()), 30_000);
     return () => window.clearInterval(id);
   }, [dataSource]);
-
-  useEffect(() => {
-    // TripUrlSync applies shared links and triggers loadStations.
-    // Only auto-load here when the URL has no trip params.
-    if (bootstrapped.current) return;
-    bootstrapped.current = true;
-    if (typeof window !== "undefined" && parseTripSearchParams(window.location.search)) {
-      return;
-    }
-    void loadStations();
-  }, [loadStations]);
 
   return (
     <div className="relative flex h-[100dvh] w-full overflow-hidden bg-slate-950 text-slate-100">
@@ -195,7 +189,10 @@ export default function HomePage() {
         </div>
 
         <div className="absolute bottom-4 right-3 z-[500] flex flex-col items-end gap-2 md:right-4">
-          {!loading && route && selectedStationId === null && (
+          {!loading &&
+            route &&
+            selectedStationId === null &&
+            !nearbySearch && (
             <div className="rounded-lg border border-teal-800/50 bg-slate-950/90 px-3 py-2 text-xs shadow-lg backdrop-blur">
               <p className="font-semibold text-teal-300">Driving route</p>
               <p className="font-mono text-slate-300">
@@ -204,7 +201,10 @@ export default function HomePage() {
               </p>
             </div>
           )}
-          {!loading && route && selectedStationId !== null && (
+          {!loading &&
+            route &&
+            selectedStationId !== null &&
+            !nearbySearch && (
             <button
               type="button"
               onClick={() => setSelectedStationId(null)}
@@ -223,17 +223,21 @@ export default function HomePage() {
           )}
           {detourRouting && (
             <div className="rounded-lg border border-amber-800/50 bg-slate-950/90 px-3 py-2 text-xs text-amber-200 shadow-lg backdrop-blur">
-              Drawing detour via station…
+              {nearbySearch
+                ? "Drawing route to best station…"
+                : "Drawing detour via station…"}
             </div>
           )}
           {!detourRouting && detourRoute && (
             <div className="rounded-lg border border-amber-700/50 bg-slate-950/90 px-3 py-2 text-xs shadow-lg backdrop-blur">
-              <p className="font-semibold text-amber-300">Detour via station</p>
+              <p className="font-semibold text-amber-300">
+                {nearbySearch ? "Route to best station" : "Detour via station"}
+              </p>
               <p className="font-mono text-slate-300">
                 {detourRoute.distanceMiles.toFixed(1)} mi ·{" "}
                 {formatDuration(detourRoute.durationSeconds)}
               </p>
-              {route && (
+              {route && !nearbySearch && (
                 <p className="mt-0.5 font-mono text-[10px] text-slate-500">
                   +
                   {(

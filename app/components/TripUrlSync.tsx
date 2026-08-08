@@ -42,6 +42,8 @@ export function TripUrlSync() {
       if (fromUrl) {
         usePitstopStore.getState().applyTripSnapshot(fromUrl);
       }
+      const shouldUseCurrentLocation =
+        !fromUrl?.originCoords && !fromUrl?.destinationCoords;
 
       lastWrittenRef.current = snapshotFromState();
       // Ensure a clean URL even on first visit without params
@@ -83,6 +85,10 @@ export function TripUrlSync() {
           routeChanged ? 0 : 250
         );
       });
+
+      if (shouldUseCurrentLocation) {
+        void usePitstopStore.getState().locateCurrentPosition("both");
+      }
 
       return unsub;
     };

@@ -207,6 +207,18 @@ function computeFitPoints(args: FitPointsInputs): GeoPoint[] {
     if (selected) pts.push(selected.station.location);
     return pts;
   }
+  const startsAndEndsAtSamePlace =
+    originCoords != null &&
+    destinationCoords != null &&
+    stopCoords.length === 0 &&
+    Math.abs(originCoords.lat - destinationCoords.lat) < 0.00001 &&
+    Math.abs(originCoords.lng - destinationCoords.lng) < 0.00001;
+  if (startsAndEndsAtSamePlace && enriched.length > 0) {
+    const best = enriched.reduce((top, item) =>
+      item.calculation.netAfterTime > top.calculation.netAfterTime ? item : top
+    );
+    return [originCoords, best.station.location];
+  }
   if (route?.coordinates?.length) {
     pts.push(...sampleRoute(route.coordinates));
     return pts;
