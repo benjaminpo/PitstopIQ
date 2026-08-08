@@ -27,7 +27,8 @@ const CSV_PRESIGN_PATH = "/internal/v1.0.2/csv/generate-presigned-url";
 
 const BATCH_SIZE = 500;
 const MIN_REQUEST_GAP_MS = 2100;
-const CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
+/** Request-triggered incremental refresh interval. */
+const CACHE_TTL_MS = 15 * 60 * 1000;
 const MAX_BATCHES = 80;
 const USER_AGENT = "PitstopIQ/1.0 (route fuel cost calculator)";
 
@@ -284,11 +285,16 @@ export function isPastLastFuelFinderBatch(
   );
 }
 
-async function fetchAllBatches<T>(path: string): Promise<T[]> {
+async function fetchAllBatches<T>(
+  path: string,
+  query: Record<string, string> = {}
+): Promise<T[]> {
   const all: T[] = [];
 
   for (let batch = 1; batch <= MAX_BATCHES; batch++) {
-    const url = `${path}?batch-number=${batch}`;
+    const params = new URLSearchParams(query);
+    params.set("batch-number", String(batch));
+    const url = `${path}?${params.toString()}`;
     const response = await fuelFinderFetch(url, { method: "GET" });
 
     if (!response.ok) {
@@ -311,6 +317,17 @@ async function fetchAllBatches<T>(path: string): Promise<T[]> {
   }
 
   return all;
+}
+
+/**
+ * Fuel Finder's incremental endpoint expects UTC without an ISO `T` or `Z`.
+ * Subtract one second so updates on the exact cache boundary are not missed.
+ */
+export function formatEffectiveStartTimestamp(epochMs: number): string {
+  return new Date(Math.max(0, epochMs - 1000))
+    .toISOString()
+    .slice(0, 19)
+    .replace("T", " ");
 }
 
 function mapStations(
@@ -420,6 +437,7 @@ function aggregatePriceRows(priceRows: ApiPriceStation[]): {
 }
 
 async function refreshFromCsv(): Promise<CachedDataset> {
+  const refreshStartedAt = Date.now();
   const response = await fuelFinderFetch(CSV_PRESIGN_PATH, { method: "GET" });
   if (!response.ok) {
     const text = await response.text().catch(() => "");
@@ -462,9 +480,10 @@ async function refreshFromCsv(): Promise<CachedDataset> {
     throw new Error("Fuel Finder CSV contained no usable stations");
   }
 
-  const generatedAt = parsePriceLastUpdated(presign.generatedAt ?? undefined);
   return {
-    fetchedAt: generatedAt ?? Date.now(),
+    // This timestamp drives the next incremental query and represents when
+    // PitstopIQ synced, not when an unchanged station last changed its price.
+    fetchedAt: refreshStartedAt,
     stations,
   };
 }
@@ -490,9 +509,9 @@ async function refreshFromApi(): Promise<CachedDataset> {
   return { fetchedAt: Date.now(), stations: mapped };
 }
 
-async function refreshDataset(): Promise<CachedDataset> {
+async function refreshBaseline(): Promise<CachedDataset> {
   // Prefer the twice-daily national CSV (one request + S3 download) over the
-  // rate-limited batch JSON API, which is flaky under pagination.
+  // rate-limited full JSON API for the initial national baseline.
   try {
     const fromCsv = await refreshFromCsv();
     datasetCache = fromCsv;
@@ -515,6 +534,66 @@ async function refreshDataset(): Promise<CachedDataset> {
   return datasetCache;
 }
 
+function applyIncrementalPrices(
+  stations: FuelStation[],
+  priceRows: ApiPriceStation[]
+): FuelStation[] {
+  const { pricesByNode, updatedByGradeByNode } = aggregatePriceRows(priceRows);
+  if (pricesByNode.size === 0) return stations;
+
+  return stations.map((station) => {
+    const changedPrices = pricesByNode.get(station.id);
+    if (!changedPrices) return station;
+
+    const prices = { ...station.prices, ...changedPrices };
+    const changedTimestamps = updatedByGradeByNode.get(station.id);
+    const pricesUpdatedAt = {
+      ...station.pricesUpdatedAt,
+      ...changedTimestamps,
+    };
+    const timestamps = Object.values(pricesUpdatedAt).filter(
+      (value): value is number => typeof value === "number"
+    );
+
+    return {
+      ...station,
+      prices,
+      pricesUpdatedAt:
+        timestamps.length > 0 ? pricesUpdatedAt : station.pricesUpdatedAt,
+      pricesLastUpdatedAt:
+        timestamps.length > 0
+          ? Math.max(...timestamps)
+          : station.pricesLastUpdatedAt,
+    };
+  });
+}
+
+async function refreshIncrementally(
+  current: CachedDataset
+): Promise<CachedDataset> {
+  // Capture the boundary before requesting. Any changes made while this
+  // request runs will safely be included by the following refresh.
+  const refreshStartedAt = Date.now();
+  const priceRows = await fetchAllBatches<ApiPriceStation>(PRICES_PATH, {
+    "effective-start-timestamp": formatEffectiveStartTimestamp(
+      current.fetchedAt
+    ),
+  });
+  const stations = applyIncrementalPrices(current.stations, priceRows);
+  const refreshed = { fetchedAt: refreshStartedAt, stations };
+  datasetCache = refreshed;
+  console.info(
+    `[fuelFinder] applied ${priceRows.length} incremental price updates`
+  );
+  return refreshed;
+}
+
+async function refreshDataset(
+  current: CachedDataset | null
+): Promise<CachedDataset> {
+  return current ? refreshIncrementally(current) : refreshBaseline();
+}
+
 async function getAllStationsCached(): Promise<CachedDataset> {
   if (
     datasetCache &&
@@ -534,7 +613,12 @@ async function getAllStationsCached(): Promise<CachedDataset> {
     return datasetCache;
   }
 
-  inflightRefresh ??= refreshDataset()
+  // An expired durable cache is the baseline for a small incremental pull.
+  // This is especially important after a serverless cold start.
+  const stale = datasetCache ?? await readFuelDatasetCache(Number.POSITIVE_INFINITY);
+  if (stale) datasetCache = stale;
+
+  inflightRefresh ??= refreshDataset(stale)
     .then(async (fresh) => {
       await writeFuelDatasetCache(fresh);
       return fresh;

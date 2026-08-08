@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { isPastLastFuelFinderBatch } from "./fuelFinderClient";
+import {
+  formatEffectiveStartTimestamp,
+  isPastLastFuelFinderBatch,
+} from "./fuelFinderClient";
 
 describe("isPastLastFuelFinderBatch", () => {
   it("detects Fuel Finder's end-of-pagination 404", () => {
@@ -20,5 +23,13 @@ describe("isPastLastFuelFinderBatch", () => {
     );
     expect(isPastLastFuelFinderBatch(404, "Not Found")).toBe(false);
     expect(isPastLastFuelFinderBatch(404, "")).toBe(false);
+  });
+});
+
+describe("formatEffectiveStartTimestamp", () => {
+  it("formats UTC for Fuel Finder and overlaps the boundary by one second", () => {
+    expect(
+      formatEffectiveStartTimestamp(Date.parse("2026-08-08T14:30:00.000Z"))
+    ).toBe("2026-08-08 14:29:59");
   });
 });

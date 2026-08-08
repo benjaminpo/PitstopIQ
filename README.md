@@ -146,7 +146,7 @@ FUEL_FINDER_TRANSPORT_SECRET=...
 
 1. **CSV (primary)** — authenticated presign → S3 download of the national prices CSV (same snapshot linked from [access latest fuel prices](https://www.developer.fuel-finder.service.gov.uk/fuel-finder/access-latest-fuelprices)). Usually a few seconds.
 2. **JSON API (backup)** — paginated `/api/v1/pfs` + `/fuel-prices` if CSV fails. Rate-limited (~30 rpm); a full national pull can take about a minute — avoid relying on this in production by setting `FUEL_FINDER_TRANSPORT_SECRET`.
-3. **Cache** — the national dataset is kept in process memory and in the app database (`fuel_dataset_cache`, Neon in production / SQLite locally) for ~1 hour, so cold serverless instances and reloads do not re-download every time. Live `/api/fuel-finder` responses also send `Cache-Control` so the CDN can serve repeated bounds queries.
+3. **Incremental updates** — after the initial national baseline, the app requests price changes from the JSON API every 15 minutes using `effective-start-timestamp`. The updated dataset is kept in process memory and in `fuel_dataset_cache` (Neon in production / SQLite locally), so serverless cold starts continue from the last sync instead of downloading the full dataset. Refreshes are request-triggered; the first request after the interval performs the update.
 
 Without OAuth credentials the app uses mock stations **in development only** (clearly labelled). In production, missing credentials or a failed live fetch return an error with a retry button — never fabricated forecourts. The stations list shows a **freshness badge** (`Updated Xm ago`) from the last successful sync.
 
