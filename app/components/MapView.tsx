@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   MapContainer,
   TileLayer,
@@ -25,6 +25,7 @@ import {
   stationPriceAgeTitle,
   stationPriceTone,
   STATION_AGE_TEXT_CLASSES_LIGHT,
+  type PriceFreshnessFilter,
 } from "@/app/lib/freshness";
 import type {
   DetourStatus,
@@ -338,6 +339,39 @@ function FitBounds({ points }: { points: GeoPoint[] }) {
   return null;
 }
 
+function FocusBestStations({
+  freshnessFilter,
+  enriched,
+}: {
+  freshnessFilter: PriceFreshnessFilter;
+  enriched: StationWithCalculation[];
+}) {
+  const map = useMap();
+  const previousFilter = useRef(freshnessFilter);
+
+  useEffect(() => {
+    if (previousFilter.current === freshnessFilter) return;
+    previousFilter.current = freshnessFilter;
+    if (enriched.length === 0) return;
+
+    const best = [...enriched]
+      .sort(
+        (a, b) =>
+          b.calculation.netAfterTime - a.calculation.netAfterTime
+      )
+      .slice(0, 3);
+    const bounds = L.latLngBounds(
+      best.map((item) => [
+        item.station.location.lat,
+        item.station.location.lng,
+      ])
+    );
+    map.fitBounds(bounds.pad(0.2), { maxZoom: 12 });
+  }, [map, freshnessFilter, enriched]);
+
+  return null;
+}
+
 export default function MapView() {
   const {
     origin,
@@ -350,6 +384,7 @@ export default function MapView() {
     getEnrichedStations,
     selectedStationId,
     setSelectedStationId,
+    priceFreshnessFilter,
     vehicle,
   } = usePitstopStore();
 
@@ -560,7 +595,7 @@ export default function MapView() {
       )}
 
       {/* Selected station detour: A → pit stop → B */}
-      {detourLine && (
+      {showingDetour && detourLine && (
         <>
           <Polyline
             positions={detourLine}
@@ -644,6 +679,10 @@ export default function MapView() {
       {selected && renderStationMarker(selected)}
 
       <FitBounds points={fitPoints} />
+      <FocusBestStations
+        freshnessFilter={priceFreshnessFilter}
+        enriched={enriched}
+      />
     </MapContainer>
   );
 }

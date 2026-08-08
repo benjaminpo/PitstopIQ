@@ -474,8 +474,20 @@ export const usePitstopStore = create<PitstopState>()(
         }),
       setSortKey: (sortKey) => set({ sortKey }),
       setBrandFilter: (brandFilter) => set({ brandFilter }),
-      setPriceFreshnessFilter: (priceFreshnessFilter) =>
-        set({ priceFreshnessFilter }),
+      setPriceFreshnessFilter: (priceFreshnessFilter) => {
+        set({ priceFreshnessFilter });
+        const best = get().getEnrichedStations().reduce<
+          StationWithCalculation | undefined
+        >(
+          (top, item) =>
+            !top ||
+            item.calculation.netAfterTime > top.calculation.netAfterTime
+              ? item
+              : top,
+          undefined
+        );
+        get().setSelectedStationId(best?.station.id ?? null);
+      },
       toggleExcludedBrand: (brandKey) =>
         set((s) => ({
           excludedBrands: s.excludedBrands.includes(brandKey)
@@ -905,8 +917,17 @@ export const usePitstopStore = create<PitstopState>()(
           const nearbySearch =
             stops.length === 0 &&
             isSameLocation(originCoords, destinationCoords);
-          if (!selectedId && nearbySearch) {
-            const enriched = get().getEnrichedStations();
+          const enriched = get().getEnrichedStations();
+          if (
+            selectedId &&
+            !enriched.some((item) => item.station.id === selectedId)
+          ) {
+            selectedId = null;
+            set({ selectedStationId: null });
+          }
+          const shouldAutoSelectBest =
+            nearbySearch || get().priceFreshnessFilter !== "any";
+          if (!selectedId && shouldAutoSelectBest) {
             let best: StationWithCalculation | undefined;
             for (const item of enriched) {
               if (
