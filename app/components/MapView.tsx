@@ -214,8 +214,10 @@ function computeFitPoints(args: FitPointsInputs): GeoPoint[] {
     Math.abs(originCoords.lat - destinationCoords.lat) < 0.00001 &&
     Math.abs(originCoords.lng - destinationCoords.lng) < 0.00001;
   if (startsAndEndsAtSamePlace && enriched.length > 0) {
-    const best = enriched.reduce((top, item) =>
-      item.calculation.netAfterTime > top.calculation.netAfterTime ? item : top
+    const best = enriched.reduce(
+      (top, item) =>
+        item.calculation.netAfterTime > top.calculation.netAfterTime ? item : top,
+      enriched[0]!
     );
     return [originCoords, best.station.location];
   }
