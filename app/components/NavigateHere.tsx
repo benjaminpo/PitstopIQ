@@ -26,7 +26,7 @@ function googleMapsClass(tone: "dark" | "light", primary: boolean): string {
   if (primary) {
     return "bg-teal-600 text-white shadow-md shadow-teal-950/40 hover:bg-teal-500";
   }
-  return "bg-slate-800 text-slate-100 ring-1 ring-slate-600/60 hover:bg-slate-700";
+  return "bg-slate-800 text-white ring-1 ring-slate-600/60 hover:bg-slate-700";
 }
 
 export function NavigateHere({

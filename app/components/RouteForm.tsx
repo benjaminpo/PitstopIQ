@@ -287,6 +287,12 @@ export function RouteForm() {
     clearDrag();
   };
 
+  const addDestination = () => {
+    const newDestinationId = addStop();
+    if (!newDestinationId) return;
+    reorderTripEnds([...rowOrder, newDestinationId]);
+  };
+
   const dragHandlers = {
     canReorder,
     dragging,
@@ -351,8 +357,8 @@ export function RouteForm() {
           <TripRow
             key={stop.id}
             rowKey={stop.id}
-            roleLabel={`Stop ${index + 1}`}
-            ariaLabel={`Stop ${index + 1}`}
+            roleLabel={`Destination ${index + 1}`}
+            ariaLabel={`Destination ${index + 1}`}
             value={stop.label}
             onChange={(label) => setStopLabel(stop.id, label)}
             onSelectPlace={(place) => {
@@ -379,8 +385,16 @@ export function RouteForm() {
 
         <TripRow
           rowKey="destination"
-          roleLabel="Destination"
-          ariaLabel="Destination"
+          roleLabel={
+            stops.length > 0
+              ? `Destination ${stops.length + 1}`
+              : "Destination"
+          }
+          ariaLabel={
+            stops.length > 0
+              ? `Destination ${stops.length + 1}`
+              : "Destination"
+          }
           value={destination}
           onChange={setDestination}
           onSelectPlace={(place) => {
@@ -417,11 +431,12 @@ export function RouteForm() {
           {canAddStop && (
             <button
               type="button"
-              onClick={() => addStop()}
+              onClick={addDestination}
               className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-teal-300 transition hover:bg-teal-950/50 hover:text-teal-200"
+              aria-label="Add destination"
             >
               <Plus className="h-3.5 w-3.5" />
-              Add stop
+              Add destination
             </button>
           )}
         </div>
