@@ -14,6 +14,10 @@ import {
   distinctBrandOptions,
   type BrandFilter,
 } from "@/app/lib/brandCategory";
+import {
+  PRICE_FRESHNESS_OPTIONS,
+  type PriceFreshnessFilter,
+} from "@/app/lib/freshness";
 import { usePitstopStore } from "@/app/lib/store";
 import { CORRIDOR_MAX_DISTANCE_MILES } from "@/app/lib/routing";
 import type { StationSortKey, StationWithCalculation } from "@/app/lib/types";
@@ -47,6 +51,8 @@ export function StationList() {
     setSortKey,
     brandFilter,
     setBrandFilter,
+    priceFreshnessFilter,
+    setPriceFreshnessFilter,
     excludedBrands,
     toggleExcludedBrand,
     clearExcludedBrands,
@@ -69,6 +75,9 @@ export function StationList() {
   const tripReady = originCoords !== null && destinationCoords !== null;
   const filterLabel =
     BRAND_FILTER_OPTIONS.find((o) => o.key === brandFilter)?.label ?? "All";
+  const freshnessLabel =
+    PRICE_FRESHNESS_OPTIONS.find((o) => o.value === priceFreshnessFilter)
+      ?.label ?? "Any time";
   const rangeMiles = remainingRangeMiles(vehicle);
   const brandOptions = distinctBrandOptions(stations);
   const [brandPanelOpen, setBrandPanelOpen] = useState(false);
@@ -107,7 +116,7 @@ export function StationList() {
           <p className="mt-0.5 text-xs text-slate-500">
             {loading
               ? "Fetching Fuel Finder prices…"
-              : `${enriched.length} in range (≤${rangeMiles.toFixed(0)} mi) · ${stations.length} on corridor · ${filterLabel} · ${SORT_OPTIONS.find((s) => s.key === sortKey)?.label.toLowerCase()}${hiddenBrandsSuffix}`}
+              : `${enriched.length} in range (≤${rangeMiles.toFixed(0)} mi) · ${stations.length} on corridor · ${filterLabel} · ${freshnessLabel.toLowerCase()} · ${SORT_OPTIONS.find((s) => s.key === sortKey)?.label.toLowerCase()}${hiddenBrandsSuffix}`}
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-1.5">
@@ -189,6 +198,33 @@ export function StationList() {
         )}
       </fieldset>
 
+      <label className="mb-3 flex items-center justify-between gap-3 rounded-lg bg-slate-900/60 px-2.5 py-2 ring-1 ring-slate-700/60">
+        <span>
+          <span className="block text-[11px] font-semibold text-slate-300">
+            Price last changed
+          </span>
+          <span className="block text-[10px] text-slate-500">
+            Optional freshness filter
+          </span>
+        </span>
+        <select
+          value={priceFreshnessFilter}
+          onChange={(event) =>
+            setPriceFreshnessFilter(
+              event.target.value as PriceFreshnessFilter
+            )
+          }
+          className="rounded-md border border-slate-700 bg-slate-950 px-2 py-1.5 text-[11px] font-medium text-slate-200 outline-none ring-teal-500/40 focus:border-teal-500/60 focus:ring-2"
+          aria-label="Maximum price age"
+        >
+          {PRICE_FRESHNESS_OPTIONS.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+      </label>
+
       {brandPanelOpen && brandOptions.length > 0 && (
         <div className="mb-3 rounded-lg bg-slate-900/60 p-2.5 ring-1 ring-slate-700/60">
           <div className="mb-2 flex items-center justify-between gap-2">
@@ -264,6 +300,31 @@ export function StationList() {
         stations.length > 0 &&
         enriched.length === 0 &&
         !error &&
+        priceFreshnessFilter !== "any" && (
+          <div className="mb-3 space-y-3">
+            <div className="rounded-lg border border-dashed border-slate-700 px-3 py-8 text-center text-sm text-slate-500">
+              <p>
+                No matching stations reported a price change{" "}
+                {freshnessLabel.toLowerCase()}. Stations only report when a
+                price changes, so older prices may still be current.
+              </p>
+              <button
+                type="button"
+                onClick={() => setPriceFreshnessFilter("any")}
+                className="mt-2 text-[12px] font-semibold text-teal-300 transition hover:text-teal-200"
+              >
+                Show prices of any age
+              </button>
+            </div>
+            <ReportMissingStation />
+          </div>
+        )}
+
+      {!loading &&
+        stations.length > 0 &&
+        enriched.length === 0 &&
+        !error &&
+        priceFreshnessFilter === "any" &&
         excludedBrands.length > 0 && (
           <div className="mb-3 space-y-3">
             <div className="rounded-lg border border-dashed border-slate-700 px-3 py-8 text-center text-sm text-slate-500">
@@ -290,6 +351,7 @@ export function StationList() {
         stations.length > 0 &&
         enriched.length === 0 &&
         !error &&
+        priceFreshnessFilter === "any" &&
         excludedBrands.length === 0 &&
         brandFilter !== "all" && (
           <div className="mb-3 space-y-3">
@@ -306,6 +368,7 @@ export function StationList() {
         stations.length > 0 &&
         enriched.length === 0 &&
         !error &&
+        priceFreshnessFilter === "any" &&
         excludedBrands.length === 0 &&
         brandFilter === "all" && (
           <div className="mb-3 space-y-3">

@@ -22,6 +22,10 @@ import {
 import { computeBaselineRoutePrice } from "./baselinePrice";
 import { DEFAULT_BASE_ROUTE_AVG_PRICE, vehicleFuelKind } from "./fuelConstants";
 import {
+  matchesPriceFreshness,
+  type PriceFreshnessFilter,
+} from "./freshness";
+import {
   getBrowserPosition,
   reverseGeocode,
 } from "./geolocation";
@@ -148,6 +152,8 @@ interface PitstopState {
   sortKey: StationSortKey;
   /** Forecourt brand bucket filter applied to scored stations */
   brandFilter: BrandFilter;
+  /** Optional maximum age of the selected fuel grade's price report */
+  priceFreshnessFilter: PriceFreshnessFilter;
   /** Brand keys hidden from results (e.g. membership-only forecourts) */
   excludedBrands: string[];
   /** Previously selected origin/destination places, most recent first */
@@ -182,6 +188,7 @@ interface PitstopState {
   setValueOfTimeGbpPerHour: (gbpPerHour: number) => void;
   setSortKey: (key: StationSortKey) => void;
   setBrandFilter: (filter: BrandFilter) => void;
+  setPriceFreshnessFilter: (filter: PriceFreshnessFilter) => void;
   toggleExcludedBrand: (brandKey: string) => void;
   clearExcludedBrands: () => void;
   setSelectedStationId: (id: string | null) => void;
@@ -245,6 +252,7 @@ type PersistedSettings = Pick<
   | "vehiclePresets"
   | "activePresetId"
   | "brandFilter"
+  | "priceFreshnessFilter"
   | "excludedBrands"
   | "recentPlaces"
   | "routeAvoid"
@@ -291,6 +299,7 @@ export const usePitstopStore = create<PitstopState>()(
       selectedStationId: null,
       sortKey: "netProfit",
       brandFilter: "all",
+      priceFreshnessFilter: "any",
       excludedBrands: [],
       recentPlaces: [],
       sidebarOpen: true,
@@ -465,6 +474,8 @@ export const usePitstopStore = create<PitstopState>()(
         }),
       setSortKey: (sortKey) => set({ sortKey }),
       setBrandFilter: (brandFilter) => set({ brandFilter }),
+      setPriceFreshnessFilter: (priceFreshnessFilter) =>
+        set({ priceFreshnessFilter }),
       toggleExcludedBrand: (brandKey) =>
         set((s) => ({
           excludedBrands: s.excludedBrands.includes(brandKey)
@@ -980,11 +991,13 @@ export const usePitstopStore = create<PitstopState>()(
           valueOfTimeGbpPerHour,
           sortKey,
           brandFilter,
+          priceFreshnessFilter,
           excludedBrands,
           route,
           originCoords,
           communityByStationId,
         } = get();
+        const freshnessMinute = Math.floor(Date.now() / 60_000);
 
         const deps = [
           stations,
@@ -994,10 +1007,12 @@ export const usePitstopStore = create<PitstopState>()(
           valueOfTimeGbpPerHour,
           sortKey,
           brandFilter,
+          priceFreshnessFilter,
           excludedBrands,
           route,
           originCoords,
           communityByStationId,
+          freshnessMinute,
         ] as const;
         if (enrichedStationsCache?.deps.every((d, i) => d === deps[i])) {
           return enrichedStationsCache.value;
@@ -1022,6 +1037,21 @@ export const usePitstopStore = create<PitstopState>()(
           .filter(
             (station) => !excludedBrands.includes(stationBrandKey(station))
           )
+          .filter((station) => {
+            const community = communityByStationId[station.id];
+            const communityPrice =
+              community?.communityPrices[vehicle.fuelType];
+            const usesCommunityPrice =
+              communityPrice != null && Number.isFinite(communityPrice);
+            const updatedAt = usesCommunityPrice
+              ? community?.communityPriceUpdatedAt[vehicle.fuelType]
+              : station.pricesUpdatedAt?.[vehicle.fuelType];
+            return matchesPriceFreshness(
+              updatedAt,
+              priceFreshnessFilter,
+              freshnessMinute * 60_000
+            );
+          })
           .filter((station) => {
             const milesTo = milesFromOriginToStation(
               station.location,
@@ -1171,6 +1201,7 @@ export const usePitstopStore = create<PitstopState>()(
         vehiclePresets: state.vehiclePresets,
         activePresetId: state.activePresetId,
         brandFilter: state.brandFilter,
+        priceFreshnessFilter: state.priceFreshnessFilter,
         excludedBrands: state.excludedBrands,
         recentPlaces: state.recentPlaces,
         routeAvoid: state.routeAvoid,
@@ -1209,6 +1240,14 @@ export const usePitstopStore = create<PitstopState>()(
           brandFilterRaw === "all"
             ? brandFilterRaw
             : "all";
+        const freshnessRaw = p.priceFreshnessFilter;
+        const priceFreshnessFilter: PriceFreshnessFilter =
+          freshnessRaw === "24h" ||
+          freshnessRaw === "3d" ||
+          freshnessRaw === "7d" ||
+          freshnessRaw === "any"
+            ? freshnessRaw
+            : "any";
 
         return {
           vehicle,
@@ -1224,6 +1263,7 @@ export const usePitstopStore = create<PitstopState>()(
             vehiclePresets.length > 0 ? vehiclePresets : defaultPresets,
           activePresetId,
           brandFilter,
+          priceFreshnessFilter,
           excludedBrands: sanitizeExcludedBrands(p.excludedBrands),
           recentPlaces: sanitizeRecentPlaces(p.recentPlaces),
           routeAvoid: normalizeRouteAvoid(
@@ -1231,7 +1271,7 @@ export const usePitstopStore = create<PitstopState>()(
           ),
         };
       },
-      version: 8,
+      version: 9,
     }
   )
 );

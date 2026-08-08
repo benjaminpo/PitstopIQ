@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   formatPriceAge,
   freshnessTone,
+  matchesPriceFreshness,
   stationPriceAgeTitle,
   stationPriceTone,
 } from "./freshness";
@@ -51,6 +52,30 @@ describe("stationPriceTone", () => {
     expect(stationPriceTone(now - 6 * DAY, now)).toBe("aging");
     expect(stationPriceTone(now - 8 * DAY, now)).toBe("stale");
     expect(stationPriceTone(now - 60 * DAY, now)).toBe("stale");
+  });
+});
+
+describe("matchesPriceFreshness", () => {
+  const now = Date.UTC(2026, 7, 8, 12);
+  const DAY = 24 * 60 * 60 * 1000;
+
+  it("allows every timestamp when the filter is disabled", () => {
+    expect(matchesPriceFreshness(null, "any", now)).toBe(true);
+    expect(matchesPriceFreshness(now - 30 * DAY, "any", now)).toBe(true);
+  });
+
+  it("applies the selected maximum age", () => {
+    expect(matchesPriceFreshness(now - 23 * 60 * 60 * 1000, "24h", now)).toBe(
+      true
+    );
+    expect(matchesPriceFreshness(now - 2 * DAY, "24h", now)).toBe(false);
+    expect(matchesPriceFreshness(now - 2 * DAY, "3d", now)).toBe(true);
+    expect(matchesPriceFreshness(now - 6 * DAY, "7d", now)).toBe(true);
+  });
+
+  it("excludes unknown timestamps from active filters", () => {
+    expect(matchesPriceFreshness(null, "24h", now)).toBe(false);
+    expect(matchesPriceFreshness(Number.NaN, "7d", now)).toBe(false);
   });
 });
 

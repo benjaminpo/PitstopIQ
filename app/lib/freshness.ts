@@ -26,6 +26,32 @@ export type FreshnessTone = "fresh" | "aging" | "stale" | "mock" | "unknown";
 const STATION_FRESH_MS = 24 * 60 * 60 * 1000;
 const STATION_AGING_MS = 7 * 24 * 60 * 60 * 1000;
 
+export type PriceFreshnessFilter = "any" | "24h" | "3d" | "7d";
+
+export const PRICE_FRESHNESS_OPTIONS: Array<{
+  value: PriceFreshnessFilter;
+  label: string;
+  maxAgeMs: number | null;
+}> = [
+  { value: "any", label: "Any time", maxAgeMs: null },
+  { value: "24h", label: "Within 24 hours", maxAgeMs: STATION_FRESH_MS },
+  { value: "3d", label: "Within 3 days", maxAgeMs: 3 * 24 * 60 * 60 * 1000 },
+  { value: "7d", label: "Within 7 days", maxAgeMs: STATION_AGING_MS },
+];
+
+export function matchesPriceFreshness(
+  updatedAt: number | null | undefined,
+  filter: PriceFreshnessFilter,
+  now: number
+): boolean {
+  if (filter === "any") return true;
+  if (updatedAt == null || !Number.isFinite(updatedAt)) return false;
+  const maxAgeMs =
+    PRICE_FRESHNESS_OPTIONS.find((option) => option.value === filter)
+      ?.maxAgeMs ?? null;
+  return maxAgeMs != null && now - updatedAt <= maxAgeMs;
+}
+
 /**
  * Tone for an individual station's last price report.
  * "unknown" when the station never reported an update time.
