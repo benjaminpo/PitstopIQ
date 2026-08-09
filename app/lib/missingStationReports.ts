@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import {
+  dbAll,
   dbGet,
   dbRun,
   ensureBigintEpochColumns,
@@ -27,6 +28,21 @@ export interface MissingStationReportRow {
   lng: number;
   place_label: string | null;
   created_at: number;
+}
+
+export interface AdminMissingStationReport {
+  id: string;
+  userId: string;
+  userName: string;
+  userEmail: string;
+  name: string;
+  brand: string | null;
+  address: string | null;
+  notes: string | null;
+  lat: number;
+  lng: number;
+  placeLabel: string | null;
+  createdAt: number;
 }
 
 let schemaReady: Promise<void> | null = null;
@@ -163,4 +179,30 @@ export async function createMissingStationReport(
     place_label: input.placeLabel ?? null,
     created_at: createdAt,
   };
+}
+
+export async function listMissingStationReports(): Promise<
+  AdminMissingStationReport[]
+> {
+  await ensureMissingStationSchema();
+  const rows = await dbAll<Record<string, unknown>>(
+    `SELECT r.*, u.name AS user_name, u.email AS user_email
+     FROM missing_station_report r
+     JOIN "user" u ON u.id = r.user_id
+     ORDER BY r.created_at DESC`
+  );
+  return rows.map((row) => ({
+    id: String(row.id),
+    userId: String(row.user_id),
+    userName: String(row.user_name || "Member"),
+    userEmail: String(row.user_email || ""),
+    name: String(row.name),
+    brand: row.brand == null ? null : String(row.brand),
+    address: row.address == null ? null : String(row.address),
+    notes: row.notes == null ? null : String(row.notes),
+    lat: Number(row.lat),
+    lng: Number(row.lng),
+    placeLabel: row.place_label == null ? null : String(row.place_label),
+    createdAt: Number(row.created_at),
+  }));
 }

@@ -100,6 +100,19 @@ Redeploy after adding or changing env vars so serverless functions pick them up.
 
 Signed-in members can **report a pump price** and separately **rate / comment** on a selected station (two independent forms). Stored in Neon (or local SQLite) in `station_contribution` (one row per user per station; each side can be cleared without wiping the other). The most recent member price for the active fuel grade is used for detour scoring when present; guests see a sign-in prompt instead of the forms.
 
+Members can also use **Report a missing station** to submit a forecourt that is absent from Fuel Finder. Reports include its map location and optional brand, address, and notes.
+
+### Admin workspace
+
+Set `ADMIN_EMAILS` to a comma-separated list of account email addresses. Those users can open `/admin` to:
+
+- review member-submitted missing station reports and open their locations in Google Maps
+- browse and search the current Fuel Finder station dataset
+- compare Fuel Finder prices with PetrolPrices manually or from an authorised CSV/JSON export
+- save station matches and price checks for audit purposes (these do not override public prices)
+
+Non-admin users receive a 404 response for the admin page and API routes.
+
 ## Google AdSense
 
 Optional monetization. Ads load only when `NEXT_PUBLIC_ADSENSE_CLIENT` is set.
@@ -118,6 +131,10 @@ NEXT_PUBLIC_ADSENSE_SLOT_SIDEBAR=1234567890
 5. Ads typically do **not** fill on `localhost` — test on the production domain after approval.
 
 UK/EU: enable AdSense’s consent messaging (or your own CMP) for personalized ads.
+
+## Google Analytics
+
+Google Analytics 4 is optional. Set `NEXT_PUBLIC_GA_MEASUREMENT_ID` to a GA4 measurement ID such as `G-XXXXXXXXXX`; leave it unset to disable analytics.
 
 ## Live Fuel Finder
 
@@ -175,12 +192,16 @@ Fuel Finder credentials stay on the Vercel project env (pulled during deploy). G
 
 ```
 app/
+  admin/page.tsx
+  account/page.tsx
   api/fuel-finder/route.ts
   api/calculate-detour/route.ts
   api/auth/[...all]/route.ts   # Better Auth handler
-  components/   # MapView, RouteForm, StationCard, StationList, AuthForm, AccountMenu
+  api/missing-station-reports/ # Member submissions and admin review
+  api/admin/station-matches/   # Admin station and price checks
+  components/   # Route planner, map, station, account, and admin UI
   lib/          # types, detourCalculator, fuelApiAdapter, fuelFinderClient,
-                # fuelFinderCsv, fuelDatasetCache, fuelConstants, store, auth
+                # fuelFinderCsv, database helpers, store, auth, station matching
   login/ register/             # auth pages
   page.tsx
 ```

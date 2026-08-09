@@ -6,7 +6,7 @@ import { auth } from "@/app/lib/auth";
 import { isAdminEmail } from "@/app/lib/adminAuth";
 
 export const metadata: Metadata = {
-  title: "Station price matching — PitstopIQ Admin",
+  title: "Review workspace — PitstopIQ Admin",
 };
 
 export const dynamic = "force-dynamic";

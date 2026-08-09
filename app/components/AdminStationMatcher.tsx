@@ -21,6 +21,7 @@ import {
   type PetrolPricesStation,
   type StationMatchSuggestion,
 } from "@/app/lib/stationMatching";
+import { AdminMissingStationReports } from "@/app/components/AdminMissingStationReports";
 import type { ConfirmedStationMatch } from "@/app/lib/stationPriceMatches";
 import type { FuelStation, FuelType } from "@/app/lib/types";
 
@@ -480,9 +481,9 @@ export function AdminStationMatcher() {
             <div>
               <div className="flex items-center gap-1.5 text-sm font-semibold">
                 <ShieldCheck className="h-4 w-4 text-teal-400" />
-                Station price matching
+                Admin workspace
               </div>
-              <p className="text-[11px] text-slate-500">Admin review workspace</p>
+              <p className="text-[11px] text-slate-500">Station and price review</p>
             </div>
           </div>
           <Link
@@ -496,6 +497,8 @@ export function AdminStationMatcher() {
       </header>
 
       <div className="mx-auto max-w-[1500px] space-y-5 px-4 py-6">
+        <AdminMissingStationReports />
+
         <section id="manual-price-editor" className={`${panelClass} scroll-mt-4 p-5`}>
           <div>
             <h1 className="text-lg font-semibold text-white">

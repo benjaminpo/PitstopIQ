@@ -1,16 +1,19 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { dbGet, dbRun, ensureBigintEpochColumns } from "@/app/lib/db";
+import { dbAll, dbGet, dbRun, ensureBigintEpochColumns } from "@/app/lib/db";
 import {
   createMissingStationReport,
+  listMissingStationReports,
   parseMissingStationBody,
 } from "./missingStationReports";
 
 vi.mock("@/app/lib/db", () => ({
+  dbAll: vi.fn(),
   dbGet: vi.fn(),
   dbRun: vi.fn(),
   ensureBigintEpochColumns: vi.fn(),
 }));
 
+const mockedAll = vi.mocked(dbAll);
 const mockedGet = vi.mocked(dbGet);
 const mockedRun = vi.mocked(dbRun);
 const mockedBigint = vi.mocked(ensureBigintEpochColumns);
@@ -140,6 +143,47 @@ describe("createMissingStationReport", () => {
     expect(mockedRun).not.toHaveBeenCalledWith(
       expect.stringContaining("INSERT INTO missing_station_report"),
       expect.any(Array)
+    );
+  });
+});
+
+describe("listMissingStationReports", () => {
+  it("returns newest reports with reporter details and normalised values", async () => {
+    mockedAll.mockResolvedValueOnce([
+      {
+        id: "report-1",
+        user_id: "user-1",
+        user_name: "Alex",
+        user_email: "alex@example.com",
+        name: "Local Garage",
+        brand: null,
+        address: "1 High Street",
+        notes: "Recently opened",
+        lat: "51.5",
+        lng: "-0.12",
+        place_label: null,
+        created_at: "1735689600000",
+      },
+    ]);
+
+    await expect(listMissingStationReports()).resolves.toEqual([
+      {
+        id: "report-1",
+        userId: "user-1",
+        userName: "Alex",
+        userEmail: "alex@example.com",
+        name: "Local Garage",
+        brand: null,
+        address: "1 High Street",
+        notes: "Recently opened",
+        lat: 51.5,
+        lng: -0.12,
+        placeLabel: null,
+        createdAt: 1735689600000,
+      },
+    ]);
+    expect(mockedAll).toHaveBeenCalledWith(
+      expect.stringContaining("ORDER BY r.created_at DESC")
     );
   });
 });
