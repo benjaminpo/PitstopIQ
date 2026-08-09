@@ -1,9 +1,24 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { dbAll, dbGet, dbRun, ensureBigintEpochColumns } from "@/app/lib/db";
 import {
   applyStationAdminOverrides,
+  listStationAdminOverrides,
+  upsertStationAdminOverride,
   type StationAdminOverride,
 } from "./stationAdminOverrides";
 import type { FuelStation } from "./types";
+
+vi.mock("@/app/lib/db", () => ({
+  dbAll: vi.fn(),
+  dbGet: vi.fn(),
+  dbRun: vi.fn(),
+  ensureBigintEpochColumns: vi.fn(),
+}));
+
+const mockedAll = vi.mocked(dbAll);
+const mockedGet = vi.mocked(dbGet);
+const mockedRun = vi.mocked(dbRun);
+const mockedBigint = vi.mocked(ensureBigintEpochColumns);
 
 const shell: FuelStation = {
   id: "ff-1",
@@ -40,6 +55,12 @@ function override(
   };
 }
 
+beforeEach(() => {
+  vi.clearAllMocks();
+  mockedRun.mockResolvedValue(undefined);
+  mockedBigint.mockResolvedValue(undefined);
+});
+
 describe("applyStationAdminOverrides", () => {
   it("replaces brand when an override is set", () => {
     const [updated] = applyStationAdminOverrides(
@@ -66,5 +87,126 @@ describe("applyStationAdminOverrides", () => {
     );
     expect(stations).toHaveLength(2);
     expect(stations[0]).toMatchObject({ id: "ff-1", brand: "Esso" });
+  });
+
+  it("leaves stations without a brand override unchanged", () => {
+    const stations = applyStationAdminOverrides(
+      [shell],
+      [override({ stationId: "ff-1", note: "check pumps" })]
+    );
+    expect(stations[0]).toBe(shell);
+  });
+});
+
+describe("listStationAdminOverrides / upsertStationAdminOverride", () => {
+  it("lists mapped overrides", async () => {
+    mockedAll.mockResolvedValue([
+      {
+        station_id: "ff-1",
+        brand: " BP ",
+        closed: 1,
+        note: " note ",
+        updated_by: "admin",
+        updated_at: "100",
+      },
+    ]);
+
+    await expect(listStationAdminOverrides()).resolves.toEqual([
+      {
+        stationId: "ff-1",
+        brand: "BP",
+        closed: true,
+        note: "note",
+        updatedBy: "admin",
+        updatedAt: 100,
+      },
+    ]);
+  });
+
+  it("deletes a row when clearing all override fields", async () => {
+    const result = await upsertStationAdminOverride({
+      stationId: "ff-1",
+      brand: "  ",
+      closed: false,
+      note: null,
+      updatedBy: "admin",
+    });
+    expect(mockedRun).toHaveBeenCalledWith(
+      expect.stringContaining("DELETE FROM station_admin_override"),
+      ["ff-1"]
+    );
+    expect(result).toMatchObject({
+      stationId: "ff-1",
+      brand: null,
+      closed: false,
+      note: null,
+    });
+  });
+
+  it("inserts a new override", async () => {
+    mockedGet
+      .mockResolvedValueOnce(undefined)
+      .mockResolvedValueOnce({
+        station_id: "ff-1",
+        brand: "BP",
+        closed: 0,
+        note: null,
+        updated_by: "admin",
+        updated_at: 50,
+      });
+
+    const result = await upsertStationAdminOverride({
+      stationId: "ff-1",
+      brand: "BP",
+      closed: false,
+      updatedBy: "admin",
+    });
+    expect(mockedRun).toHaveBeenCalledWith(
+      expect.stringContaining("INSERT INTO station_admin_override"),
+      expect.arrayContaining(["ff-1", "BP"])
+    );
+    expect(result.brand).toBe("BP");
+  });
+
+  it("updates an existing override", async () => {
+    mockedGet
+      .mockResolvedValueOnce({ station_id: "ff-1" })
+      .mockResolvedValueOnce({
+        station_id: "ff-1",
+        brand: "Esso",
+        closed: 1,
+        note: "closed",
+        updated_by: "admin",
+        updated_at: 60,
+      });
+
+    const result = await upsertStationAdminOverride({
+      stationId: "ff-1",
+      brand: "Esso",
+      closed: true,
+      note: "closed",
+      updatedBy: "admin",
+    });
+    expect(mockedRun).toHaveBeenCalledWith(
+      expect.stringContaining("UPDATE station_admin_override"),
+      expect.arrayContaining(["Esso", 1, "closed", "admin"])
+    );
+    expect(result).toMatchObject({ brand: "Esso", closed: true, note: "closed" });
+  });
+
+  it("returns a cleared shape when the saved row is missing", async () => {
+    mockedGet.mockResolvedValueOnce(undefined).mockResolvedValueOnce(undefined);
+    const result = await upsertStationAdminOverride({
+      stationId: "ff-9",
+      brand: "BP",
+      closed: false,
+      updatedBy: "admin",
+    });
+    expect(result).toMatchObject({
+      stationId: "ff-9",
+      brand: null,
+      closed: false,
+      note: null,
+    });
   });
 });
