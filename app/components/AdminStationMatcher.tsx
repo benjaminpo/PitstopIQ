@@ -60,6 +60,21 @@ function formatUpdatedAt(timestamp: number | null | undefined): string {
   }).format(timestamp);
 }
 
+function petrolPricesSearchUrl(station: FuelStation): string {
+  const params = new URLSearchParams({
+    fuelType: "2",
+    brandType: "0",
+    resultLimit: "0",
+    offset: "0",
+    sortType: "price",
+    lat: String(station.location.lat),
+    lng: String(station.location.lng),
+    z: "10",
+    d: "1",
+  });
+  return `https://www.petrolprices.com/app/map?${params.toString()}`;
+}
+
 function PriceComparison({
   source,
   official,
@@ -111,7 +126,8 @@ export function AdminStationMatcher() {
   const [manualSourceUrl, setManualSourceUrl] = useState("");
   const [stationListQuery, setStationListQuery] = useState("");
   const [stationPage, setStationPage] = useState(1);
-  const [stationSort, setStationSort] = useState<StationListSort>("name");
+  const [stationSort, setStationSort] =
+    useState<StationListSort>("pricesLastUpdatedAt");
   const [stationSortDirection, setStationSortDirection] = useState<"asc" | "desc">(
     "asc"
   );
@@ -559,6 +575,15 @@ export function AdminStationMatcher() {
                       .filter(Boolean)
                       .join(" · ")}
                   </p>
+                  <a
+                    href={petrolPricesSearchUrl(selectedStation)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-teal-700/70 px-2.5 py-1.5 text-[11px] font-medium text-teal-200 transition hover:border-teal-500 hover:bg-teal-950/60"
+                  >
+                    <ExternalLink className="h-3 w-3" />
+                    Search PetrolPrices near station
+                  </a>
                 </div>
               )}
             </div>
@@ -792,17 +817,25 @@ export function AdminStationMatcher() {
                         </td>
                         <td className="px-4 py-3 text-right">
                           <div className="flex items-center justify-end gap-1.5">
-                            {petrolPricesUrlFor(station.id) && (
-                              <a
-                                href={petrolPricesUrlFor(station.id)!}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 px-2.5 py-1.5 text-[11px] font-medium text-slate-300 transition hover:border-teal-600 hover:text-teal-200"
-                              >
-                                <ExternalLink className="h-3 w-3" />
-                                PetrolPrices
-                              </a>
-                            )}
+                            <a
+                              href={
+                                petrolPricesUrlFor(station.id) ??
+                                petrolPricesSearchUrl(station)
+                              }
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 px-2.5 py-1.5 text-[11px] font-medium text-slate-300 transition hover:border-teal-600 hover:text-teal-200"
+                              title={
+                                petrolPricesUrlFor(station.id)
+                                  ? "Open saved PetrolPrices station"
+                                  : `Search PetrolPrices near ${station.name}`
+                              }
+                            >
+                              <ExternalLink className="h-3 w-3" />
+                              {petrolPricesUrlFor(station.id)
+                                ? "PetrolPrices"
+                                : "Search"}
+                            </a>
                             <button
                               type="button"
                               onClick={() => selectStationForEditing(station)}
