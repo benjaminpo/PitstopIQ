@@ -87,6 +87,8 @@ export function StationList() {
     return ` · ${excludedBrands.length} ${noun} hidden`;
   })();
 
+  const pendingScrollStationId = useRef<string | null>(null);
+
   const selectStation = (stationId: string) => {
     setSelectedStationId(stationId);
     // Below the md breakpoint the sidebar overlays the map, so close it to
@@ -94,6 +96,12 @@ export function StationList() {
     if (window.matchMedia("(max-width: 767px)").matches) {
       setSidebarOpen(false);
     }
+  };
+
+  const selectNearbyStation = (stationId: string) => {
+    pendingScrollStationId.current = stationId;
+    // Keep the list open so the scrolled-to card stays visible.
+    setSelectedStationId(stationId);
   };
 
   const handleSelect = (stationId: string) => {
@@ -111,6 +119,20 @@ export function StationList() {
     const id = window.setInterval(() => setNow(Date.now()), 30_000);
     return () => window.clearInterval(id);
   }, [dataSource]);
+
+  useEffect(() => {
+    if (!selectedStationId) return;
+    if (pendingScrollStationId.current !== selectedStationId) return;
+    pendingScrollStationId.current = null;
+
+    // Wait a frame so the newly selected card can expand before scrolling.
+    const frame = window.requestAnimationFrame(() => {
+      document
+        .getElementById(`station-card-${selectedStationId}`)
+        ?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [selectedStationId]);
 
   return (
     <div className="flex shrink-0 flex-col">
@@ -402,7 +424,7 @@ export function StationList() {
             fuelType={vehicle.fuelType}
             selected={selectedStationId === item.station.id}
             onSelect={() => handleSelect(item.station.id)}
-            onSelectNearby={selectStation}
+            onSelectNearby={selectNearbyStation}
           />
         ))}
       </div>
