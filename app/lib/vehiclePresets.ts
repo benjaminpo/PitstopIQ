@@ -5,6 +5,7 @@ import type { FuelType, VehiclePreset } from "@/app/lib/types";
 const FUEL_TYPES = new Set<FuelType>(ALL_FUEL_TYPES);
 export const MAX_VEHICLE_PRESETS = 8;
 const MAX_NAME = 40;
+const MAX_REGISTRATION = 12;
 const MIN_MPG = 1;
 const MAX_MPG = 200;
 const MIN_TANK = 1;
@@ -48,6 +49,13 @@ export function ensureVehiclePresetSchema(): Promise<void> {
         updated_at BIGINT NOT NULL
       )
     `);
+    try {
+      await dbRun(
+        `ALTER TABLE vehicle_preset ADD COLUMN registration TEXT`
+      );
+    } catch {
+      // Column already exists.
+    }
     await ensureBigintEpochColumns("vehicle_preset", ["created_at", "updated_at"]);
     await ensureBigintEpochColumns("user_vehicle_settings", ["updated_at"]);
   })();
@@ -107,6 +115,17 @@ function parsePreset(
       error: `presets[${index}].tankCapacityLitres must be between ${MIN_TANK} and ${MAX_TANK}`,
     };
   }
+  let registration: string | null = null;
+  if (p.registration != null && p.registration !== "") {
+    if (typeof p.registration !== "string") {
+      return {
+        ok: false,
+        error: `presets[${index}].registration must be a string or null`,
+      };
+    }
+    const cleaned = p.registration.trim().toUpperCase().slice(0, MAX_REGISTRATION);
+    registration = cleaned || null;
+  }
   return {
     ok: true,
     preset: {
@@ -115,6 +134,7 @@ function parsePreset(
       fuelType: fuel.fuelType,
       mpg: Math.round(mpg * 10) / 10,
       tankCapacityLitres: Math.round(tank * 10) / 10,
+      registration,
     },
   };
 }
@@ -169,12 +189,16 @@ export function parseReplaceBody(
 }
 
 function mapRow(row: Record<string, unknown>): VehiclePreset {
+  const registrationRaw = asString(row.registration).trim();
   return {
     id: asString(row.id),
     name: asString(row.name, "My car") || "My car",
     fuelType: asString(row.fuel_type, "E10") as FuelType,
     mpg: Number(row.mpg),
     tankCapacityLitres: Number(row.tank_capacity_litres),
+    registration: registrationRaw
+      ? registrationRaw.toUpperCase().slice(0, MAX_REGISTRATION)
+      : null,
   };
 }
 
@@ -183,7 +207,7 @@ export async function getUserVehiclePresets(
 ): Promise<UserVehiclePresets> {
   await ensureVehiclePresetSchema();
   const rows = await dbAll<Record<string, unknown>>(
-    `SELECT id, name, fuel_type, mpg, tank_capacity_litres
+    `SELECT id, name, fuel_type, mpg, tank_capacity_litres, registration
      FROM vehicle_preset
      WHERE user_id = ?
      ORDER BY sort_order ASC, created_at ASC`,
@@ -219,8 +243,8 @@ export async function replaceUserVehiclePresets(
     const p = input.presets[i];
     await dbRun(
       `INSERT INTO vehicle_preset
-         (id, user_id, name, fuel_type, mpg, tank_capacity_litres, sort_order, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         (id, user_id, name, fuel_type, mpg, tank_capacity_litres, registration, sort_order, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         p.id,
         userId,
@@ -228,6 +252,9 @@ export async function replaceUserVehiclePresets(
         p.fuelType,
         p.mpg,
         p.tankCapacityLitres,
+        p.registration?.trim()
+          ? p.registration.trim().toUpperCase().slice(0, MAX_REGISTRATION)
+          : null,
         i,
         now,
         now,

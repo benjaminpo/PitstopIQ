@@ -17,6 +17,8 @@ export interface VehiclePreset {
   fuelType: FuelType;
   mpg: number;
   tankCapacityLitres: number;
+  /** UK plate when the preset was created from a registration lookup */
+  registration?: string | null;
 }
 
 export interface GeoPoint {

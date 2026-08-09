@@ -128,6 +128,26 @@ describe("parseReplaceBody", () => {
     ).toBe(false);
   });
 
+  it("accepts optional registration on presets", () => {
+    const result = parseReplaceBody({
+      presets: [{ ...sample, registration: "ab12 cde" }],
+      activePresetId: null,
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.presets[0].registration).toBe("AB12 CDE");
+    }
+  });
+
+  it("rejects non-string registration", () => {
+    expect(
+      parseReplaceBody({
+        presets: [{ ...sample, registration: 12 }],
+        activePresetId: null,
+      }).ok
+    ).toBe(false);
+  });
+
   it("normalizes blank names and rounds mpg/tank", () => {
     const result = parseReplaceBody({
       presets: [
@@ -224,6 +244,7 @@ describe("getUserVehiclePresets / replaceUserVehiclePresets", () => {
         fuelType: "E10",
         mpg: 40,
         tankCapacityLitres: 50,
+        registration: null,
       },
       {
         id: "true",
@@ -231,8 +252,26 @@ describe("getUserVehiclePresets / replaceUserVehiclePresets", () => {
         fuelType: "B7_Diesel",
         mpg: 35,
         tankCapacityLitres: 45,
+        registration: null,
       },
     ]);
+  });
+
+  it("maps registration from rows", async () => {
+    mockedAll.mockResolvedValue([
+      {
+        id: "p1",
+        name: "Hatch",
+        fuel_type: "E10",
+        mpg: 40,
+        tank_capacity_litres: 50,
+        registration: "ab12cde",
+      },
+    ]);
+    mockedGet.mockResolvedValue({ active_preset_id: "p1" });
+
+    const result = await getUserVehiclePresets("user-1");
+    expect(result.presets[0].registration).toBe("AB12CDE");
   });
 
   it("keeps a matching active preset id", async () => {

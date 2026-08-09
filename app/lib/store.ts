@@ -207,8 +207,14 @@ interface PitstopState {
   loadDetourRoute: (stationId: string) => Promise<void>;
   setSidebarOpen: (open: boolean) => void;
   applyVehiclePreset: (id: string) => void;
-  saveVehiclePreset: (name?: string) => string | null;
-  updateVehiclePreset: (id: string) => void;
+  saveVehiclePreset: (
+    name?: string,
+    options?: { registration?: string | null }
+  ) => string | null;
+  updateVehiclePreset: (
+    id: string,
+    options?: { registration?: string | null; name?: string }
+  ) => void;
   deleteVehiclePreset: (id: string) => void;
   renameVehiclePreset: (id: string, name: string) => void;
   /** Replace presets from cloud sync (does not mutate vehicle fields). */
@@ -660,10 +666,13 @@ export const usePitstopStore = create<PitstopState>()(
         });
       },
 
-      saveVehiclePreset: (name) => {
+      saveVehiclePreset: (name, options) => {
         const { vehicle, vehiclePresets } = get();
         if (vehiclePresets.length >= MAX_VEHICLE_PRESETS) return null;
 
+        const registration = options?.registration?.trim()
+          ? options.registration.trim().toUpperCase()
+          : null;
         const id = newPresetId();
         const preset: VehiclePreset = {
           id,
@@ -674,6 +683,7 @@ export const usePitstopStore = create<PitstopState>()(
           fuelType: vehicle.fuelType,
           mpg: vehicle.mpg,
           tankCapacityLitres: vehicle.tankCapacityLitres,
+          registration,
         };
         set({
           vehiclePresets: [...vehiclePresets, preset],
@@ -682,9 +692,19 @@ export const usePitstopStore = create<PitstopState>()(
         return id;
       },
 
-      updateVehiclePreset: (id) => {
+      updateVehiclePreset: (id, options) => {
         const { vehicle, vehiclePresets } = get();
         if (!vehiclePresets.some((p) => p.id === id)) return;
+        const registration =
+          options && "registration" in options
+            ? options.registration?.trim()
+              ? options.registration.trim().toUpperCase()
+              : null
+            : undefined;
+        const name =
+          options?.name != null
+            ? normalizePresetName(options.name)
+            : undefined;
         set({
           vehiclePresets: vehiclePresets.map((p) =>
             p.id === id
@@ -693,6 +713,8 @@ export const usePitstopStore = create<PitstopState>()(
                   fuelType: vehicle.fuelType,
                   mpg: vehicle.mpg,
                   tankCapacityLitres: vehicle.tankCapacityLitres,
+                  ...(registration !== undefined ? { registration } : {}),
+                  ...(name !== undefined ? { name } : {}),
                 }
               : p
           ),
