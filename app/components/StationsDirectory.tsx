@@ -161,12 +161,18 @@ export function StationsDirectory() {
   };
 
   useEffect(() => {
-    void loadStations();
-    return subscribeStationsAutoRefresh(() => {
+    let cancelled = false;
+    // Defer so loadStations' setState is not synchronous inside the effect body.
+    queueMicrotask(() => {
+      if (!cancelled) void loadStations();
+    });
+    const unsubscribe = subscribeStationsAutoRefresh(() => {
       void loadStations({ silent: true });
     });
-    // Initial load + auto-refresh subscription only on mount
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only
+    return () => {
+      cancelled = true;
+      unsubscribe();
+    };
   }, []);
 
   useEffect(() => {
@@ -174,19 +180,36 @@ export function StationsDirectory() {
     return () => window.clearInterval(id);
   }, []);
 
-  useEffect(() => {
+  const filterEpoch = useMemo(
+    () =>
+      [
+        query,
+        brandFilter,
+        excludedBrands.join("\0"),
+        fuelType,
+        priceFreshnessFilter,
+        openNowFilter,
+        requireSelectedFuel,
+        sortKey,
+        sortDirection,
+      ].join("|"),
+    [
+      query,
+      brandFilter,
+      excludedBrands,
+      fuelType,
+      priceFreshnessFilter,
+      openNowFilter,
+      requireSelectedFuel,
+      sortKey,
+      sortDirection,
+    ]
+  );
+  const [pageFilterEpoch, setPageFilterEpoch] = useState(filterEpoch);
+  if (pageFilterEpoch !== filterEpoch) {
+    setPageFilterEpoch(filterEpoch);
     setPage(1);
-  }, [
-    query,
-    brandFilter,
-    excludedBrands,
-    fuelType,
-    priceFreshnessFilter,
-    openNowFilter,
-    requireSelectedFuel,
-    sortKey,
-    sortDirection,
-  ]);
+  }
 
   const brandOptions = useMemo(
     () => distinctBrandOptions(stations),

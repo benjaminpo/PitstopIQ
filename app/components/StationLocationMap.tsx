@@ -80,7 +80,6 @@ export default function StationLocationMap({
   markers,
   className,
 }: Readonly<StationLocationMapProps>) {
-  const [ready, setReady] = useState(false);
   const [mapInstanceKey] = useState(() => `station-map-${nextMapInstanceId++}`);
   const points = useMemo(
     () => markers.map((m) => m.station.location),
@@ -88,11 +87,7 @@ export default function StationLocationMap({
   );
   const centre = points[0] ?? { lat: 54.5, lng: -2.5 };
 
-  useEffect(() => {
-    setReady(true);
-  }, []);
-
-  if (!ready || markers.length === 0) {
+  if (markers.length === 0) {
     return (
       <div
         className={
@@ -100,7 +95,7 @@ export default function StationLocationMap({
           "flex h-56 w-full items-center justify-center rounded-xl bg-slate-950 text-sm text-slate-500 ring-1 ring-slate-700/60"
         }
       >
-        Loading map…
+        No map location
       </div>
     );
   }

@@ -81,13 +81,28 @@ export function StationPageView({
   const [station, setStation] = useState(initialStation);
   const [source, setSource] = useState(initialSource);
   const [pricesFetchedAt, setPricesFetchedAt] = useState(initialPricesFetchedAt);
+  const [syncedProps, setSyncedProps] = useState({
+    station: initialStation,
+    source: initialSource,
+    pricesFetchedAt: initialPricesFetchedAt,
+  });
   const [now, setNow] = useState(() => Date.now());
 
-  useEffect(() => {
+  // Adjust local state when the server page passes new props (no extra effect render).
+  if (
+    initialStation !== syncedProps.station ||
+    initialSource !== syncedProps.source ||
+    initialPricesFetchedAt !== syncedProps.pricesFetchedAt
+  ) {
+    setSyncedProps({
+      station: initialStation,
+      source: initialSource,
+      pricesFetchedAt: initialPricesFetchedAt,
+    });
     setStation(initialStation);
     setSource(initialSource);
     setPricesFetchedAt(initialPricesFetchedAt);
-  }, [initialStation, initialSource, initialPricesFetchedAt]);
+  }
 
   useEffect(() => {
     const id = window.setInterval(() => setNow(Date.now()), 30_000);
