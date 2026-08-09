@@ -13,6 +13,7 @@ import {
   parsePriceToGbpPerLitre,
 } from "./fuelPriceParse";
 import { formatStationAddress } from "./stationAddress";
+import { parseAmenities, parseOpeningTimes } from "./stationFacilities";
 import type { FuelStation, FuelType, GeoPoint, MapBounds } from "./types";
 
 export { parsePriceLastUpdated, parsePriceToGbpPerLitre } from "./fuelPriceParse";
@@ -70,6 +71,8 @@ interface ApiStation {
   temporary_closure?: boolean;
   permanent_closure?: boolean | null;
   location?: ApiLocation;
+  amenities?: unknown;
+  opening_times?: unknown;
 }
 
 interface ApiFuelPrice {
@@ -356,6 +359,8 @@ function mapStations(
       city: s.location?.city,
     });
     const pricesUpdatedAt = updatedByGradeByNode.get(s.node_id);
+    const amenities = parseAmenities(s.amenities);
+    const openingHours = parseOpeningTimes(s.opening_times);
     mapped.push({
       id: s.node_id,
       name: s.trading_name?.trim() || s.brand_name?.trim() || "Forecourt",
@@ -369,6 +374,8 @@ function mapStations(
           ? pricesUpdatedAt
           : undefined,
       pricesLastUpdatedAt: updatedByNode.get(s.node_id) ?? null,
+      amenities: amenities.length > 0 ? amenities : undefined,
+      openingHours: openingHours ?? undefined,
       distanceOffRouteMiles: Number(
         haversineMiles(routeCentre, location).toFixed(2)
       ),
@@ -436,6 +443,48 @@ function aggregatePriceRows(priceRows: ApiPriceStation[]): {
   return { pricesByNode, updatedByGradeByNode, updatedByNode };
 }
 
+/**
+ * CSV prices lack amenities / opening hours. Overlay those fields from the
+ * paginated PFS JSON endpoint when available.
+ */
+async function mergePfsFacilities(
+  stations: FuelStation[]
+): Promise<FuelStation[]> {
+  try {
+    const pfsRows = await fetchAllBatches<ApiStation>(PFS_PATH);
+    const byId = new Map<
+      string,
+      { amenities?: string[]; openingHours: FuelStation["openingHours"] }
+    >();
+    for (const row of pfsRows) {
+      const amenities = parseAmenities(row.amenities);
+      const openingHours = parseOpeningTimes(row.opening_times);
+      if (amenities.length === 0 && !openingHours) continue;
+      byId.set(row.node_id, {
+        amenities: amenities.length > 0 ? amenities : undefined,
+        openingHours: openingHours ?? undefined,
+      });
+    }
+    if (byId.size === 0) return stations;
+
+    return stations.map((station) => {
+      const meta = byId.get(station.id);
+      if (!meta) return station;
+      return {
+        ...station,
+        amenities: meta.amenities ?? station.amenities,
+        openingHours: meta.openingHours ?? station.openingHours,
+      };
+    });
+  } catch (error) {
+    console.warn(
+      "[fuelFinder] PFS facilities merge failed; continuing without hours/amenities:",
+      error
+    );
+    return stations;
+  }
+}
+
 async function refreshFromCsv(): Promise<CachedDataset> {
   const refreshStartedAt = Date.now();
   const response = await fuelFinderFetch(CSV_PRESIGN_PATH, { method: "GET" });
@@ -475,10 +524,11 @@ async function refreshFromCsv(): Promise<CachedDataset> {
 
   const text = await csvResponse.text();
   const UK_CENTRE: GeoPoint = { lat: 54.0, lng: -2.5 };
-  const stations = parseFuelFinderCsv(text, UK_CENTRE);
-  if (stations.length === 0) {
+  const fromCsv = parseFuelFinderCsv(text, UK_CENTRE);
+  if (fromCsv.length === 0) {
     throw new Error("Fuel Finder CSV contained no usable stations");
   }
+  const stations = await mergePfsFacilities(fromCsv);
 
   return {
     // This timestamp drives the next incremental query and represents when
@@ -591,7 +641,20 @@ async function refreshIncrementally(
 async function refreshDataset(
   current: CachedDataset | null
 ): Promise<CachedDataset> {
-  return current ? refreshIncrementally(current) : refreshBaseline();
+  if (!current) return refreshBaseline();
+
+  const refreshed = await refreshIncrementally(current);
+  // Older durable caches (CSV-only) lack hours/amenities — backfill once.
+  const hasFacilities = refreshed.stations.some(
+    (station) =>
+      (station.amenities && station.amenities.length > 0) || station.openingHours
+  );
+  if (hasFacilities) return refreshed;
+
+  return {
+    ...refreshed,
+    stations: await mergePfsFacilities(refreshed.stations),
+  };
 }
 
 async function getAllStationsCached(): Promise<CachedDataset> {

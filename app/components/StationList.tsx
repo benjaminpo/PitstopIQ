@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   AlertTriangle,
   ArrowUpDown,
@@ -87,18 +87,22 @@ export function StationList() {
     return ` · ${excludedBrands.length} ${noun} hidden`;
   })();
 
-  const handleSelect = (stationId: string) => {
-    // Tapping the selected card again deselects it, restoring the direct route
-    if (selectedStationId === stationId) {
-      setSelectedStationId(null);
-      return;
-    }
+  const selectStation = (stationId: string) => {
     setSelectedStationId(stationId);
     // Below the md breakpoint the sidebar overlays the map, so close it to
     // reveal the selected station and its detour route.
     if (window.matchMedia("(max-width: 767px)").matches) {
       setSidebarOpen(false);
     }
+  };
+
+  const handleSelect = (stationId: string) => {
+    // Tapping the selected card again deselects it, restoring the direct route
+    if (selectedStationId === stationId) {
+      setSelectedStationId(null);
+      return;
+    }
+    selectStation(stationId);
   };
 
   const [now, setNow] = useState(() => Date.now());
@@ -398,6 +402,7 @@ export function StationList() {
             fuelType={vehicle.fuelType}
             selected={selectedStationId === item.station.id}
             onSelect={() => handleSelect(item.station.id)}
+            onSelectNearby={selectStation}
           />
         ))}
       </div>

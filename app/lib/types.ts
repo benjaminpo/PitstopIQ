@@ -24,6 +24,29 @@ export interface GeoPoint {
   lng: number;
 }
 
+export type Weekday =
+  | "monday"
+  | "tuesday"
+  | "wednesday"
+  | "thursday"
+  | "friday"
+  | "saturday"
+  | "sunday";
+
+/** One day's opening window from Fuel Finder `opening_times`. */
+export interface StationDayHours {
+  /** Local open time as HH:MM */
+  open: string;
+  /** Local close time as HH:MM */
+  close: string;
+  is24Hours: boolean;
+}
+
+export interface StationOpeningHours {
+  usualDays: Partial<Record<Weekday, StationDayHours>>;
+  bankHoliday?: StationDayHours | null;
+}
+
 export interface FuelStation {
   id: string;
   name: string;
@@ -45,6 +68,10 @@ export interface FuelStation {
    * (latest across grades); null when the API didn't provide it.
    */
   pricesLastUpdatedAt?: number | null;
+  /** Fuel Finder amenity identifiers (e.g. car_wash, customer_toilets) */
+  amenities?: string[];
+  /** Opening hours from Fuel Finder when provided */
+  openingHours?: StationOpeningHours | null;
   /** Extra miles vs remaining on the direct route */
   distanceOffRouteMiles: number;
   /** Extra driving time vs the direct route (seconds, from OSRM or estimate) */

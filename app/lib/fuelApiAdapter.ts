@@ -27,6 +27,8 @@ type MockStationTemplate = {
   prices: Partial<Record<FuelType, number>>;
   /** Simulated age of the price report, for demo realism */
   priceAgeMinutes: number;
+  amenities?: string[];
+  open24?: boolean;
 };
 
 const MOCK_STATION_TEMPLATES: MockStationTemplate[] = [
@@ -42,6 +44,8 @@ const MOCK_STATION_TEMPLATES: MockStationTemplate[] = [
     detourExtraSeconds: 120,
     prices: { E10: 1.329, E5: 1.429, B7_Diesel: 1.389 },
     priceAgeMinutes: 45,
+    amenities: ["customer_toilets", "car_wash", "water_filling"],
+    open24: true,
   },
   {
     id: "mock-bp-heathrow",
@@ -55,6 +59,7 @@ const MOCK_STATION_TEMPLATES: MockStationTemplate[] = [
     detourExtraSeconds: 390,
     prices: { E10: 1.459, E5: 1.559, B7_Diesel: 1.499 },
     priceAgeMinutes: 130,
+    amenities: ["customer_toilets", "adblue_pumps", "water_filling"],
   },
   {
     id: "mock-moto-m4",
@@ -68,6 +73,8 @@ const MOCK_STATION_TEMPLATES: MockStationTemplate[] = [
     detourExtraSeconds: 45,
     prices: { E10: 1.489, E5: 1.589, B7_Diesel: 1.529 },
     priceAgeMinutes: 25,
+    amenities: ["customer_toilets", "car_wash", "adblue_packaged", "water_filling"],
+    open24: true,
   },
   {
     id: "mock-shell-reading",
@@ -81,6 +88,7 @@ const MOCK_STATION_TEMPLATES: MockStationTemplate[] = [
     detourExtraSeconds: 250,
     prices: { E10: 1.389, E5: 1.489, B7_Diesel: 1.419 },
     priceAgeMinutes: 310,
+    amenities: ["customer_toilets", "adblue_pumps"],
   },
   {
     id: "mock-asda-bracknell",
@@ -94,6 +102,8 @@ const MOCK_STATION_TEMPLATES: MockStationTemplate[] = [
     detourExtraSeconds: 60,
     prices: { E10: 1.299, E5: 1.399, B7_Diesel: 1.349 },
     priceAgeMinutes: 75,
+    amenities: ["customer_toilets", "water_filling"],
+    open24: true,
   },
   {
     id: "mock-esso-maidenhead",
@@ -107,6 +117,7 @@ const MOCK_STATION_TEMPLATES: MockStationTemplate[] = [
     detourExtraSeconds: 460,
     prices: { E10: 1.279, E5: 1.379, B7_Diesel: 1.329 },
     priceAgeMinutes: 220,
+    amenities: ["water_filling"],
   },
   {
     id: "mock-sainsburys-windsor",
@@ -120,6 +131,7 @@ const MOCK_STATION_TEMPLATES: MockStationTemplate[] = [
     detourExtraSeconds: 195,
     prices: { E10: 1.349, E5: 1.449, B7_Diesel: 1.379 },
     priceAgeMinutes: 15,
+    amenities: ["customer_toilets", "car_wash"],
   },
   {
     id: "mock-morrisons-uxbridge",
@@ -133,6 +145,7 @@ const MOCK_STATION_TEMPLATES: MockStationTemplate[] = [
     detourExtraSeconds: 535,
     prices: { E10: 1.319, E5: 1.419, B7_Diesel: 1.359 },
     priceAgeMinutes: 480,
+    amenities: ["customer_toilets", "adblue_packaged"],
   },
 ];
 
@@ -157,6 +170,9 @@ function generateMockStations(bounds: MapBounds): FuelStation[] {
       pricesUpdatedAt[fuel] = baseAge - offsetMins * 60_000;
     }
     const latest = Math.max(...Object.values(pricesUpdatedAt));
+    const dayHours = t.open24
+      ? { open: "00:00", close: "00:00", is24Hours: true as const }
+      : { open: "06:00", close: "22:00", is24Hours: false as const };
     return {
       id: t.id,
       name: t.name,
@@ -170,6 +186,21 @@ function generateMockStations(bounds: MapBounds): FuelStation[] {
       prices: t.prices,
       pricesUpdatedAt,
       pricesLastUpdatedAt: latest,
+      amenities: t.amenities,
+      openingHours: {
+        usualDays: {
+          monday: dayHours,
+          tuesday: dayHours,
+          wednesday: dayHours,
+          thursday: dayHours,
+          friday: dayHours,
+          saturday: dayHours,
+          sunday: t.open24
+            ? dayHours
+            : { open: "07:00", close: "21:00", is24Hours: false },
+        },
+        bankHoliday: dayHours,
+      },
       distanceOffRouteMiles: t.distanceOffRouteMiles,
       detourExtraSeconds: t.detourExtraSeconds,
     };

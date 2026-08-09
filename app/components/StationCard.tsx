@@ -19,6 +19,7 @@ import { cn } from "@/app/lib/utils";
 import { BrandLogo } from "./BrandLogo";
 import { NavigateHere } from "./NavigateHere";
 import { StationContribute } from "./StationContribute";
+import { StationDetails } from "./StationDetails";
 import { StatusBadge } from "./StatusBadge";
 
 interface StationCardProps {
@@ -31,6 +32,7 @@ interface StationCardProps {
   now?: number;
   fuelType?: FuelType;
   onSelect?: () => void;
+  onSelectNearby?: (stationId: string) => void;
 }
 
 interface GradePriceRow {
@@ -165,6 +167,7 @@ export function StationCard({
   now,
   fuelType,
   onSelect,
+  onSelectNearby,
 }: Readonly<StationCardProps>) {
   const { station, calculation, pricePerLitre, priceFromCommunity, community } =
     item;
@@ -192,6 +195,7 @@ export function StationCard({
 
   return (
     <div
+      id={`station-card-${station.id}`}
       className={cn(
         "w-full rounded-xl border p-3.5 text-left transition",
         cardSurfaceClass(selected, isBest)
@@ -310,6 +314,14 @@ export function StationCard({
             name: station.name,
             origin,
           }}
+        />
+      )}
+
+      {selected && (
+        <StationDetails
+          station={station}
+          fuelType={activeFuel}
+          onSelectNearby={onSelectNearby}
         />
       )}
 

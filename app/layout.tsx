@@ -3,6 +3,12 @@ import localFont from "next/font/local";
 import { GoogleAdSense } from "@/app/components/GoogleAdSense";
 import { GoogleAnalytics } from "@/app/components/GoogleAnalytics";
 import { getAdSenseClient } from "@/app/lib/adsense";
+import {
+  SITE_DESCRIPTION,
+  SITE_NAME,
+  SITE_TAGLINE,
+  resolveSiteUrl,
+} from "@/app/lib/site";
 import "./globals.css";
 
 const geistSans = localFont({
@@ -16,11 +22,56 @@ const geistMono = localFont({
   weight: "100 900",
 });
 
+const siteUrl = resolveSiteUrl();
+
 export const metadata: Metadata = {
-  title: "PitstopIQ — Smart Route Cost Calculator",
-  description:
-    "Calculate whether diverting to a cheaper fuel station is a net financial gain, accounting for MPG, detour distance, and live forecourt prices.",
-  applicationName: "PitstopIQ",
+  metadataBase: new URL(siteUrl),
+  title: {
+    default: `${SITE_NAME} — ${SITE_TAGLINE}`,
+    template: `%s · ${SITE_NAME}`,
+  },
+  description: SITE_DESCRIPTION,
+  applicationName: SITE_NAME,
+  keywords: [
+    "UK fuel prices",
+    "Fuel Finder",
+    "cheap petrol",
+    "cheap diesel",
+    "route fuel cost",
+    "detour calculator",
+    "MPG fuel saving",
+    "forecourt comparison",
+  ],
+  authors: [{ name: SITE_NAME }],
+  creator: SITE_NAME,
+  alternates: {
+    canonical: "/",
+  },
+  openGraph: {
+    type: "website",
+    locale: "en_GB",
+    url: siteUrl,
+    siteName: SITE_NAME,
+    title: `${SITE_NAME} — ${SITE_TAGLINE}`,
+    description: SITE_DESCRIPTION,
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: `${SITE_NAME} — ${SITE_TAGLINE}`,
+    description: SITE_DESCRIPTION,
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+      "max-video-preview": -1,
+    },
+  },
+  category: "travel",
   ...(getAdSenseClient()
     ? {
         other: {
