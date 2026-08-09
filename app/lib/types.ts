@@ -1,5 +1,5 @@
 /** Fuel grades commonly available at UK forecourts */
-export type FuelType = "E10" | "E5" | "B7_Diesel" | "B7_Premium";
+export type FuelType = "E10" | "E5" | "B7_Diesel" | "B7_Premium" | "HVO";
 
 export interface VehicleProfile {
   fuelType: FuelType;

@@ -1,5 +1,6 @@
 import type { FuelType, GeoPoint, TripStop, VehicleProfile } from "./types";
 import { MAX_TRIP_STOPS } from "./types";
+import { ALL_FUEL_TYPES } from "./fuelConstants";
 import {
   DEFAULT_ROUTE_AVOID,
   parseRouteAvoidParam,
@@ -9,7 +10,7 @@ import {
 } from "./routeAvoid";
 import { emptyTripStop } from "./tripPath";
 
-const FUEL_TYPES: readonly FuelType[] = ["E10", "E5", "B7_Diesel", "B7_Premium"];
+const FUEL_TYPES = new Set<FuelType>(ALL_FUEL_TYPES);
 
 export interface TripSnapshot {
   origin: string;
@@ -49,7 +50,7 @@ function parseNumber(
 }
 
 function isFuelType(v: string): v is FuelType {
-  return (FUEL_TYPES as readonly string[]).includes(v);
+  return FUEL_TYPES.has(v as FuelType);
 }
 
 function parseViaStops(

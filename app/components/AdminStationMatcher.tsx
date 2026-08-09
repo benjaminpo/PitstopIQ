@@ -46,6 +46,7 @@ const FUELS: Array<{ type: FuelType; label: string }> = [
   { type: "E5", label: "Super" },
   { type: "B7_Diesel", label: "Diesel" },
   { type: "B7_Premium", label: "Premium D" },
+  { type: "HVO", label: "HVO" },
 ];
 
 const panelClass =

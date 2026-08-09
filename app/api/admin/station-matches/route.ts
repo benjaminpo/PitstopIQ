@@ -9,12 +9,13 @@ import {
 import { listStationAdminOverrides } from "@/app/lib/stationAdminOverrides";
 import type { FuelStation, FuelType } from "@/app/lib/types";
 import type { PetrolPricesStation } from "@/app/lib/stationMatching";
+import { ALL_FUEL_TYPES } from "@/app/lib/fuelConstants";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
 
 const UK_BOUNDS = { north: 61, south: 49, east: 2.5, west: -9 };
-const FUEL_TYPES = new Set<FuelType>(["E10", "E5", "B7_Diesel", "B7_Premium"]);
+const FUEL_TYPES = new Set<FuelType>(ALL_FUEL_TYPES);
 
 function validPrices(value: unknown): value is Partial<Record<FuelType, number>> {
   if (!value || typeof value !== "object" || Array.isArray(value)) return false;

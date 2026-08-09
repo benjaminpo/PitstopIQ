@@ -33,6 +33,8 @@ describe("mapFuelType / isHybridFuel", () => {
     expect(mapFuelType("DIESEL")).toBe("B7_Diesel");
     expect(mapFuelType("PETROL")).toBe("E10");
     expect(mapFuelType("HYBRID ELECTRIC")).toBe("E10");
+    expect(mapFuelType("HVO")).toBe("HVO");
+    expect(mapFuelType("HYDROTREATED VEGETABLE OIL")).toBe("HVO");
   });
 
   it("detects hybrids", () => {

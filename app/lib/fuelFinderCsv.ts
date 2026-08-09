@@ -32,6 +32,11 @@ const CSV_FUEL_COLUMNS: Array<{ price: string; updated: string; type: FuelType }
       updated: "forecourts.price_submission_timestamp.B7P",
       type: "B7_Premium",
     },
+    {
+      price: "forecourts.fuel_price.HVO",
+      updated: "forecourts.price_submission_timestamp.HVO",
+      type: "HVO",
+    },
   ];
 
 /** Portal transport key from env (Fuel Finder SPA NEXT_PUBLIC_SECRET_KEY). */

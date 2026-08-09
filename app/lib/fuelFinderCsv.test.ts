@@ -9,7 +9,7 @@ import {
 } from "./fuelFinderCsv";
 
 const HEADER =
-  "forecourts.node_id,forecourts.trading_name,forecourts.brand_name,forecourts.temporary_closure,forecourts.permanent_closure,forecourts.location.address_line_1,forecourts.location.address_line_2,forecourts.location.city,forecourts.location.postcode,forecourts.location.latitude,forecourts.location.longitude,forecourts.fuel_price.E5,forecourts.price_submission_timestamp.E5,forecourts.fuel_price.E10,forecourts.price_submission_timestamp.E10,forecourts.fuel_price.B7S,forecourts.price_submission_timestamp.B7S,forecourts.fuel_price.B7P,forecourts.price_submission_timestamp.B7P";
+  "forecourts.node_id,forecourts.trading_name,forecourts.brand_name,forecourts.temporary_closure,forecourts.permanent_closure,forecourts.location.address_line_1,forecourts.location.address_line_2,forecourts.location.city,forecourts.location.postcode,forecourts.location.latitude,forecourts.location.longitude,forecourts.fuel_price.E5,forecourts.price_submission_timestamp.E5,forecourts.fuel_price.E10,forecourts.price_submission_timestamp.E10,forecourts.fuel_price.B7S,forecourts.price_submission_timestamp.B7S,forecourts.fuel_price.B7P,forecourts.price_submission_timestamp.B7P,forecourts.fuel_price.HVO,forecourts.price_submission_timestamp.HVO";
 
 describe("parseCsvRecords", () => {
   it("handles quoted fields, escaped quotes, and CR", () => {
@@ -40,11 +40,11 @@ describe("parseCsvRecords", () => {
 describe("parseFuelFinderCsv", () => {
   it("maps open stations with E10/E5/B7 prices and skips closures", () => {
     const csv = `${HEADER}
-abc123,PONTYPOOL SUPERSTORE,TESCO,false,false,LOWER BRIDGE STREET,,PONTYPOOL,NP4 0XB,51.7000700,-3.0402500,,,154.9000,Fri Jul 31 2026 16:15:08 GMT+0000 (Coordinated Universal Time),135.9000,Fri Jul 31 2026 12:00:00 GMT+0000 (Coordinated Universal Time),145.9000,Fri Jul 31 2026 14:00:00 GMT+0000 (Coordinated Universal Time)
-closed1,CLOSED SITE,GULF,true,false,,,OX15 6ER,51.96,-1.95,,,161.7000,Fri Jul 31 2026 14:36:15 GMT+0000 (Coordinated Universal Time),,,,
-perm1,GONE,BP,false,yes,,,SW1A 1AA,51.5,-0.1,,,130.0,Fri Jul 31 2026 14:36:15 GMT+0000 (Coordinated Universal Time),,,,
-quoted,"SHELL, READING",SHELL,false,false,Vastern Road,,Reading,RG1 8EQ,51.45,-0.97,142.9000,Fri Jul 31 2026 14:36:15 GMT+0000 (Coordinated Universal Time),132.9000,Fri Jul 31 2026 14:36:15 GMT+0000 (Coordinated Universal Time),,,,
-premiumOnly,PREMIUM ONLY,SHELL,false,false,Bath Road,,Reading,RG2 0AA,51.44,-0.96,,,,,,,149.9000,Fri Jul 31 2026 12:00:00 GMT+0000 (Coordinated Universal Time)
+abc123,PONTYPOOL SUPERSTORE,TESCO,false,false,LOWER BRIDGE STREET,,PONTYPOOL,NP4 0XB,51.7000700,-3.0402500,,,154.9000,Fri Jul 31 2026 16:15:08 GMT+0000 (Coordinated Universal Time),135.9000,Fri Jul 31 2026 12:00:00 GMT+0000 (Coordinated Universal Time),145.9000,Fri Jul 31 2026 14:00:00 GMT+0000 (Coordinated Universal Time),167.9000,Fri Jul 31 2026 13:00:00 GMT+0000 (Coordinated Universal Time)
+closed1,CLOSED SITE,GULF,true,false,,,OX15 6ER,51.96,-1.95,,,161.7000,Fri Jul 31 2026 14:36:15 GMT+0000 (Coordinated Universal Time),,,,,,
+perm1,GONE,BP,false,yes,,,SW1A 1AA,51.5,-0.1,,,130.0,Fri Jul 31 2026 14:36:15 GMT+0000 (Coordinated Universal Time),,,,,,
+quoted,"SHELL, READING",SHELL,false,false,Vastern Road,,Reading,RG1 8EQ,51.45,-0.97,142.9000,Fri Jul 31 2026 14:36:15 GMT+0000 (Coordinated Universal Time),132.9000,Fri Jul 31 2026 14:36:15 GMT+0000 (Coordinated Universal Time),,,,,,
+premiumOnly,PREMIUM ONLY,SHELL,false,false,Bath Road,,Reading,RG2 0AA,51.44,-0.96,,,,,,,149.9000,Fri Jul 31 2026 12:00:00 GMT+0000 (Coordinated Universal Time),,
 `;
     const stations = parseFuelFinderCsv(csv);
     expect(stations).toHaveLength(3);
@@ -56,6 +56,7 @@ premiumOnly,PREMIUM ONLY,SHELL,false,false,Bath Road,,Reading,RG2 0AA,51.44,-0.9
     expect(tesco?.prices.E10).toBe(1.549);
     expect(tesco?.prices.B7_Diesel).toBe(1.359);
     expect(tesco?.prices.B7_Premium).toBe(1.459);
+    expect(tesco?.prices.HVO).toBe(1.679);
     expect(tesco?.pricesUpdatedAt?.E10).toBe(
       Date.parse("Fri Jul 31 2026 16:15:08 GMT+0000 (Coordinated Universal Time)")
     );
@@ -64,6 +65,9 @@ premiumOnly,PREMIUM ONLY,SHELL,false,false,Bath Road,,Reading,RG2 0AA,51.44,-0.9
     );
     expect(tesco?.pricesUpdatedAt?.B7_Premium).toBe(
       Date.parse("Fri Jul 31 2026 14:00:00 GMT+0000 (Coordinated Universal Time)")
+    );
+    expect(tesco?.pricesUpdatedAt?.HVO).toBe(
+      Date.parse("Fri Jul 31 2026 13:00:00 GMT+0000 (Coordinated Universal Time)")
     );
     expect(tesco?.pricesLastUpdatedAt).toBe(
       Date.parse("Fri Jul 31 2026 16:15:08 GMT+0000 (Coordinated Universal Time)")

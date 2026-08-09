@@ -506,7 +506,7 @@ export function RouteForm() {
           <Fuel className="h-3.5 w-3.5" />
           Fuel type
         </span>
-        <div className="grid grid-cols-2 gap-1.5 rounded-lg bg-slate-900/80 p-1 ring-1 ring-slate-700/60">
+        <div className="grid grid-cols-3 gap-1.5 rounded-lg bg-slate-900/80 p-1 ring-1 ring-slate-700/60">
           {VEHICLE_FUEL_OPTIONS.map((opt) => {
             const active = vehicleFuelKind(vehicle.fuelType) === opt.kind;
             return (

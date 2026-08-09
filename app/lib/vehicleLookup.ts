@@ -110,6 +110,10 @@ export function mapFuelType(fuelRaw: string | null | undefined): FuelType | null
   if (!fuelRaw) return null;
   const f = fuelRaw.toUpperCase();
 
+  if (f.includes("HVO") || f.includes("HYDROTREATED")) {
+    return "HVO";
+  }
+
   if (
     f.includes("DIESEL") ||
     f === "GAS DIESEL" ||
@@ -242,7 +246,10 @@ export function estimateTankCapacityLitres(input: {
   if (weight > 0) litres = applyBand(litres, weight, WEIGHT_BANDS);
   else if (cc > 0) litres = applyBand(litres, cc, CC_BANDS);
 
-  if (mapFuelType(input.fuelTypeRaw) === "B7_Diesel") {
+  if (
+    mapFuelType(input.fuelTypeRaw) === "B7_Diesel" ||
+    mapFuelType(input.fuelTypeRaw) === "HVO"
+  ) {
     litres = Math.round(litres * 1.08);
   }
   if (isHybridFuel(input.fuelTypeRaw)) {
@@ -275,7 +282,9 @@ export function estimateMpg(input: {
 
   const cc = input.engineCapacityCc ?? 1600;
   let mpg =
-    mapped === "B7_Diesel" ? mpgForDiesel(cc) : mpgForPetrol(cc);
+    mapped === "B7_Diesel" || mapped === "HVO"
+      ? mpgForDiesel(cc)
+      : mpgForPetrol(cc);
 
   if (isHybridFuel(input.fuelTypeRaw)) mpg = Math.round(mpg * 1.25);
   return Math.max(15, Math.min(120, Math.round(mpg)));

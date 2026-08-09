@@ -70,7 +70,7 @@ function parseFuelType(
   value: unknown
 ): { ok: true; fuelType: FuelType } | { ok: false; error: string } {
   if (typeof value !== "string" || !FUEL_TYPES.has(value as FuelType)) {
-    return { ok: false, error: "fuelType must be E10, E5, B7_Diesel, or B7_Premium" };
+    return { ok: false, error: "fuelType must be E10, E5, B7_Diesel, B7_Premium, or HVO" };
   }
   return { ok: true, fuelType: value as FuelType };
 }

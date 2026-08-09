@@ -40,6 +40,7 @@ const FUEL_TYPE_MAP: Record<string, FuelType> = {
   B7_STANDARD: "B7_Diesel",
   B7_PREMIUM: "B7_Premium",
   B7: "B7_Diesel",
+  HVO: "HVO",
 };
 
 interface TokenResponse {

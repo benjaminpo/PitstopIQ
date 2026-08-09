@@ -71,7 +71,7 @@ const MOCK_STATION_TEMPLATES: MockStationTemplate[] = [
     lngOffset: -0.02,
     distanceOffRouteMiles: 0.4,
     detourExtraSeconds: 45,
-    prices: { E10: 1.489, E5: 1.589, B7_Diesel: 1.529 },
+    prices: { E10: 1.489, E5: 1.589, B7_Diesel: 1.529, HVO: 1.679 },
     priceAgeMinutes: 25,
     amenities: ["customer_toilets", "car_wash", "adblue_packaged", "water_filling"],
     open24: true,
@@ -86,7 +86,7 @@ const MOCK_STATION_TEMPLATES: MockStationTemplate[] = [
     lngOffset: -0.065,
     distanceOffRouteMiles: 2.4,
     detourExtraSeconds: 250,
-    prices: { E10: 1.389, E5: 1.489, B7_Diesel: 1.419 },
+    prices: { E10: 1.389, E5: 1.489, B7_Diesel: 1.419, HVO: 1.599 },
     priceAgeMinutes: 310,
     amenities: ["customer_toilets", "adblue_pumps"],
   },
@@ -167,6 +167,7 @@ function generateMockStations(bounds: MapBounds): FuelStation[] {
       if (fuel === "E5") offsetMins = 40;
       else if (fuel === "B7_Diesel") offsetMins = 90;
       else if (fuel === "B7_Premium") offsetMins = 180;
+      else if (fuel === "HVO") offsetMins = 120;
       pricesUpdatedAt[fuel] = baseAge - offsetMins * 60_000;
     }
     const latest = Math.max(...Object.values(pricesUpdatedAt));

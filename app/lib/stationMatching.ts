@@ -34,6 +34,7 @@ const FIELD_ALIASES = {
   E5: ["e5", "super_unleaded", "premium_unleaded"],
   B7_Diesel: ["b7_diesel", "b7", "diesel", "regular_diesel"],
   B7_Premium: ["b7_premium", "b7p", "premium_diesel", "super_diesel"],
+  HVO: ["hvo", "hydrotreated_vegetable_oil", "renewable_diesel"],
   updatedAt: ["updated_at", "last_updated", "price_updated_at", "timestamp"],
 } as const;
 
@@ -115,7 +116,7 @@ function normalizeRecord(raw: Record<string, unknown>, index: number): PetrolPri
   if (!name || (!postcode && (lat === null || lng === null))) return null;
 
   const prices: Partial<Record<FuelType, number>> = {};
-  for (const fuel of ["E10", "E5", "B7_Diesel", "B7_Premium"] as const) {
+  for (const fuel of ["E10", "E5", "B7_Diesel", "B7_Premium", "HVO"] as const) {
     const price = priceValue(record, FIELD_ALIASES[fuel]);
     if (price !== undefined) prices[fuel] = price;
   }

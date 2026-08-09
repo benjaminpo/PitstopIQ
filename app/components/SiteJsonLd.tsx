@@ -28,8 +28,9 @@ export function SiteJsonLd() {
       "Live UK Fuel Finder forecourt prices",
       "Route corridor fuel comparison",
       "Detour cost vs MPG and time value",
-      "Station opening hours and facilities",
-    ],
+        "Station opening hours and facilities",
+        "HVO and diesel grade comparison",
+      ],
     creator: {
       "@type": "Organization",
       name: SITE_NAME,
