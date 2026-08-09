@@ -55,6 +55,44 @@ code,
   color: #94a3b8 !important;
 }
 
+.pitstop-location-control {
+  border: 1px solid rgba(94, 234, 212, 0.25) !important;
+  border-radius: 10px !important;
+  overflow: hidden;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45) !important;
+}
+
+.pitstop-location-control__button {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  place-items: center;
+  border: 0;
+  background: rgba(2, 6, 23, 0.85);
+  color: #5eead4;
+  cursor: pointer;
+}
+
+.pitstop-location-control__button:hover {
+  background: rgba(15, 118, 110, 0.95);
+  color: #f0fdfa;
+}
+
+.pitstop-location-control__button:focus-visible {
+  outline: 2px solid #5eead4;
+  outline-offset: -2px;
+}
+
+.pitstop-location-control__button:disabled {
+  color: #94a3b8;
+  cursor: wait;
+}
+
+.pitstop-location-control__button svg {
+  width: 18px;
+  height: 18px;
+}
+
 .leaflet-control-attribution {
   background: rgba(2, 6, 23, 0.75) !important;
   color: #94a3b8 !important;

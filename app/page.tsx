@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { useEffect, useState } from "react";
-import { Coffee, Crosshair, Loader2, Menu, PanelLeftClose } from "lucide-react";
+import { Coffee, Loader2, Menu, PanelLeftClose } from "lucide-react";
 import { AccountMenu } from "@/app/components/AccountMenu";
 import { AppLogo } from "@/app/components/AppLogo";
 import { FreshnessBadge } from "@/app/components/FreshnessBadge";
@@ -30,8 +30,6 @@ export default function HomePage() {
   const {
     sidebarOpen,
     setSidebarOpen,
-    locateCurrentPosition,
-    locating,
     loading,
     originCoords,
     destinationCoords,
@@ -174,25 +172,9 @@ export default function HomePage() {
               {sidebarOpen ? "Hide panel" : "Show panel"}
             </span>
           </button>
-          <button
-            type="button"
-            onClick={() => void locateCurrentPosition("origin")}
-            disabled={locating}
-            className="flex items-center gap-2 rounded-lg border border-teal-700/50 bg-slate-950/90 px-3 py-2 text-sm font-medium text-teal-300 shadow-lg backdrop-blur hover:bg-teal-950/50 disabled:cursor-not-allowed disabled:opacity-60"
-            aria-label="Use current location as origin"
-          >
-            {locating ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Crosshair className="h-4 w-4" />
-            )}
-            <span className="hidden sm:inline">
-              {locating ? "Locating…" : "My location"}
-            </span>
-          </button>
         </div>
 
-        <div className="absolute bottom-4 left-3 z-[500] flex flex-wrap gap-2 md:left-4">
+        <div className="absolute left-3 right-3 top-14 z-[500] flex flex-wrap gap-2 md:bottom-4 md:left-4 md:right-auto md:top-auto">
           <LegendDot color="bg-emerald-400" label="Worth it" />
           <LegendDot color="bg-amber-400" label="Break-even ±£0.50" />
           <LegendDot color="bg-rose-400" label="False economy" />
@@ -200,7 +182,7 @@ export default function HomePage() {
           <LegendDot color="bg-amber-300" label="Detour" />
         </div>
 
-        <div className="absolute bottom-4 right-3 z-[500] flex flex-col items-end gap-2 md:right-4">
+        <div className="absolute bottom-4 right-3 z-[500] flex max-w-[calc(100vw-1.5rem)] flex-col items-end gap-2 md:right-4">
           {!loading &&
             route &&
             selectedStationId === null &&

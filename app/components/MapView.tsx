@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   MapContainer,
   TileLayer,
@@ -325,6 +325,64 @@ function SafeZoomControl({ position }: { position: L.ControlPosition }) {
   return null;
 }
 
+function SafeLocationControl({
+  locating,
+  onLocate,
+}: {
+  locating: boolean;
+  onLocate: () => void;
+}) {
+  const map = useMap();
+  const buttonRef = useRef<HTMLButtonElement | null>(null);
+
+  useEffect(() => {
+    const corners = (map as unknown as { _controlCorners?: unknown })
+      ._controlCorners;
+    if (!corners) return;
+
+    const control = new L.Control({ position: "topright" });
+    control.onAdd = () => {
+      const container = L.DomUtil.create(
+        "div",
+        "leaflet-bar pitstop-location-control"
+      );
+      const button = L.DomUtil.create(
+        "button",
+        "pitstop-location-control__button",
+        container
+      ) as HTMLButtonElement;
+      button.type = "button";
+      button.title = "Use my location";
+      button.setAttribute("aria-label", "Use current location as origin");
+      button.addEventListener("click", onLocate);
+      L.DomEvent.disableClickPropagation(container);
+      L.DomEvent.disableScrollPropagation(container);
+      buttonRef.current = button;
+      return container;
+    };
+    control.addTo(map);
+
+    return () => {
+      const button = buttonRef.current;
+      if (button) button.removeEventListener("click", onLocate);
+      buttonRef.current = null;
+      control.remove();
+    };
+  }, [map, onLocate]);
+
+  useEffect(() => {
+    const button = buttonRef.current;
+    if (!button) return;
+    button.disabled = locating;
+    button.setAttribute("aria-busy", String(locating));
+    button.innerHTML = locating
+      ? '<svg class="animate-spin" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12a9 9 0 1 1-6.22-8.56" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>'
+      : '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8Zm8.94 3A9 9 0 0 0 13 3.06V1h-2v2.06A9 9 0 0 0 3.06 11H1v2h2.06A9 9 0 0 0 11 20.94V23h2v-2.06A9 9 0 0 0 20.94 13H23v-2h-2.06ZM12 19a7 7 0 1 1 0-14 7 7 0 0 1 0 14Z"/></svg>';
+  }, [locating]);
+
+  return null;
+}
+
 function FitBounds({ points }: { points: GeoPoint[] }) {
   const map = useMap();
   const key = points.map((p) => `${p.lat.toFixed(5)},${p.lng.toFixed(5)}`).join("|");
@@ -386,6 +444,8 @@ export default function MapView() {
     setSelectedStationId,
     priceFreshnessFilter,
     vehicle,
+    locateCurrentPosition,
+    locating,
   } = usePitstopStore();
 
   const enriched = getEnrichedStations();
@@ -404,6 +464,9 @@ export default function MapView() {
   // container is being reused by another instance" if it re-initialises on
   // that node. A per-mount key guarantees a brand-new container element.
   const [mapInstanceKey] = useState(() => `map-${nextMapInstanceId++}`);
+  const handleLocate = useCallback(() => {
+    void locateCurrentPosition("origin");
+  }, [locateCurrentPosition]);
 
   const selected = enriched.find((e) => e.station.id === selectedStationId);
 
@@ -561,6 +624,10 @@ export default function MapView() {
       attributionControl
     >
       <InvalidateOnResize />
+      <SafeLocationControl
+        locating={locating}
+        onLocate={handleLocate}
+      />
       <SafeZoomControl position="topright" />
       <TileLayer
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> · Routing © <a href="http://project-osrm.org">OSRM</a> / <a href="https://github.com/valhalla/valhalla">Valhalla</a>'
