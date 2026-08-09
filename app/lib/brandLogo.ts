@@ -26,6 +26,8 @@ export interface BrandLogoInfo {
 
 interface BrandDef {
   id: string;
+  /** Canonical display / admin label */
+  label: string;
   patterns: RegExp[];
   /** Favicon host; omit when Google has no usable mark */
   domain?: string;
@@ -40,6 +42,7 @@ interface BrandDef {
 const KNOWN_BRANDS: BrandDef[] = [
   {
     id: "shell",
+    label: "Shell",
     patterns: [/\bshell\b/i],
     domain: "shell.co.uk",
     initials: "Sh",
@@ -48,6 +51,7 @@ const KNOWN_BRANDS: BrandDef[] = [
   },
   {
     id: "bp",
+    label: "BP",
     patterns: [/\bbp\b/i],
     // bp.com returns Google's blank 16px stub; www.bp.com has the Helios mark
     domain: "www.bp.com",
@@ -57,6 +61,7 @@ const KNOWN_BRANDS: BrandDef[] = [
   },
   {
     id: "esso",
+    label: "Esso",
     patterns: [/\besso\b/i],
     domain: "esso.co.uk",
     initials: "Es",
@@ -65,6 +70,7 @@ const KNOWN_BRANDS: BrandDef[] = [
   },
   {
     id: "texaco",
+    label: "Texaco",
     patterns: [/\btexaco\b/i],
     // texaco.co.uk only yields a 32px stub — lubricants host has a sharp 128px star
     domain: "texaco-lubricants.com",
@@ -74,6 +80,7 @@ const KNOWN_BRANDS: BrandDef[] = [
   },
   {
     id: "total",
+    label: "TotalEnergies",
     patterns: [/\btotal\s*energies\b/i, /\btotal\b/i],
     domain: "totalenergies.uk",
     initials: "To",
@@ -82,6 +89,7 @@ const KNOWN_BRANDS: BrandDef[] = [
   },
   {
     id: "jet",
+    label: "Jet",
     patterns: [/\bjet\b/i],
     // Official UK Jet mark (2020) — blue wordmark + yellow swooshes
     src: "/brands/jet.svg",
@@ -91,6 +99,7 @@ const KNOWN_BRANDS: BrandDef[] = [
   },
   {
     id: "gulf",
+    label: "Gulf",
     patterns: [/\bgulf\b/i],
     // Public-domain Gulf Oil disc (Wikimedia Commons File:Gulf_Oil_logo.svg)
     src: "/brands/gulf.svg",
@@ -100,6 +109,7 @@ const KNOWN_BRANDS: BrandDef[] = [
   },
   {
     id: "murco",
+    label: "Murco",
     patterns: [/\bmurco\b/i],
     domain: "certasenergy.co.uk",
     initials: "Mu",
@@ -108,6 +118,7 @@ const KNOWN_BRANDS: BrandDef[] = [
   },
   {
     id: "applegreen",
+    label: "Applegreen",
     patterns: [/\bapplegreen\b/i],
     domain: "applegreenstores.com",
     initials: "Ag",
@@ -116,6 +127,7 @@ const KNOWN_BRANDS: BrandDef[] = [
   },
   {
     id: "circlek",
+    label: "Circle K",
     patterns: [/\bcircle\s*k\b/i],
     domain: "circlek.co.uk",
     initials: "CK",
@@ -124,6 +136,7 @@ const KNOWN_BRANDS: BrandDef[] = [
   },
   {
     id: "tesco",
+    label: "Tesco",
     patterns: [/\btesco\b/i],
     domain: "tesco.com",
     initials: "Te",
@@ -132,6 +145,7 @@ const KNOWN_BRANDS: BrandDef[] = [
   },
   {
     id: "asda",
+    label: "Asda",
     patterns: [/\basda\b/i],
     domain: "asda.com",
     initials: "As",
@@ -140,6 +154,7 @@ const KNOWN_BRANDS: BrandDef[] = [
   },
   {
     id: "sainsburys",
+    label: "Sainsbury's",
     patterns: [/\bsainsbury'?s?\b/i],
     domain: "about.sainsburys.co.uk",
     initials: "Sa",
@@ -148,6 +163,7 @@ const KNOWN_BRANDS: BrandDef[] = [
   },
   {
     id: "morrisons",
+    label: "Morrisons",
     patterns: [/\bmorrison'?s?\b/i],
     domain: "morrisons.com",
     initials: "Mo",
@@ -156,6 +172,7 @@ const KNOWN_BRANDS: BrandDef[] = [
   },
   {
     id: "aldi",
+    label: "Aldi",
     patterns: [/\baldi\b/i],
     domain: "aldi.co.uk",
     initials: "Al",
@@ -164,6 +181,7 @@ const KNOWN_BRANDS: BrandDef[] = [
   },
   {
     id: "lidl",
+    label: "Lidl",
     patterns: [/\blidl\b/i],
     domain: "lidl.co.uk",
     initials: "Li",
@@ -172,6 +190,7 @@ const KNOWN_BRANDS: BrandDef[] = [
   },
   {
     id: "costco",
+    label: "Costco",
     patterns: [/\bcostco\b/i],
     // Costco favicons are blank stubs — public-domain wordmark badge
     src: "/brands/costco.svg",
@@ -181,6 +200,7 @@ const KNOWN_BRANDS: BrandDef[] = [
   },
   {
     id: "waitrose",
+    label: "Waitrose",
     patterns: [/\bwaitrose\b/i],
     domain: "waitrose.com",
     initials: "Wa",
@@ -189,6 +209,7 @@ const KNOWN_BRANDS: BrandDef[] = [
   },
   {
     id: "coop",
+    label: "Co-op",
     patterns: [/\bco-?op\b/i, /\bcoop\b/i],
     domain: "coop.co.uk",
     initials: "Cp",
@@ -197,6 +218,7 @@ const KNOWN_BRANDS: BrandDef[] = [
   },
   {
     id: "moto",
+    label: "Moto",
     patterns: [/\bmoto\b/i],
     domain: "moto-way.com",
     initials: "Mt",
@@ -205,6 +227,7 @@ const KNOWN_BRANDS: BrandDef[] = [
   },
   {
     id: "welcomebreak",
+    label: "Welcome Break",
     patterns: [/\bwelcome\s*break\b/i],
     domain: "welcomebreak.co.uk",
     initials: "WB",
@@ -213,6 +236,7 @@ const KNOWN_BRANDS: BrandDef[] = [
   },
   {
     id: "roadchef",
+    label: "Roadchef",
     patterns: [/\broad\s*chef\b/i],
     domain: "roadchef.com",
     initials: "Rc",
@@ -221,6 +245,7 @@ const KNOWN_BRANDS: BrandDef[] = [
   },
   {
     id: "extra",
+    label: "Extra",
     patterns: [/\bextra\b/i],
     domain: "extraservices.co.uk",
     initials: "Ex",
@@ -229,6 +254,7 @@ const KNOWN_BRANDS: BrandDef[] = [
   },
   {
     id: "harrisons",
+    label: "Harrison's",
     patterns: [/\bharrison'?s?\b/i],
     initials: "Ha",
     bg: "#1A1A1A",
@@ -236,6 +262,7 @@ const KNOWN_BRANDS: BrandDef[] = [
   },
   {
     id: "valero",
+    label: "Valero",
     patterns: [/\bvalero\b/i],
     // Favicons are stubs — public-domain Valero V + ribbon (Wikimedia)
     src: "/brands/valero.png",
@@ -245,6 +272,7 @@ const KNOWN_BRANDS: BrandDef[] = [
   },
   {
     id: "qfuel",
+    label: "QFuel",
     patterns: [/\bqfuel\b/i],
     domain: "q8.com",
     initials: "Qf",
@@ -258,35 +286,31 @@ const KNOWN_BRANDS: BrandDef[] = [
  * so logos and category filters resolve correctly.
  */
 export const KNOWN_BRAND_LABELS: readonly string[] = [
-  "Aldi",
-  "Applegreen",
-  "Asda",
-  "BP",
-  "Circle K",
-  "Co-op",
-  "Costco",
-  "Esso",
-  "Extra",
-  "Gulf",
-  "Harrison's",
+  ...KNOWN_BRANDS.map((b) => b.label),
   "Independent",
-  "Jet",
-  "Lidl",
-  "Morrisons",
-  "Moto",
-  "Murco",
-  "QFuel",
-  "Roadchef",
-  "Sainsbury's",
-  "Shell",
-  "Tesco",
-  "Texaco",
-  "TotalEnergies",
-  "Valero",
-  "Waitrose",
-  "Welcome Break",
-];
+].sort((a, b) => a.localeCompare(b));
 
+/**
+ * Match a raw Fuel Finder brand / trading name to a known network.
+ * Used for logos and for grouping brand variants (e.g. "Bp Addington" → BP).
+ */
+function findKnownBrand(text: string): BrandDef | null {
+  const haystack = text.trim().toLowerCase();
+  if (!haystack) return null;
+  for (const def of KNOWN_BRANDS) {
+    if (def.patterns.some((re) => re.test(haystack))) {
+      return def;
+    }
+  }
+  return null;
+}
+
+export function matchKnownBrand(
+  text: string
+): { id: string; label: string } | null {
+  const def = findKnownBrand(text);
+  return def ? { id: def.id, label: def.label } : null;
+}
 const FALLBACK_PALETTE: { bg: string; fg: string }[] = [
   { bg: "#0F766E", fg: "#ECFDF5" },
   { bg: "#1D4ED8", fg: "#EFF6FF" },
@@ -335,23 +359,21 @@ export function brandFaviconUrl(domain: string, size = 128): string {
  */
 export function resolveBrandLogo(brand: string): BrandLogoInfo {
   const label = brand.trim() || "Unknown";
-  const haystack = label.toLowerCase();
+  const def = findKnownBrand(label);
 
-  for (const def of KNOWN_BRANDS) {
-    if (def.patterns.some((re) => re.test(haystack))) {
-      return {
-        id: def.id,
-        label,
-        initials: def.initials,
-        bg: def.bg,
-        fg: def.fg,
-        domain: def.domain,
-        src: def.src,
-      };
-    }
+  if (def) {
+    return {
+      id: def.id,
+      label,
+      initials: def.initials,
+      bg: def.bg,
+      fg: def.fg,
+      domain: def.domain,
+      src: def.src,
+    };
   }
 
-  const id = haystack || "unknown";
+  const id = label.toLowerCase() || "unknown";
   const palette = FALLBACK_PALETTE[hashString(id) % FALLBACK_PALETTE.length]!;
   return {
     id,

@@ -1,3 +1,4 @@
+import { matchKnownBrand } from "./brandLogo";
 import type { FuelStation } from "./types";
 
 /** User-facing brand filter (single-select). */
@@ -98,15 +99,27 @@ export function stationMatchesBrandFilter(
   return cats[filter];
 }
 
-/** Stable key used to group stations by forecourt brand for exclusions. */
+/**
+ * Raw brand / trading text used for grouping (brand preferred, then name).
+ */
+function stationBrandText(
+  station: Pick<FuelStation, "brand" | "name">
+): string {
+  return station.brand.trim() || station.name.trim() || "";
+}
+
+/**
+ * Stable key used to group stations by forecourt brand for exclusions.
+ * Known networks collapse variants (e.g. "Bp Addington", "BP - ROYAL BLUE…")
+ * onto one key such as "bp".
+ */
 export function stationBrandKey(
   station: Pick<FuelStation, "brand" | "name">
 ): string {
-  return (
-    station.brand.trim().toLowerCase() ||
-    station.name.trim().toLowerCase() ||
-    "unknown"
-  );
+  const raw = stationBrandText(station);
+  if (!raw) return "unknown";
+  const known = matchKnownBrand(raw);
+  return known?.id ?? raw.toLowerCase();
 }
 
 export interface BrandOption {
@@ -121,14 +134,16 @@ export function distinctBrandOptions(
 ): BrandOption[] {
   const byKey = new Map<string, BrandOption>();
   for (const station of stations) {
-    const key = stationBrandKey(station);
+    const raw = stationBrandText(station);
+    const known = matchKnownBrand(raw);
+    const key = known?.id ?? (raw.toLowerCase() || "unknown");
     const existing = byKey.get(key);
     if (existing) {
       existing.count += 1;
     } else {
       byKey.set(key, {
         key,
-        label: station.brand.trim() || station.name.trim() || "Unknown",
+        label: known?.label ?? (raw || "Unknown"),
         count: 1,
       });
     }

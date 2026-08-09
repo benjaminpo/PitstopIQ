@@ -3,6 +3,7 @@ import {
   brandFaviconUrl,
   brandInitials,
   KNOWN_BRAND_LABELS,
+  matchKnownBrand,
   resolveBrandLogo,
 } from "./brandLogo";
 
@@ -58,6 +59,25 @@ describe("resolveBrandLogo", () => {
     expect(a.initials).toBe("AF");
     expect(a.bg).toBe(b.bg);
     expect(a.fg).toBe(b.fg);
+  });
+});
+
+describe("matchKnownBrand", () => {
+  it("maps messy Fuel Finder strings to canonical ids and labels", () => {
+    expect(matchKnownBrand("BP - ROYAL BLUE SERVICE STATION")).toEqual({
+      id: "bp",
+      label: "BP",
+    });
+    expect(matchKnownBrand("Bp Addington")).toEqual({ id: "bp", label: "BP" });
+    expect(matchKnownBrand("Shell Select")).toEqual({
+      id: "shell",
+      label: "Shell",
+    });
+  });
+
+  it("returns null for unknown independents", () => {
+    expect(matchKnownBrand("Village Garage")).toBeNull();
+    expect(matchKnownBrand("")).toBeNull();
   });
 });
 

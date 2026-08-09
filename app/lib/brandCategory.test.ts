@@ -88,6 +88,22 @@ describe("stationBrandKey", () => {
     ).toBe("costco");
   });
 
+  it("collapses known-network variants onto one key", () => {
+    expect(stationBrandKey({ brand: "BP", name: "BP Reading" })).toBe("bp");
+    expect(
+      stationBrandKey({
+        brand: "BP - ROYAL BLUE SERVICE STATION",
+        name: "Royal Blue",
+      })
+    ).toBe("bp");
+    expect(
+      stationBrandKey({ brand: "Bp Addington", name: "Bp Addington" })
+    ).toBe("bp");
+    expect(
+      stationBrandKey({ brand: "Shell Select", name: "Shell Reading" })
+    ).toBe("shell");
+  });
+
   it("falls back to the trading name when brand is blank", () => {
     expect(stationBrandKey({ brand: "", name: "Village Garage" })).toBe(
       "village garage"
@@ -105,8 +121,22 @@ describe("distinctBrandOptions", () => {
       { brand: "Shell", name: "Shell Select" },
     ]);
     expect(options.map((o) => o.key)).toEqual(["costco", "shell", "tesco"]);
-    expect(options[0]).toMatchObject({ label: "COSTCO", count: 2 });
+    expect(options[0]).toMatchObject({ label: "Costco", count: 2 });
     expect(options[2]).toMatchObject({ label: "Tesco", count: 1 });
+  });
+
+  it("groups Fuel Finder brand_name variants under the canonical label", () => {
+    const options = distinctBrandOptions([
+      { brand: "BP", name: "BP Reading" },
+      { brand: "BP - ROYAL BLUE SERVICE STATION", name: "Royal Blue" },
+      { brand: "Bp Addington", name: "Bp Addington" },
+      { brand: "Esso", name: "Esso Express" },
+      { brand: "ESSO - HIGH STREET", name: "High Street" },
+    ]);
+    expect(options).toEqual([
+      { key: "bp", label: "BP", count: 3 },
+      { key: "esso", label: "Esso", count: 2 },
+    ]);
   });
 });
 
