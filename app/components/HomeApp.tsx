@@ -16,6 +16,7 @@ import { RecentPlacesSync } from "@/app/components/RecentPlacesSync";
 import { VehiclePresetsSync } from "@/app/components/VehiclePresetsSync";
 import { usePitstopStore } from "@/app/lib/store";
 import { formatDuration } from "@/app/lib/routing";
+import { subscribeStationsAutoRefresh } from "@/app/lib/stationsAutoRefresh";
 import { cn } from "@/app/lib/utils";
 
 const MapView = dynamic(() => import("@/app/components/MapView"), {
@@ -63,14 +64,20 @@ export function HomeApp() {
   }, [dataSource]);
 
   // Refresh when returning from admin, and update other open app tabs after an
-  // admin price edit.
+  // admin price edit. Also soft-poll prices while this tab stays open.
   useEffect(() => {
     void loadStations();
     const onStorage = (event: StorageEvent) => {
       if (event.key === "pitstopiq-admin-price-updated") void loadStations();
     };
     window.addEventListener("storage", onStorage);
-    return () => window.removeEventListener("storage", onStorage);
+    const stopAutoRefresh = subscribeStationsAutoRefresh(() => {
+      void loadStations({ silent: true });
+    });
+    return () => {
+      window.removeEventListener("storage", onStorage);
+      stopAutoRefresh();
+    };
   }, [loadStations]);
 
   return (

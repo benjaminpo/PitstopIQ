@@ -45,6 +45,7 @@ import {
   type StationsDirectorySortKey,
 } from "@/app/lib/stationsDirectory";
 import { stationHref } from "@/app/lib/stationPath";
+import { subscribeStationsAutoRefresh } from "@/app/lib/stationsAutoRefresh";
 import type { FuelStation, FuelType } from "@/app/lib/types";
 import { cn } from "@/app/lib/utils";
 
@@ -124,9 +125,12 @@ export function StationsDirectory() {
   const [page, setPage] = useState(1);
   const [now, setNow] = useState(() => Date.now());
 
-  const loadStations = async () => {
-    setLoading(true);
-    setError(null);
+  const loadStations = async (options?: { silent?: boolean }) => {
+    const silent = options?.silent === true;
+    if (!silent) {
+      setLoading(true);
+      setError(null);
+    }
     try {
       const params = new URLSearchParams({
         north: String(UK_BOUNDS.north),
@@ -142,17 +146,27 @@ export function StationsDirectory() {
       setStations(body.stations ?? []);
       setSource(body.source);
       setPricesFetchedAt(body.pricesFetchedAt);
+      if (silent) setError(null);
     } catch (loadError) {
-      setError(
-        loadError instanceof Error ? loadError.message : "Could not load stations"
-      );
+      if (!silent) {
+        setError(
+          loadError instanceof Error
+            ? loadError.message
+            : "Could not load stations"
+        );
+      }
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
   useEffect(() => {
     void loadStations();
+    return subscribeStationsAutoRefresh(() => {
+      void loadStations({ silent: true });
+    });
+    // Initial load + auto-refresh subscription only on mount
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only
   }, []);
 
   useEffect(() => {

@@ -16,9 +16,12 @@ import {
   formatOpeningHoursRows,
   isStationOpenNow,
 } from "@/app/lib/stationFacilities";
+import { subscribeStationsAutoRefresh } from "@/app/lib/stationsAutoRefresh";
 import { stationNearbySearchHref } from "@/app/lib/stationsDirectory";
 import type { FuelStation, FuelType, StationCommunitySummary } from "@/app/lib/types";
 import { cn } from "@/app/lib/utils";
+
+const DETAIL_BOUNDS_PAD_DEG = 0.02;
 
 function formatPrice(price: number | undefined): string {
   return price === undefined || !Number.isFinite(price)
@@ -70,16 +73,58 @@ interface StationPageViewProps {
 }
 
 export function StationPageView({
-  station,
-  source,
-  pricesFetchedAt,
+  station: initialStation,
+  source: initialSource,
+  pricesFetchedAt: initialPricesFetchedAt,
   community = null,
 }: Readonly<StationPageViewProps>) {
+  const [station, setStation] = useState(initialStation);
+  const [source, setSource] = useState(initialSource);
+  const [pricesFetchedAt, setPricesFetchedAt] = useState(initialPricesFetchedAt);
   const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    setStation(initialStation);
+    setSource(initialSource);
+    setPricesFetchedAt(initialPricesFetchedAt);
+  }, [initialStation, initialSource, initialPricesFetchedAt]);
+
   useEffect(() => {
     const id = window.setInterval(() => setNow(Date.now()), 30_000);
     return () => window.clearInterval(id);
   }, []);
+
+  useEffect(() => {
+    return subscribeStationsAutoRefresh(() => {
+      void (async () => {
+        try {
+          const { lat, lng } = station.location;
+          const params = new URLSearchParams({
+            north: String(lat + DETAIL_BOUNDS_PAD_DEG),
+            south: String(lat - DETAIL_BOUNDS_PAD_DEG),
+            east: String(lng + DETAIL_BOUNDS_PAD_DEG),
+            west: String(lng - DETAIL_BOUNDS_PAD_DEG),
+          });
+          const response = await fetch(`/api/fuel-finder?${params}`);
+          if (!response.ok) return;
+          const body = (await response.json()) as {
+            stations?: FuelStation[];
+            source?: "live" | "mock";
+            pricesFetchedAt?: number | null;
+          };
+          const next = body.stations?.find((s) => s.id === station.id);
+          if (!next) return;
+          setStation(next);
+          if (body.source) setSource(body.source);
+          if (typeof body.pricesFetchedAt === "number") {
+            setPricesFetchedAt(body.pricesFetchedAt);
+          }
+        } catch {
+          // Keep last good prices on soft refresh failure
+        }
+      })();
+    });
+  }, [station.id, station.location]);
 
   const hourRows = station.openingHours
     ? formatOpeningHoursRows(station.openingHours)

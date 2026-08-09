@@ -217,7 +217,8 @@ interface PitstopState {
     activePresetId: string | null
   ) => void;
   locateCurrentPosition: (target?: LocateTarget) => Promise<void>;
-  loadStations: () => Promise<void>;
+  /** Fetch corridor stations. Pass `{ silent: true }` for background price refresh. */
+  loadStations: (options?: { silent?: boolean }) => Promise<void>;
   loadCommunitySummaries: (stationIds?: string[]) => Promise<void>;
   setCommunitySummary: (
     stationId: string,
@@ -278,6 +279,9 @@ let enrichedStationsCache: {
   deps: readonly unknown[];
   value: StationWithCalculation[];
 } | null = null;
+
+/** Bumps on each loadStations call so a stale in-flight refresh can bail out. */
+let loadStationsGeneration = 0;
 
 export const usePitstopStore = create<PitstopState>()(
   persist(
@@ -816,70 +820,89 @@ export const usePitstopStore = create<PitstopState>()(
         }
       },
 
-      loadStations: async () => {
-        const { originCoords, destinationCoords, stops, routeAvoid } = get();
+      loadStations: async (options) => {
+        const silent = options?.silent === true;
+        const { originCoords, destinationCoords, stops, routeAvoid, route: existingRoute } =
+          get();
         // Nothing to search until both ends of the trip are chosen
         if (!originCoords || !destinationCoords) return;
+        // Don't stack a quiet refresh on top of an in-progress full load
+        if (silent && get().loading) return;
 
+        const generation = ++loadStationsGeneration;
         const vias = tripViaCoords(stops);
+        const reuseRoute =
+          silent &&
+          existingRoute != null &&
+          existingRoute.coordinates.length > 1;
 
-        set({
-          loading: true,
-          routing: true,
-          error: null,
-          routeError: null,
-          detourRoute: null,
-          detourRouting: false,
-          detourRouteError: null,
-        });
+        if (!silent) {
+          set({
+            loading: true,
+            routing: !reuseRoute,
+            error: null,
+            routeError: null,
+            detourRoute: null,
+            detourRouting: false,
+            detourRouteError: null,
+          });
+        }
+
         try {
           let route: DrivingRoute;
-          try {
-            route = await fetchDrivingRoute(
-              originCoords,
-              destinationCoords,
-              vias,
-              routeAvoid
-            );
-            set({ route, routing: false, routeError: null });
-          } catch (e) {
-            set({
-              route: null,
-              routing: false,
-              routeError:
-                e instanceof Error
-                  ? e.message
-                  : "Could not calculate driving route",
-            });
-            const fallbackPts = [
-              originCoords,
-              ...vias,
-              destinationCoords,
-            ];
-            route = {
-              distanceMiles: 0,
-              durationSeconds: 0,
-              coordinates: fallbackPts,
-              bounds: (() => {
-                const pad = corridorPadDegrees();
-                let north = -Infinity;
-                let south = Infinity;
-                let east = -Infinity;
-                let west = Infinity;
-                for (const p of fallbackPts) {
-                  north = Math.max(north, p.lat);
-                  south = Math.min(south, p.lat);
-                  east = Math.max(east, p.lng);
-                  west = Math.min(west, p.lng);
-                }
-                return {
-                  north: north + pad,
-                  south: south - pad,
-                  east: east + pad,
-                  west: west - pad,
-                };
-              })(),
-            };
+          if (reuseRoute && existingRoute) {
+            route = existingRoute;
+          } else {
+            try {
+              if (silent) set({ routing: true });
+              route = await fetchDrivingRoute(
+                originCoords,
+                destinationCoords,
+                vias,
+                routeAvoid
+              );
+              if (generation !== loadStationsGeneration) return;
+              set({ route, routing: false, routeError: null });
+            } catch (e) {
+              if (generation !== loadStationsGeneration) return;
+              set({
+                route: null,
+                routing: false,
+                routeError:
+                  e instanceof Error
+                    ? e.message
+                    : "Could not calculate driving route",
+              });
+              const fallbackPts = [
+                originCoords,
+                ...vias,
+                destinationCoords,
+              ];
+              route = {
+                distanceMiles: 0,
+                durationSeconds: 0,
+                coordinates: fallbackPts,
+                bounds: (() => {
+                  const pad = corridorPadDegrees();
+                  let north = -Infinity;
+                  let south = Infinity;
+                  let east = -Infinity;
+                  let west = Infinity;
+                  for (const p of fallbackPts) {
+                    north = Math.max(north, p.lat);
+                    south = Math.min(south, p.lat);
+                    east = Math.max(east, p.lng);
+                    west = Math.min(west, p.lng);
+                  }
+                  return {
+                    north: north + pad,
+                    south: south - pad,
+                    east: east + pad,
+                    west: west - pad,
+                  };
+                })(),
+              };
+            }
           }
 
           const params = new URLSearchParams({
@@ -889,6 +912,7 @@ export const usePitstopStore = create<PitstopState>()(
             west: String(route.bounds.west),
           });
           const res = await fetch(`/api/fuel-finder?${params}`);
+          if (generation !== loadStationsGeneration) return;
           if (!res.ok) {
             throw new Error(await readApiErrorMessage(res));
           }
@@ -923,6 +947,7 @@ export const usePitstopStore = create<PitstopState>()(
             routeAvoid,
             vias
           );
+          if (generation !== loadStationsGeneration) return;
 
           const stations: FuelStation[] = withApprox.map((s) => {
             const metrics = detours[s.id];
@@ -976,9 +1001,10 @@ export const usePitstopStore = create<PitstopState>()(
             set({ selectedStationId: null });
           }
           const shouldAutoSelectBest =
-            nearbySearch ||
-            get().priceFreshnessFilter !== "any" ||
-            get().openNowFilter;
+            !silent &&
+            (nearbySearch ||
+              get().priceFreshnessFilter !== "any" ||
+              get().openNowFilter);
           if (!selectedId && shouldAutoSelectBest) {
             let best: StationWithCalculation | undefined;
             for (const item of enriched) {
@@ -994,11 +1020,18 @@ export const usePitstopStore = create<PitstopState>()(
             if (selectedId) set({ selectedStationId: selectedId });
           }
 
-          if (selectedId) {
+          // Quiet refresh keeps the current detour polyline to avoid map flicker
+          if (selectedId && !silent) {
             void get().loadDetourRoute(selectedId);
           }
           void get().loadCommunitySummaries(stations.map((s) => s.id));
         } catch (e) {
+          if (generation !== loadStationsGeneration) return;
+          if (silent) {
+            // Keep showing the last good data; only clear the spinner flag
+            set({ loading: false, routing: false });
+            return;
+          }
           set({
             loading: false,
             routing: false,
