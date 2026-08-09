@@ -3,13 +3,14 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { Fuel, LogIn, LogOut, Settings, UserRound } from "lucide-react";
+import { Bell, Fuel, LogIn, LogOut, Settings, UserRound } from "lucide-react";
 import { signOut, useSession } from "@/app/lib/auth-client";
 
 export function AccountMenu() {
   const router = useRouter();
   const { data: session, isPending } = useSession();
   const [open, setOpen] = useState(false);
+  const [unreadAlerts, setUnreadAlerts] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -20,6 +21,27 @@ export function AccountMenu() {
     window.addEventListener("pointerdown", onPointerDown);
     return () => window.removeEventListener("pointerdown", onPointerDown);
   }, [open]);
+
+  useEffect(() => {
+    if (!session?.user) {
+      setUnreadAlerts(0);
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await fetch("/api/price-alerts?evaluate=1");
+        if (!res.ok || cancelled) return;
+        const data = (await res.json()) as { unreadCount?: number };
+        if (!cancelled) setUnreadAlerts(data.unreadCount ?? 0);
+      } catch {
+        // Badge is optional.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [session?.user]);
 
   if (isPending) {
     return (
@@ -54,10 +76,19 @@ export function AccountMenu() {
         onClick={() => setOpen((v) => !v)}
         aria-haspopup="menu"
         aria-expanded={open}
-        aria-label="Account menu"
-        className="flex h-8 w-8 items-center justify-center rounded-full border border-teal-700/60 bg-teal-950/60 text-sm font-semibold text-teal-200 transition hover:border-teal-500/70 hover:bg-teal-900/60"
+        aria-label={
+          unreadAlerts > 0
+            ? `Account menu, ${unreadAlerts} unread price alerts`
+            : "Account menu"
+        }
+        className="relative flex h-8 w-8 items-center justify-center rounded-full border border-teal-700/60 bg-teal-950/60 text-sm font-semibold text-teal-200 transition hover:border-teal-500/70 hover:bg-teal-900/60"
       >
         {initial || <UserRound className="h-4 w-4" />}
+        {unreadAlerts > 0 && (
+          <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-teal-500 px-0.5 text-[9px] font-bold text-white">
+            {unreadAlerts > 9 ? "9+" : unreadAlerts}
+          </span>
+        )}
       </button>
 
       {open && (
@@ -82,6 +113,22 @@ export function AccountMenu() {
           >
             <Fuel className="h-3.5 w-3.5" />
             All stations
+          </Link>
+          <Link
+            href="/account#alerts"
+            role="menuitem"
+            onClick={() => setOpen(false)}
+            className="flex w-full items-center justify-between gap-2 rounded-lg px-2.5 py-2 text-left text-xs font-medium text-slate-300 transition hover:bg-slate-800/80 hover:text-slate-100"
+          >
+            <span className="inline-flex items-center gap-2">
+              <Bell className="h-3.5 w-3.5" />
+              Price alerts
+            </span>
+            {unreadAlerts > 0 && (
+              <span className="rounded-full bg-teal-600 px-1.5 py-0.5 text-[10px] font-bold text-white">
+                {unreadAlerts}
+              </span>
+            )}
           </Link>
           <Link
             href="/account"

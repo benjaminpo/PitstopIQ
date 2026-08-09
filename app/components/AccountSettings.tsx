@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState, type FormEvent } from "react";
 import {
   ArrowLeft,
+  Bell,
   Car,
   Check,
   Fuel,
@@ -14,6 +15,7 @@ import {
 } from "lucide-react";
 import { AppLogo } from "@/app/components/AppLogo";
 import { NumberInput } from "@/app/components/NumberInput";
+import { PriceAlertsPanel } from "@/app/components/PriceAlertsPanel";
 import { VehiclePresets } from "@/app/components/VehiclePresets";
 import { VehiclePresetsSync } from "@/app/components/VehiclePresetsSync";
 import { updateUser, useSession } from "@/app/lib/auth-client";
@@ -196,6 +198,23 @@ export function AccountSettings() {
                 {profileSaved ? "Saved" : "Save profile"}
               </button>
             </form>
+          </section>
+
+          <section
+            id="alerts"
+            className="rounded-2xl border border-slate-800/80 bg-slate-950/95 p-5 shadow-2xl shadow-slate-950/60 backdrop-blur-md"
+          >
+            <div className="flex items-center gap-2">
+              <Bell className="h-4 w-4 text-teal-400" />
+              <h2 className="text-lg font-semibold text-white">Price alerts</h2>
+            </div>
+            <p className="mt-1 text-xs text-slate-400">
+              Watch favourite stations. When Fuel Finder prices drop enough,
+              you&apos;ll see it here next time you open the app.
+            </p>
+            <div className="mt-5">
+              <PriceAlertsPanel />
+            </div>
           </section>
 
           <section className="rounded-2xl border border-slate-800/80 bg-slate-950/95 p-5 shadow-2xl shadow-slate-950/60 backdrop-blur-md">

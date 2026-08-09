@@ -102,6 +102,10 @@ Signed-in members can **report a pump price** and separately **rate / comment** 
 
 Members can also use **Report a missing station** to submit a forecourt that is absent from Fuel Finder. Reports include its map location and optional brand, address, and notes.
 
+### Price alerts (in-app)
+
+Signed-in members can **Watch** a station’s fuel grade from the selected station card. PitstopIQ stores a baseline £/L and, when Fuel Finder prices later drop by the threshold (default 2p/L), creates an unread in-app alert. Alerts and watches are managed under **Account → Price alerts**; the account menu shows an unread badge. Evaluation runs when the member loads alerts (against the cached national dataset) — no email yet.
+
 ### Admin workspace
 
 Set `ADMIN_EMAILS` to a comma-separated list of account email addresses. Those users can open `/admin` to:

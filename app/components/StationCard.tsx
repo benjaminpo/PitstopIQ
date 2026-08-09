@@ -20,6 +20,7 @@ import { BrandLogo } from "./BrandLogo";
 import { NavigateHere } from "./NavigateHere";
 import { StationContribute } from "./StationContribute";
 import { StationDetails } from "./StationDetails";
+import { StationWatchButton } from "./StationWatchButton";
 import { StatusBadge } from "./StatusBadge";
 
 interface StationCardProps {
@@ -314,6 +315,16 @@ export function StationCard({
             name: station.name,
             origin,
           }}
+        />
+      )}
+
+      {selected && (
+        <StationWatchButton
+          stationId={station.id}
+          stationName={station.name}
+          stationBrand={station.brand}
+          fuelType={activeFuel}
+          baselinePrice={station.prices[activeFuel] ?? null}
         />
       )}
 
