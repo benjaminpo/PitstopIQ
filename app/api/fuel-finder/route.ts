@@ -5,6 +5,11 @@ import {
   FuelDataUnavailableError,
 } from "@/app/lib/fuelApiAdapter";
 import { isFuelFinderConfigured } from "@/app/lib/fuelFinderClient";
+import {
+  applyConfirmedStationPrices,
+  listConfirmedStationMatches,
+  type ConfirmedStationMatch,
+} from "@/app/lib/stationPriceMatches";
 import type { MapBounds } from "@/app/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -37,8 +42,15 @@ function parseBounds(searchParams: URLSearchParams): MapBounds {
 export async function GET(request: NextRequest) {
   try {
     const bounds = parseBounds(request.nextUrl.searchParams);
-    const { stations, source, pricesFetchedAt } =
+    const { stations: officialStations, source, pricesFetchedAt } =
       await fetchNearbyFuelStations(bounds);
+    let confirmed: ConfirmedStationMatch[] = [];
+    try {
+      confirmed = await listConfirmedStationMatches();
+    } catch (overrideError) {
+      console.warn("[fuel-finder] Could not load admin price overrides", overrideError);
+    }
+    const stations = applyConfirmedStationPrices(officialStations, confirmed);
 
     return NextResponse.json(
       {
@@ -52,7 +64,9 @@ export async function GET(request: NextRequest) {
         headers: {
           // Bounds URLs repeat on reload/pan — let the CDN serve warm copies.
           "Cache-Control":
-            source === "live"
+            confirmed.length > 0
+              ? "no-store"
+              : source === "live"
               ? "public, s-maxage=300, stale-while-revalidate=3600"
               : "no-store",
         },

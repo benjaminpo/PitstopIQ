@@ -46,6 +46,7 @@ export default function HomePage() {
     setSelectedStationId,
     dataSource,
     pricesFetchedAt,
+    loadStations,
   } = usePitstopStore();
   const nearbySearch =
     originCoords !== null &&
@@ -61,6 +62,17 @@ export default function HomePage() {
     const id = window.setInterval(() => setNow(Date.now()), 30_000);
     return () => window.clearInterval(id);
   }, [dataSource]);
+
+  // Refresh when returning from admin, and update other open app tabs after an
+  // admin price edit.
+  useEffect(() => {
+    void loadStations();
+    const onStorage = (event: StorageEvent) => {
+      if (event.key === "pitstopiq-admin-price-updated") void loadStations();
+    };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, [loadStations]);
 
   return (
     <div className="relative flex h-[100dvh] w-full overflow-hidden bg-slate-950 text-slate-100">

@@ -3,8 +3,11 @@ import {
   parsePriceLastUpdated,
   parsePriceToGbpPerLitre,
 } from "./fuelPriceParse";
+import { parseCsvRecords } from "./csvRecords";
 import { formatStationAddress } from "./stationAddress";
 import type { FuelStation, FuelType, GeoPoint } from "./types";
+
+export { parseCsvRecords } from "./csvRecords";
 
 /** CSV fuel grade columns → app FuelType */
 const CSV_FUEL_COLUMNS: Array<{ price: string; updated: string; type: FuelType }> =
@@ -55,76 +58,6 @@ export function decryptFuelFinderNxhex(payload: {
   const plain =
     decipher.update(payload.nxhex, "hex", "utf8") + decipher.final("utf8");
   return JSON.parse(plain) as unknown;
-}
-
-/** Minimal RFC4180 CSV parser (handles quotes and escaped quotes). */
-export function parseCsvRecords(text: string): string[][] {
-  const rows: string[][] = [];
-  let row: string[] = [];
-  let field = "";
-  let i = 0;
-  let inQuotes = false;
-
-  while (i < text.length) {
-    const ch = text[i];
-    if (inQuotes) {
-      if (ch === '"') {
-        if (text[i + 1] === '"') {
-          field += '"';
-          i += 2;
-          continue;
-        }
-        inQuotes = false;
-        i += 1;
-        continue;
-      }
-      field += ch;
-      i += 1;
-      continue;
-    }
-
-    if (ch === '"') {
-      inQuotes = true;
-      i += 1;
-      continue;
-    }
-    if (ch === ",") {
-      row.push(field);
-      field = "";
-      i += 1;
-      continue;
-    }
-    if (ch === "\r") {
-      i += 1;
-      continue;
-    }
-    if (ch === "\n") {
-      row.push(field);
-      rows.push(row);
-      row = [];
-      field = "";
-      i += 1;
-      continue;
-    }
-    field += ch;
-    i += 1;
-  }
-
-  if (field.length > 0 || row.length > 0) {
-    row.push(field);
-    rows.push(row);
-  }
-
-  // Drop a trailing empty line from a final newline
-  if (
-    rows.length > 0 &&
-    rows[rows.length - 1].length === 1 &&
-    rows[rows.length - 1][0] === ""
-  ) {
-    rows.pop();
-  }
-
-  return rows;
 }
 
 function truthyFlag(raw: string | undefined): boolean {
