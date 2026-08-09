@@ -44,6 +44,7 @@ import {
   type SortDirection,
   type StationsDirectorySortKey,
 } from "@/app/lib/stationsDirectory";
+import { stationHref } from "@/app/lib/stationPath";
 import type { FuelStation, FuelType } from "@/app/lib/types";
 import { cn } from "@/app/lib/utils";
 
@@ -552,7 +553,12 @@ export function StationsDirectory() {
                         <BrandLogo brand={station.brand} size="md" />
                         <div className="min-w-0">
                           <h2 className="truncate text-sm font-semibold text-slate-100">
-                            {station.name}
+                            <Link
+                              href={stationHref(station)}
+                              className="transition hover:text-teal-200"
+                            >
+                              {station.name}
+                            </Link>
                           </h2>
                           <p className="mt-0.5 text-xs text-slate-400">
                             {station.brand}
@@ -609,8 +615,14 @@ export function StationsDirectory() {
                         </p>
                       </div>
                       <Link
-                        href={stationNearbySearchHref(station)}
+                        href={stationHref(station)}
                         className="inline-flex items-center justify-center rounded-lg bg-teal-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-teal-500"
+                      >
+                        Station details
+                      </Link>
+                      <Link
+                        href={stationNearbySearchHref(station)}
+                        className="inline-flex items-center justify-center rounded-lg bg-slate-800 px-3 py-2 text-xs font-semibold text-slate-100 ring-1 ring-slate-600/60 transition hover:bg-slate-700"
                       >
                         Compare nearby
                       </Link>

@@ -3,7 +3,11 @@ import {
   extractCsvPresign,
   parseFuelFinderCsv,
 } from "./fuelFinderCsv";
-import { withoutSuppressedStations } from "./suppressedStations";
+import {
+  isSuppressedStationId,
+  withoutSuppressedStations,
+} from "./suppressedStations";
+import { findStationByPathKey } from "./stationPath";
 import {
   readFuelDatasetCache,
   writeFuelDatasetCache,
@@ -752,4 +756,33 @@ export async function fetchFuelFinderStations(
     .sort((a, b) => a.distanceOffRouteMiles - b.distanceOffRouteMiles);
 
   return { stations, pricesFetchedAt: fetchedAt };
+}
+
+/**
+ * Full national Fuel Finder set (suppressed stations excluded).
+ * Returns null when credentials are missing.
+ */
+export async function fetchAllFuelFinderStations(): Promise<FuelFinderFetchResult | null> {
+  if (!isFuelFinderConfigured()) return null;
+
+  const { stations: all, fetchedAt } = await getAllStationsCached();
+  return {
+    stations: withoutSuppressedStations(all),
+    pricesFetchedAt: fetchedAt,
+  };
+}
+
+/**
+ * Single station by Fuel Finder `node_id` or `/stations/{id}-{slug}` path key.
+ * Returns null when credentials are missing, the station is suppressed, or not found.
+ */
+export async function fetchFuelFinderStationByPathKey(
+  pathKey: string
+): Promise<{ station: FuelStation; pricesFetchedAt: number } | null> {
+  if (!isFuelFinderConfigured()) return null;
+
+  const { stations: all, fetchedAt } = await getAllStationsCached();
+  const station = findStationByPathKey(withoutSuppressedStations(all), pathKey);
+  if (!station || isSuppressedStationId(station.id)) return null;
+  return { station, pricesFetchedAt: fetchedAt };
 }

@@ -1,8 +1,13 @@
 import type { FuelStation, FuelType, MapBounds } from "./types";
 import {
+  fetchAllFuelFinderStations,
+  fetchFuelFinderStationByPathKey,
   fetchFuelFinderStations,
   isFuelFinderConfigured,
 } from "./fuelFinderClient";
+import { UK_BOUNDS } from "./fuelConstants";
+import { findStationByPathKey } from "./stationPath";
+import { isSuppressedStationId } from "./suppressedStations";
 
 export {
   DEFAULT_BASE_ROUTE_AVG_PRICE,
@@ -282,3 +287,81 @@ export const fuelApiAdapter: FuelApiAdapter = {
     return stations;
   },
 };
+
+/**
+ * Resolve one forecourt for an SEO station page (`/stations/{id}-{slug}`).
+ * Applies the same live/mock gating as the bounds API.
+ */
+export async function fetchFuelStationByPathKey(pathKey: string): Promise<{
+  station: FuelStation;
+  source: "live" | "mock";
+  pricesFetchedAt: number | null;
+} | null> {
+  if (isFuelFinderConfigured()) {
+    try {
+      const live = await fetchFuelFinderStationByPathKey(pathKey);
+      if (live) {
+        return {
+          station: live.station,
+          source: "live",
+          pricesFetchedAt: live.pricesFetchedAt,
+        };
+      }
+      // Configured but missing — don't invent a mock for a random URL.
+      if (!mockDataAllowed()) return null;
+    } catch (error) {
+      console.warn("[fuelApiAdapter] Station lookup failed:", error);
+      if (!mockDataAllowed()) {
+        throw new FuelDataUnavailableError(
+          "Live fuel prices are temporarily unavailable. Please try again in a minute."
+        );
+      }
+    }
+  } else if (!mockDataAllowed()) {
+    throw new FuelDataUnavailableError(
+      "Live fuel prices are not configured on this server."
+    );
+  }
+
+  const mockStations = generateMockStations(UK_BOUNDS);
+  const station = findStationByPathKey(mockStations, pathKey);
+  if (!station || isSuppressedStationId(station.id)) return null;
+  return { station, source: "mock", pricesFetchedAt: null };
+}
+
+/** National station list for sitemap / directory SSR helpers. */
+export async function fetchAllFuelStations(): Promise<{
+  stations: FuelStation[];
+  source: "live" | "mock";
+  pricesFetchedAt: number | null;
+}> {
+  if (isFuelFinderConfigured()) {
+    try {
+      const live = await fetchAllFuelFinderStations();
+      if (live) {
+        return {
+          stations: live.stations,
+          source: "live",
+          pricesFetchedAt: live.pricesFetchedAt,
+        };
+      }
+    } catch (error) {
+      console.warn("[fuelApiAdapter] National station list failed:", error);
+      if (!mockDataAllowed()) {
+        throw new FuelDataUnavailableError(
+          "Live fuel prices are temporarily unavailable. Please try again in a minute."
+        );
+      }
+    }
+  } else if (!mockDataAllowed()) {
+    throw new FuelDataUnavailableError(
+      "Live fuel prices are not configured on this server."
+    );
+  }
+
+  return {
+    stations: generateMockStations(UK_BOUNDS),
+    source: "mock",
+    pricesFetchedAt: null,
+  };
+}

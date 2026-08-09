@@ -381,11 +381,14 @@ export function StationContribute({
   stationName,
   officialPrices,
   community,
+  className,
 }: Readonly<{
   stationId: string;
   stationName: string;
   officialPrices?: FuelPriceMap;
   community?: StationCommunitySummary;
+  /** Override root spacing (e.g. when wrapped in its own card) */
+  className?: string;
 }>) {
   const { data: session, isPending: sessionPending } = useSession();
   const setCommunitySummary = usePitstopStore((s) => s.setCommunitySummary);
@@ -624,7 +627,7 @@ export function StationContribute({
   }
 
   return (
-    <div className="mt-3 border-t border-slate-800/80 pt-3">
+    <div className={cn("mt-3 border-t border-slate-800/80 pt-3", className)}>
       <CommunitySummaryBlock community={community} comments={comments} />
       {body}
     </div>
