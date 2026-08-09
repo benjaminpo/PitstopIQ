@@ -287,7 +287,7 @@ export function StationCard({
             </div>
             <p
               className={cn(
-                "mt-0.5 font-mono text-sm font-semibold",
+                "mt-0.5 font-mono text-base font-semibold sm:text-sm",
                 netColorClass(net)
               )}
             >

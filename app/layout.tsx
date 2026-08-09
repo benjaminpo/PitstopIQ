@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
 import { GoogleAdSense } from "@/app/components/GoogleAdSense";
 import { GoogleAnalytics } from "@/app/components/GoogleAnalytics";
@@ -23,6 +23,13 @@ const geistMono = localFont({
 });
 
 const siteUrl = resolveSiteUrl();
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  themeColor: "#020617",
+};
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),

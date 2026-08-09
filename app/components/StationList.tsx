@@ -157,7 +157,7 @@ export function StationList() {
                 type="button"
                 onClick={() => setSortKey(opt.key)}
                 className={cn(
-                  "rounded-md px-2 py-1 text-[11px] font-medium transition",
+                  "min-h-10 rounded-md px-2.5 py-1.5 text-[11px] font-medium transition",
                   sortKey === opt.key
                     ? "bg-slate-700 text-slate-100"
                     : "text-slate-400 hover:text-slate-200"
@@ -191,7 +191,7 @@ export function StationList() {
               title={opt.hint}
               onClick={() => setBrandFilter(opt.key as BrandFilter)}
               className={cn(
-                "rounded-md px-2.5 py-1 text-[11px] font-semibold transition",
+                "min-h-10 rounded-md px-2.5 py-1.5 text-[11px] font-semibold transition",
                 active
                   ? "bg-teal-600 text-white shadow-sm shadow-teal-900/40"
                   : "bg-slate-900/80 text-slate-400 ring-1 ring-slate-700/60 hover:bg-slate-800 hover:text-slate-200"

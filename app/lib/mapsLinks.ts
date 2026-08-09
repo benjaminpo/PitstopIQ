@@ -23,3 +23,16 @@ export function googleMapsNavigateUrl(target: NavigateTarget): string {
   }
   return `https://www.google.com/maps/dir/?${params.toString()}`;
 }
+
+/** Apple Maps driving directions (best on iOS). */
+export function appleMapsNavigateUrl(target: NavigateTarget): string {
+  const { location, origin } = target;
+  const params = new URLSearchParams({
+    daddr: `${location.lat},${location.lng}`,
+    dirflg: "d",
+  });
+  if (origin && Number.isFinite(origin.lat) && Number.isFinite(origin.lng)) {
+    params.set("saddr", `${origin.lat},${origin.lng}`);
+  }
+  return `https://maps.apple.com/?${params.toString()}`;
+}

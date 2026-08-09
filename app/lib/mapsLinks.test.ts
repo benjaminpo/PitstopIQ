@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { googleMapsNavigateUrl } from "./mapsLinks";
+import { appleMapsNavigateUrl, googleMapsNavigateUrl } from "./mapsLinks";
 
 describe("mapsLinks", () => {
   const location = { lat: 51.45, lng: -0.97 };
@@ -18,5 +18,16 @@ describe("mapsLinks", () => {
       origin: { lat: 51.5, lng: -1.0 },
     });
     expect(url).toContain("origin=51.5%2C-1");
+  });
+
+  it("builds Apple Maps driving directions", () => {
+    const url = appleMapsNavigateUrl({
+      location,
+      origin: { lat: 51.5, lng: -1.0 },
+    });
+    expect(url).toContain("https://maps.apple.com/?");
+    expect(url).toContain("daddr=51.45%2C-0.97");
+    expect(url).toContain("saddr=51.5%2C-1");
+    expect(url).toContain("dirflg=d");
   });
 });

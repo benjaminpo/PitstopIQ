@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, type DragEvent } from "react";
+import { useEffect, useState, type DragEvent } from "react";
 import {
   ArrowUpDown,
+  Car,
   ChevronDown,
   Crosshair,
   Clock,
@@ -24,7 +25,11 @@ import {
   hasRouteAvoid,
   type RouteAvoidOptions,
 } from "@/app/lib/routeAvoid";
-import { VEHICLE_FUEL_OPTIONS, vehicleFuelKind } from "@/app/lib/fuelConstants";
+import {
+  VEHICLE_FUEL_OPTIONS,
+  vehicleFuelKind,
+  vehicleFuelLabel,
+} from "@/app/lib/fuelConstants";
 import { MAX_TRIP_STOPS } from "@/app/lib/types";
 import { cn } from "@/app/lib/utils";
 
@@ -236,6 +241,14 @@ export function RouteForm() {
   const [dragging, setDragging] = useState<TripRowKey | null>(null);
   const [dropTarget, setDropTarget] = useState<TripRowKey | null>(null);
   const [optionsOpen, setOptionsOpen] = useState(false);
+  // Collapsed on phones so From/To + Find surface first; open on desktop.
+  const [vehicleOpen, setVehicleOpen] = useState(false);
+
+  useEffect(() => {
+    if (window.matchMedia("(min-width: 768px)").matches) {
+      setVehicleOpen(true);
+    }
+  }, []);
 
   const maxRefill = vehicle.tankCapacityLitres;
   const refillPct = Math.round((litresToRefill / maxRefill) * 100);
@@ -499,197 +512,240 @@ export function RouteForm() {
         )}
       </div>
 
-      <VehiclePresets />
-
       <div className="space-y-2">
-        <span className="flex items-center gap-1.5 text-xs font-medium tracking-wide text-slate-400">
-          <Fuel className="h-3.5 w-3.5" />
-          Fuel type
-        </span>
-        <div className="grid grid-cols-3 gap-1.5 rounded-lg bg-slate-900/80 p-1 ring-1 ring-slate-700/60">
-          {VEHICLE_FUEL_OPTIONS.map((opt) => {
-            const active = vehicleFuelKind(vehicle.fuelType) === opt.kind;
-            return (
-              <button
-                key={opt.value}
-                type="button"
-                onClick={() => setFuelType(opt.value)}
-                className={cn(
-                  "rounded-md px-2 py-2 text-center text-[11px] font-semibold transition",
-                  active
-                    ? "bg-teal-600 text-white shadow-sm shadow-teal-900/40"
-                    : "text-slate-400 hover:bg-slate-800 hover:text-slate-200"
-                )}
-              >
-                {opt.label}
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      <label htmlFor="vehicle-mpg" className="block space-y-1.5">
-        <span className="flex items-center gap-1.5 text-xs font-medium tracking-wide text-slate-400">
-          <Gauge className="h-3.5 w-3.5" />
-          Vehicle MPG
-        </span>
-        <div className="relative">
-          <NumberInput
-            id="vehicle-mpg"
-            min={1}
-            max={150}
-            step={0.1}
-            value={vehicle.mpg}
-            onCommit={(mpg) => setVehicle({ mpg })}
-            className="w-full rounded-lg border border-slate-700/80 bg-slate-900/60 px-3 py-2 pr-12 font-mono text-sm text-slate-100 outline-none ring-teal-500/40 transition focus:border-teal-500/60 focus:ring-2"
-            aria-label="Vehicle MPG"
-          />
-          <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-500">
-            mpg
-          </span>
-        </div>
-      </label>
-
-      <div className="block space-y-2">
-        <div className="flex items-center justify-between">
-          <label
-            htmlFor="refill-amount"
-            className="text-xs font-medium tracking-wide text-slate-400"
-          >
-            Refill amount
-          </label>
-          <span className="font-mono text-sm font-semibold text-teal-300">
-            {litresToRefill.toFixed(0)} L · {refillPct}%
-          </span>
-        </div>
-        <input
-          id="refill-amount"
-          type="range"
-          min={5}
-          max={maxRefill}
-          step={1}
-          value={litresToRefill}
-          onChange={(e) => setLitresToRefill(Number(e.target.value))}
-          className="w-full accent-teal-500"
-          aria-valuetext={`${litresToRefill.toFixed(0)} litres, ${refillPct}% of tank`}
-        />
-        <div className="flex justify-between text-[10px] text-slate-500">
-          <span>5 L</span>
-          <span>{maxRefill} L tank</span>
-        </div>
-      </div>
-
-      <label htmlFor="value-of-time" className="block space-y-2">
-        <div className="flex items-center justify-between">
-          <span className="flex items-center gap-1.5 text-xs font-medium tracking-wide text-slate-400">
-            <Clock className="h-3.5 w-3.5" />
-            Value of time
-          </span>
-          <span className="font-mono text-sm font-semibold text-teal-300">
-            £{valueOfTimeGbpPerHour.toFixed(0)}/h
-          </span>
-        </div>
-        <input
-          id="value-of-time"
-          type="range"
-          min={0}
-          max={60}
-          step={1}
-          value={valueOfTimeGbpPerHour}
-          onChange={(e) => setValueOfTimeGbpPerHour(Number(e.target.value))}
-          className="w-full accent-teal-500"
-          aria-label="Value of time in pounds per hour"
-        />
-        <div className="flex justify-between text-[10px] text-slate-500">
-          <span>£0 (ignore time)</span>
-          <span>£60/h</span>
-        </div>
-        <p className="text-[10px] leading-snug text-slate-500">
-          Extra detour minutes are priced at this rate and subtracted from fuel
-          savings when ranking stations.
-        </p>
-      </label>
-
-      <label htmlFor="base-route-price" className="block space-y-1.5">
-        <div className="flex items-center justify-between gap-2">
-          <span className="text-xs font-medium tracking-wide text-slate-400">
-            Base route avg price (£/L)
-          </span>
-          {basePriceManual ? (
-            <button
-              type="button"
-              onClick={() => resetBaseRouteAvgPrice()}
-              className="text-[11px] font-semibold text-teal-300 hover:text-teal-200"
-            >
-              Use auto
-            </button>
-          ) : (
-            <span className="text-[10px] text-slate-500">auto from corridor</span>
+        <button
+          type="button"
+          onClick={() => setVehicleOpen((open) => !open)}
+          aria-expanded={vehicleOpen}
+          aria-controls="vehicle-settings-panel"
+          className={cn(
+            "flex w-full items-center justify-between gap-2 rounded-xl px-3 py-2.5 text-left transition",
+            vehicleOpen
+              ? "bg-teal-950/60 text-teal-100 ring-1 ring-teal-600/40"
+              : "bg-slate-900/80 text-slate-200 ring-1 ring-slate-700/60 hover:bg-slate-800"
           )}
-        </div>
-        <NumberInput
-          id="base-route-price"
-          min={0.8}
-          max={2.5}
-          step={0.001}
-          value={baseRouteAvgPricePerLitre}
-          onCommit={setBaseRouteAvgPrice}
-          className="w-full rounded-lg border border-slate-700/80 bg-slate-900/60 px-3 py-2 font-mono text-sm text-slate-100 outline-none ring-teal-500/40 transition focus:border-teal-500/60 focus:ring-2"
-          aria-label="Base route average price in pounds per litre"
-        />
-        <p className="text-[10px] leading-snug text-slate-500">
-          Compared against the median £/L of stations near your route — not a
-          fixed national average.
-        </p>
-      </label>
+        >
+          <span className="flex min-w-0 items-center gap-2">
+            <Car className="h-4 w-4 shrink-0" />
+            <span className="min-w-0">
+              <span className="block text-xs font-semibold tracking-wide">
+                Vehicle & savings
+              </span>
+              <span className="mt-0.5 block truncate font-mono text-[11px] text-slate-400">
+                {vehicleFuelLabel(vehicle.fuelType)} · {vehicle.mpg} mpg ·{" "}
+                {vehicle.tankCapacityLitres} L · £
+                {valueOfTimeGbpPerHour.toFixed(0)}/h
+              </span>
+            </span>
+          </span>
+          <ChevronDown
+            className={cn(
+              "h-4 w-4 shrink-0 transition-transform",
+              vehicleOpen && "rotate-180"
+            )}
+          />
+        </button>
 
-      <div className="grid grid-cols-2 gap-2">
-        <label htmlFor="tank-capacity" className="block space-y-1.5">
-          <span className="text-xs font-medium tracking-wide text-slate-400">
-            Tank (L)
-          </span>
-          <NumberInput
-            id="tank-capacity"
-            min={10}
-            max={200}
-            step={1}
-            value={vehicle.tankCapacityLitres}
-            onCommit={(tankCapacityLitres) =>
-              setVehicle({ tankCapacityLitres })
-            }
-            className="w-full rounded-lg border border-slate-700/80 bg-slate-900/60 px-3 py-2 font-mono text-sm text-slate-100 outline-none focus:border-teal-500/60 focus:ring-2 focus:ring-teal-500/40"
-            aria-label="Tank capacity in litres"
-          />
-        </label>
-        <label htmlFor="fill-percentage" className="block space-y-1.5">
-          <span className="text-xs font-medium tracking-wide text-slate-400">
-            Fill %
-          </span>
-          <NumberInput
-            id="fill-percentage"
-            min={0}
-            max={100}
-            step={1}
-            value={vehicle.fillPercentage}
-            onCommit={(fillPercentage) => setVehicle({ fillPercentage })}
-            className="w-full rounded-lg border border-slate-700/80 bg-slate-900/60 px-3 py-2 font-mono text-sm text-slate-100 outline-none focus:border-teal-500/60 focus:ring-2 focus:ring-teal-500/40"
-            aria-label="Current fill percentage"
-          />
-        </label>
+        {vehicleOpen && (
+          <div id="vehicle-settings-panel" className="space-y-5">
+            <VehiclePresets />
+
+            <div className="space-y-2">
+              <span className="flex items-center gap-1.5 text-xs font-medium tracking-wide text-slate-400">
+                <Fuel className="h-3.5 w-3.5" />
+                Fuel type
+              </span>
+              <div className="grid grid-cols-3 gap-1.5 rounded-lg bg-slate-900/80 p-1 ring-1 ring-slate-700/60">
+                {VEHICLE_FUEL_OPTIONS.map((opt) => {
+                  const active = vehicleFuelKind(vehicle.fuelType) === opt.kind;
+                  return (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => setFuelType(opt.value)}
+                      className={cn(
+                        "min-h-11 rounded-md px-2 py-2 text-center text-[11px] font-semibold transition",
+                        active
+                          ? "bg-teal-600 text-white shadow-sm shadow-teal-900/40"
+                          : "text-slate-400 hover:bg-slate-800 hover:text-slate-200"
+                      )}
+                    >
+                      {opt.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <label htmlFor="vehicle-mpg" className="block space-y-1.5">
+              <span className="flex items-center gap-1.5 text-xs font-medium tracking-wide text-slate-400">
+                <Gauge className="h-3.5 w-3.5" />
+                Vehicle MPG
+              </span>
+              <div className="relative">
+                <NumberInput
+                  id="vehicle-mpg"
+                  min={1}
+                  max={150}
+                  step={0.1}
+                  value={vehicle.mpg}
+                  onCommit={(mpg) => setVehicle({ mpg })}
+                  className="w-full rounded-lg border border-slate-700/80 bg-slate-900/60 px-3 py-2.5 pr-12 font-mono text-sm text-slate-100 outline-none ring-teal-500/40 transition focus:border-teal-500/60 focus:ring-2"
+                  aria-label="Vehicle MPG"
+                />
+                <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-500">
+                  mpg
+                </span>
+              </div>
+            </label>
+
+            <div className="block space-y-2">
+              <div className="flex items-center justify-between">
+                <label
+                  htmlFor="refill-amount"
+                  className="text-xs font-medium tracking-wide text-slate-400"
+                >
+                  Refill amount
+                </label>
+                <span className="font-mono text-sm font-semibold text-teal-300">
+                  {litresToRefill.toFixed(0)} L · {refillPct}%
+                </span>
+              </div>
+              <input
+                id="refill-amount"
+                type="range"
+                min={5}
+                max={maxRefill}
+                step={1}
+                value={litresToRefill}
+                onChange={(e) => setLitresToRefill(Number(e.target.value))}
+                className="w-full accent-teal-500"
+                aria-valuetext={`${litresToRefill.toFixed(0)} litres, ${refillPct}% of tank`}
+              />
+              <div className="flex justify-between text-[10px] text-slate-500">
+                <span>5 L</span>
+                <span>{maxRefill} L tank</span>
+              </div>
+            </div>
+
+            <label htmlFor="value-of-time" className="block space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="flex items-center gap-1.5 text-xs font-medium tracking-wide text-slate-400">
+                  <Clock className="h-3.5 w-3.5" />
+                  Value of time
+                </span>
+                <span className="font-mono text-sm font-semibold text-teal-300">
+                  £{valueOfTimeGbpPerHour.toFixed(0)}/h
+                </span>
+              </div>
+              <input
+                id="value-of-time"
+                type="range"
+                min={0}
+                max={60}
+                step={1}
+                value={valueOfTimeGbpPerHour}
+                onChange={(e) =>
+                  setValueOfTimeGbpPerHour(Number(e.target.value))
+                }
+                className="w-full accent-teal-500"
+                aria-label="Value of time in pounds per hour"
+              />
+              <div className="flex justify-between text-[10px] text-slate-500">
+                <span>£0 (ignore time)</span>
+                <span>£60/h</span>
+              </div>
+              <p className="text-[10px] leading-snug text-slate-500">
+                Extra detour minutes are priced at this rate and subtracted from
+                fuel savings when ranking stations.
+              </p>
+            </label>
+
+            <label htmlFor="base-route-price" className="block space-y-1.5">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-xs font-medium tracking-wide text-slate-400">
+                  Base route avg price (£/L)
+                </span>
+                {basePriceManual ? (
+                  <button
+                    type="button"
+                    onClick={() => resetBaseRouteAvgPrice()}
+                    className="text-[11px] font-semibold text-teal-300 hover:text-teal-200"
+                  >
+                    Use auto
+                  </button>
+                ) : (
+                  <span className="text-[10px] text-slate-500">
+                    auto from corridor
+                  </span>
+                )}
+              </div>
+              <NumberInput
+                id="base-route-price"
+                min={0.8}
+                max={2.5}
+                step={0.001}
+                value={baseRouteAvgPricePerLitre}
+                onCommit={setBaseRouteAvgPrice}
+                className="w-full rounded-lg border border-slate-700/80 bg-slate-900/60 px-3 py-2.5 font-mono text-sm text-slate-100 outline-none ring-teal-500/40 transition focus:border-teal-500/60 focus:ring-2"
+                aria-label="Base route average price in pounds per litre"
+              />
+              <p className="text-[10px] leading-snug text-slate-500">
+                Compared against the median £/L of stations near your route — not
+                a fixed national average.
+              </p>
+            </label>
+
+            <div className="grid grid-cols-2 gap-2">
+              <label htmlFor="tank-capacity" className="block space-y-1.5">
+                <span className="text-xs font-medium tracking-wide text-slate-400">
+                  Tank (L)
+                </span>
+                <NumberInput
+                  id="tank-capacity"
+                  min={10}
+                  max={200}
+                  step={1}
+                  value={vehicle.tankCapacityLitres}
+                  onCommit={(tankCapacityLitres) =>
+                    setVehicle({ tankCapacityLitres })
+                  }
+                  className="w-full rounded-lg border border-slate-700/80 bg-slate-900/60 px-3 py-2.5 font-mono text-sm text-slate-100 outline-none focus:border-teal-500/60 focus:ring-2 focus:ring-teal-500/40"
+                  aria-label="Tank capacity in litres"
+                />
+              </label>
+              <label htmlFor="fill-percentage" className="block space-y-1.5">
+                <span className="text-xs font-medium tracking-wide text-slate-400">
+                  Fill %
+                </span>
+                <NumberInput
+                  id="fill-percentage"
+                  min={0}
+                  max={100}
+                  step={1}
+                  value={vehicle.fillPercentage}
+                  onCommit={(fillPercentage) => setVehicle({ fillPercentage })}
+                  className="w-full rounded-lg border border-slate-700/80 bg-slate-900/60 px-3 py-2.5 font-mono text-sm text-slate-100 outline-none focus:border-teal-500/60 focus:ring-2 focus:ring-teal-500/40"
+                  aria-label="Current fill percentage"
+                />
+              </label>
+            </div>
+            <p className="-mt-3 text-[10px] leading-snug text-slate-500">
+              Remaining range ≈{" "}
+              <span className="font-mono text-slate-300">
+                {remainingRangeMiles(vehicle).toFixed(0)} mi
+              </span>{" "}
+              — stations farther than that are hidden.
+            </p>
+          </div>
+        )}
       </div>
-      <p className="-mt-3 text-[10px] leading-snug text-slate-500">
-        Remaining range ≈{" "}
-        <span className="font-mono text-slate-300">
-          {remainingRangeMiles(vehicle).toFixed(0)} mi
-        </span>{" "}
-        — stations farther than that are hidden.
-      </p>
 
       <button
         type="submit"
         disabled={loading || !tripReady}
         title={tripReady ? undefined : "Choose an origin and destination first"}
-        className="flex w-full items-center justify-center gap-2 rounded-lg bg-teal-600 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-teal-950/40 transition hover:bg-teal-500 disabled:cursor-not-allowed disabled:opacity-60"
+        className="flex min-h-12 w-full items-center justify-center gap-2 rounded-lg bg-teal-600 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-teal-950/40 transition hover:bg-teal-500 disabled:cursor-not-allowed disabled:opacity-60"
       >
         {submitButtonLabel(loading, tripReady)}
       </button>

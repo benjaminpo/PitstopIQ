@@ -3,10 +3,11 @@
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { Coffee, Loader2, Menu, PanelLeftClose } from "lucide-react";
+import { Coffee, HelpCircle, Loader2, Menu, PanelLeftClose } from "lucide-react";
 import { AccountMenu } from "@/app/components/AccountMenu";
 import { AppLogo } from "@/app/components/AppLogo";
 import { FreshnessBadge } from "@/app/components/FreshnessBadge";
+import { MobileSelectedStationBar } from "@/app/components/MobileSelectedStationBar";
 import { RouteForm } from "@/app/components/RouteForm";
 import { SidebarAd } from "@/app/components/AdUnit";
 import { ShareTripButton } from "@/app/components/ShareTripButton";
@@ -57,11 +58,20 @@ export function HomeApp() {
 
   // Ticking clock so the "Updated X ago" badge stays current
   const [now, setNow] = useState(() => Date.now());
+  const [legendOpen, setLegendOpen] = useState(false);
+
   useEffect(() => {
     if (!dataSource) return;
     const id = window.setInterval(() => setNow(Date.now()), 30_000);
     return () => window.clearInterval(id);
   }, [dataSource]);
+
+  // Map-first on phones: panel covers the corridor until opened.
+  useEffect(() => {
+    if (window.matchMedia("(max-width: 767px)").matches) {
+      setSidebarOpen(false);
+    }
+  }, [setSidebarOpen]);
 
   // Refresh when returning from admin, and update other open app tabs after an
   // admin price edit. Also soft-poll prices while this tab stays open.
@@ -79,6 +89,11 @@ export function HomeApp() {
       stopAutoRefresh();
     };
   }, [loadStations]);
+
+  const showMobileNavigateBar = Boolean(selectedStationId) && !sidebarOpen;
+  const mapChipBottom = showMobileNavigateBar
+    ? "bottom-[calc(11.5rem+env(safe-area-inset-bottom))]"
+    : "bottom-[max(1rem,env(safe-area-inset-bottom))]";
 
   return (
     <div className="relative flex h-[100dvh] w-full overflow-hidden bg-slate-950 text-slate-100">
@@ -101,7 +116,7 @@ export function HomeApp() {
           !sidebarOpen && "md:hidden"
         )}
       >
-        <header className="flex items-start justify-between gap-3 border-b border-slate-800/80 px-5 py-4">
+        <header className="flex items-start justify-between gap-3 border-b border-slate-800/80 px-5 py-4 pt-[max(1rem,env(safe-area-inset-top))]">
           <div>
             <h1>
               <AppLogo />
@@ -115,7 +130,7 @@ export function HomeApp() {
           <div className="flex items-center gap-2">
             <Link
               href="/stations"
-              className="inline-flex items-center rounded-lg border border-slate-700/80 bg-slate-900/60 px-2.5 py-1.5 text-xs font-medium text-slate-300 transition hover:border-teal-600/50 hover:bg-teal-950/50 hover:text-teal-200"
+              className="inline-flex min-h-11 items-center rounded-lg border border-slate-700/80 bg-slate-900/60 px-2.5 py-1.5 text-xs font-medium text-slate-300 transition hover:border-teal-600/50 hover:bg-teal-950/50 hover:text-teal-200"
             >
               All stations
             </Link>
@@ -123,7 +138,7 @@ export function HomeApp() {
             <button
               type="button"
               onClick={() => setSidebarOpen(false)}
-              className="rounded-lg p-2 text-slate-400 transition hover:bg-slate-800 hover:text-slate-100 md:hidden"
+              className="inline-flex h-11 w-11 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-800 hover:text-slate-100 md:hidden"
               aria-label="Close sidebar"
             >
               <PanelLeftClose className="h-5 w-5" />
@@ -141,7 +156,7 @@ export function HomeApp() {
 
         <SidebarAd />
 
-        <footer className="flex items-center justify-between gap-3 border-t border-slate-800/80 px-5 py-3 text-[10px] text-slate-500">
+        <footer className="flex items-center justify-between gap-3 border-t border-slate-800/80 px-5 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] text-[10px] text-slate-500">
           <a
             href="https://buymeacoffee.com/benjaminpo"
             target="_blank"
@@ -179,21 +194,36 @@ export function HomeApp() {
             </div>
           </div>
         )}
-        <div className="absolute left-3 top-3 z-[500] flex gap-2 md:left-4 md:top-4">
+        <div className="absolute left-3 top-[max(0.75rem,env(safe-area-inset-top))] z-[500] flex gap-2 md:left-4 md:top-4">
           <button
             type="button"
             onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="flex items-center gap-2 rounded-lg border border-slate-700/80 bg-slate-950/90 px-3 py-2 text-sm font-medium text-slate-100 shadow-lg backdrop-blur hover:bg-slate-900"
+            className="flex min-h-11 items-center gap-2 rounded-lg border border-slate-700/80 bg-slate-950/90 px-3 py-2.5 text-sm font-medium text-slate-100 shadow-lg backdrop-blur hover:bg-slate-900"
             aria-label="Toggle sidebar"
           >
-            <Menu className="h-4 w-4" />
+            <Menu className="h-5 w-5" />
             <span className="hidden sm:inline">
               {sidebarOpen ? "Hide panel" : "Show panel"}
             </span>
           </button>
+          <button
+            type="button"
+            onClick={() => setLegendOpen((open) => !open)}
+            className="inline-flex h-11 w-11 items-center justify-center rounded-lg border border-slate-700/80 bg-slate-950/90 text-slate-200 shadow-lg backdrop-blur hover:bg-slate-900 md:hidden"
+            aria-label={legendOpen ? "Hide map legend" : "Show map legend"}
+            aria-expanded={legendOpen}
+          >
+            <HelpCircle className="h-5 w-5" />
+          </button>
         </div>
 
-        <div className="absolute left-3 right-3 top-14 z-[500] flex flex-wrap gap-2 md:bottom-4 md:left-4 md:right-auto md:top-auto">
+        <div
+          className={cn(
+            "absolute z-[500] flex flex-wrap gap-2",
+            "left-3 right-3 top-[calc(3.25rem+env(safe-area-inset-top))] md:bottom-4 md:left-4 md:right-auto md:top-auto",
+            !legendOpen && "hidden md:flex"
+          )}
+        >
           <LegendDot color="bg-emerald-400" label="Worth it" />
           <LegendDot color="bg-amber-400" label="Break-even ±£0.50" />
           <LegendDot color="bg-rose-400" label="False economy" />
@@ -201,7 +231,13 @@ export function HomeApp() {
           <LegendDot color="bg-amber-300" label="Detour" />
         </div>
 
-        <div className="absolute bottom-4 right-3 z-[500] flex max-w-[calc(100vw-1.5rem)] flex-col items-end gap-2 md:right-4">
+        <div
+          className={cn(
+            "absolute right-3 z-[500] flex max-w-[calc(100vw-1.5rem)] flex-col items-end gap-2 md:right-4",
+            mapChipBottom,
+            "md:bottom-4"
+          )}
+        >
           {!loading &&
             route &&
             selectedStationId === null &&
@@ -221,7 +257,7 @@ export function HomeApp() {
             <button
               type="button"
               onClick={() => setSelectedStationId(null)}
-              className="rounded-lg border border-teal-800/50 bg-slate-950/90 px-3 py-2 text-left text-xs shadow-lg backdrop-blur transition hover:border-teal-600/70 hover:bg-teal-950/40"
+              className="min-h-11 rounded-lg border border-teal-800/50 bg-slate-950/90 px-3 py-2 text-left text-xs shadow-lg backdrop-blur transition hover:border-teal-600/70 hover:bg-teal-950/40"
               aria-label="Switch back to the direct route"
             >
               <p className="font-semibold text-teal-300">Direct route</p>
@@ -242,7 +278,7 @@ export function HomeApp() {
             </div>
           )}
           {!detourRouting && detourRoute && (
-            <div className="rounded-lg border border-amber-700/50 bg-slate-950/90 px-3 py-2 text-xs shadow-lg backdrop-blur">
+            <div className="rounded-lg border border-amber-700/50 bg-slate-950/90 px-3 py-2 text-xs shadow-lg backdrop-blur sm:text-sm">
               <p className="font-semibold text-amber-300">
                 {nearbySearch ? "Route to best station" : "Detour via station"}
               </p>
@@ -251,7 +287,7 @@ export function HomeApp() {
                 {formatDuration(detourRoute.durationSeconds)}
               </p>
               {route && !nearbySearch && (
-                <p className="mt-0.5 font-mono text-[10px] text-slate-500">
+                <p className="mt-0.5 font-mono text-[10px] text-slate-500 sm:text-xs">
                   +
                   {(
                     detourRoute.distanceMiles - route.distanceMiles
@@ -281,6 +317,7 @@ export function HomeApp() {
         </div>
 
         <MapView />
+        <MobileSelectedStationBar />
       </main>
     </div>
   );
