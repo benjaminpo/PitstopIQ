@@ -1294,6 +1294,7 @@ export const usePitstopStore = create<PitstopState>()(
         const freshnessRaw = p.priceFreshnessFilter;
         const priceFreshnessFilter: PriceFreshnessFilter =
           freshnessRaw === "24h" ||
+          freshnessRaw === "2d" ||
           freshnessRaw === "3d" ||
           freshnessRaw === "7d" ||
           freshnessRaw === "any"

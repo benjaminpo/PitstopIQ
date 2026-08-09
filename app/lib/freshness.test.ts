@@ -69,6 +69,9 @@ describe("matchesPriceFreshness", () => {
       true
     );
     expect(matchesPriceFreshness(now - 2 * DAY, "24h", now)).toBe(false);
+    expect(matchesPriceFreshness(now - 2 * DAY, "2d", now)).toBe(true);
+    expect(matchesPriceFreshness(now - 2 * DAY + 1, "2d", now)).toBe(true);
+    expect(matchesPriceFreshness(now - 2 * DAY - 1, "2d", now)).toBe(false);
     expect(matchesPriceFreshness(now - 2 * DAY, "3d", now)).toBe(true);
     expect(matchesPriceFreshness(now - 6 * DAY, "7d", now)).toBe(true);
   });

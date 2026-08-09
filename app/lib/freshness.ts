@@ -26,7 +26,7 @@ export type FreshnessTone = "fresh" | "aging" | "stale" | "mock" | "unknown";
 const STATION_FRESH_MS = 24 * 60 * 60 * 1000;
 const STATION_AGING_MS = 7 * 24 * 60 * 60 * 1000;
 
-export type PriceFreshnessFilter = "any" | "24h" | "3d" | "7d";
+export type PriceFreshnessFilter = "any" | "24h" | "2d" | "3d" | "7d";
 
 export const PRICE_FRESHNESS_OPTIONS: Array<{
   value: PriceFreshnessFilter;
@@ -35,6 +35,7 @@ export const PRICE_FRESHNESS_OPTIONS: Array<{
 }> = [
   { value: "any", label: "Any time", maxAgeMs: null },
   { value: "24h", label: "Within 24 hours", maxAgeMs: STATION_FRESH_MS },
+  { value: "2d", label: "Within 2 days", maxAgeMs: 2 * 24 * 60 * 60 * 1000 },
   { value: "3d", label: "Within 3 days", maxAgeMs: 3 * 24 * 60 * 60 * 1000 },
   { value: "7d", label: "Within 7 days", maxAgeMs: STATION_AGING_MS },
 ];
