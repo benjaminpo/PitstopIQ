@@ -17,8 +17,10 @@ export function subscribeStationsAutoRefresh(
 ): () => void {
   const intervalMs = options?.intervalMs ?? STATIONS_AUTO_REFRESH_MS;
 
+  const hasDocument = typeof document !== "undefined";
+
   const tick = () => {
-    if (typeof document !== "undefined" && document.visibilityState !== "visible") {
+    if (hasDocument && document.visibilityState !== "visible") {
       return;
     }
     refresh();
@@ -27,12 +29,16 @@ export function subscribeStationsAutoRefresh(
   const id = globalThis.setInterval(tick, intervalMs);
 
   const onVisibility = () => {
-    if (document.visibilityState === "visible") refresh();
+    if (hasDocument && document.visibilityState === "visible") refresh();
   };
-  document.addEventListener("visibilitychange", onVisibility);
+  if (hasDocument) {
+    document.addEventListener("visibilitychange", onVisibility);
+  }
 
   return () => {
     globalThis.clearInterval(id);
-    document.removeEventListener("visibilitychange", onVisibility);
+    if (hasDocument) {
+      document.removeEventListener("visibilitychange", onVisibility);
+    }
   };
 }

@@ -89,4 +89,15 @@ describe("subscribeStationsAutoRefresh", () => {
 
     stop();
   });
+
+  it("polls without document (e.g. SSR) and cleans up safely", () => {
+    vi.stubGlobal("document", undefined);
+    const refresh = vi.fn();
+    const stop = subscribeStationsAutoRefresh(refresh, { intervalMs: 1000 });
+
+    vi.advanceTimersByTime(1000);
+    expect(refresh).toHaveBeenCalledTimes(1);
+
+    expect(() => stop()).not.toThrow();
+  });
 });
