@@ -6,6 +6,7 @@ import {
   ArrowLeft,
   ArrowUpDown,
   Check,
+  ExternalLink,
   FileUp,
   Loader2,
   Pencil,
@@ -106,6 +107,7 @@ export function AdminStationMatcher() {
   const [manualPrices, setManualPrices] = useState<Partial<Record<FuelType, string>>>(
     {}
   );
+  const [manualSourceUrl, setManualSourceUrl] = useState("");
   const [stationListQuery, setStationListQuery] = useState("");
   const [stationPage, setStationPage] = useState(1);
   const [stationSort, setStationSort] = useState<StationListSort>("name");
@@ -305,6 +307,7 @@ export function AdminStationMatcher() {
       }
     }
     setManualPrices(savedPrices);
+    setManualSourceUrl(saved?.sourceUrl ?? "");
     requestAnimationFrame(() => {
       document
         .getElementById("manual-price-editor")
@@ -383,8 +386,29 @@ export function AdminStationMatcher() {
     </button>
   );
 
+  const petrolPricesUrlFor = (stationId: string) =>
+    data?.confirmed.find(
+      (match) => match.officialStationId === stationId && match.sourceUrl
+    )?.sourceUrl ?? null;
+
   const saveManualPrices = async () => {
     if (!selectedStation) return;
+    const sourceUrl = manualSourceUrl.trim();
+    if (sourceUrl) {
+      try {
+        const url = new URL(sourceUrl);
+        if (
+          url.protocol !== "https:" ||
+          (url.hostname !== "petrolprices.com" &&
+            !url.hostname.endsWith(".petrolprices.com"))
+        ) {
+          throw new Error();
+        }
+      } catch {
+        setError("Enter a valid https://petrolprices.com station URL.");
+        return;
+      }
+    }
     const prices: Partial<Record<FuelType, number>> = {};
     for (const { type } of FUELS) {
       const raw = manualPrices[type]?.trim();
@@ -402,6 +426,7 @@ export function AdminStationMatcher() {
     }
     const source: PetrolPricesStation = {
       sourceId: `manual:${selectedStation.id}`,
+      sourceUrl: sourceUrl || null,
       name: selectedStation.name,
       brand: selectedStation.brand,
       address: selectedStation.address ?? "",
@@ -537,7 +562,25 @@ export function AdminStationMatcher() {
 
             <div>
               <label className="text-xs font-medium text-slate-300">
-                2. Enter PetrolPrices values in pence per litre
+                2. PetrolPrices station link
+              </label>
+              <div className="relative mt-1.5">
+                <ExternalLink className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-500" />
+                <input
+                  type="url"
+                  disabled={!selectedStation}
+                  value={manualSourceUrl}
+                  onChange={(event) => setManualSourceUrl(event.target.value)}
+                  placeholder="https://www.petrolprices.com/..."
+                  className="w-full rounded-xl border border-slate-700 bg-slate-950 py-2 pl-9 pr-3 text-sm outline-none focus:border-teal-600 disabled:opacity-50"
+                />
+              </div>
+              <p className="mt-1 text-[10px] text-slate-600">
+                Optional direct link to this station on petrolprices.com.
+              </p>
+
+              <label className="mt-4 block text-xs font-medium text-slate-300">
+                3. Enter prices in pence per litre
               </label>
               <div className="mt-1.5 grid grid-cols-2 gap-3 sm:grid-cols-4">
                 {FUELS.map((fuel) => (
@@ -745,14 +788,27 @@ export function AdminStationMatcher() {
                           {formatUpdatedAt(station.pricesLastUpdatedAt)}
                         </td>
                         <td className="px-4 py-3 text-right">
-                          <button
-                            type="button"
-                            onClick={() => selectStationForEditing(station)}
-                            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 px-2.5 py-1.5 text-[11px] font-medium text-slate-300 transition hover:border-teal-600 hover:text-teal-200"
-                          >
-                            <Pencil className="h-3 w-3" />
-                            Edit
-                          </button>
+                          <div className="flex items-center justify-end gap-1.5">
+                            {petrolPricesUrlFor(station.id) && (
+                              <a
+                                href={petrolPricesUrlFor(station.id)!}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 px-2.5 py-1.5 text-[11px] font-medium text-slate-300 transition hover:border-teal-600 hover:text-teal-200"
+                              >
+                                <ExternalLink className="h-3 w-3" />
+                                PetrolPrices
+                              </a>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => selectStationForEditing(station)}
+                              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700 px-2.5 py-1.5 text-[11px] font-medium text-slate-300 transition hover:border-teal-600 hover:text-teal-200"
+                            >
+                              <Pencil className="h-3 w-3" />
+                              Edit
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))}

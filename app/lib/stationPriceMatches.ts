@@ -8,6 +8,7 @@ export interface ConfirmedStationMatch {
   officialStationId: string;
   officialStationName: string;
   sourceStationId: string;
+  sourceUrl: string | null;
   sourceStationName: string;
   sourcePostcode: string;
   sourcePrices: Partial<Record<FuelType, number>>;
@@ -22,6 +23,7 @@ interface MatchRow {
   official_station_id: string;
   official_station_name: string;
   source_station_id: string;
+  source_url: string | null;
   source_station_name: string;
   source_postcode: string;
   source_prices_json: string;
@@ -41,6 +43,7 @@ async function ensureSchema(): Promise<void> {
         official_station_id TEXT NOT NULL,
         official_station_name TEXT NOT NULL,
         source_station_id TEXT NOT NULL,
+        source_url TEXT,
         source_station_name TEXT NOT NULL,
         source_postcode TEXT NOT NULL,
         source_prices_json TEXT NOT NULL,
@@ -51,6 +54,11 @@ async function ensureSchema(): Promise<void> {
         UNIQUE (official_station_id, source_station_id)
       )
     `);
+    try {
+      await dbRun(`ALTER TABLE station_price_match ADD COLUMN source_url TEXT`);
+    } catch {
+      // Existing databases already have the column after the first migration.
+    }
     await ensureBigintEpochColumns("station_price_match", ["confirmed_at"]);
   })();
   return schemaReady;
@@ -62,6 +70,7 @@ function fromRow(row: MatchRow): ConfirmedStationMatch {
     officialStationId: row.official_station_id,
     officialStationName: row.official_station_name,
     sourceStationId: row.source_station_id,
+    sourceUrl: row.source_url,
     sourceStationName: row.source_station_name,
     sourcePostcode: row.source_postcode,
     sourcePrices: JSON.parse(row.source_prices_json) as Partial<Record<FuelType, number>>,
@@ -132,12 +141,13 @@ export async function confirmStationMatch(input: {
   if (existing) {
     await dbRun(
       `UPDATE station_price_match
-       SET official_station_name = ?, source_station_name = ?, source_postcode = ?,
+       SET official_station_name = ?, source_url = ?, source_station_name = ?, source_postcode = ?,
            source_prices_json = ?, official_prices_json = ?, match_score = ?,
            confirmed_by = ?, confirmed_at = ?
        WHERE id = ?`,
       [
         input.station.name,
+        input.source.sourceUrl,
         input.source.name,
         input.source.postcode,
         JSON.stringify(input.source.prices),
@@ -152,14 +162,15 @@ export async function confirmStationMatch(input: {
     await dbRun(
       `INSERT INTO station_price_match (
         id, official_station_id, official_station_name, source_station_id,
-        source_station_name, source_postcode, source_prices_json,
+        source_url, source_station_name, source_postcode, source_prices_json,
         official_prices_json, match_score, confirmed_by, confirmed_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         id,
         input.station.id,
         input.station.name,
         input.source.sourceId,
+        input.source.sourceUrl,
         input.source.name,
         input.source.postcode,
         JSON.stringify(input.source.prices),

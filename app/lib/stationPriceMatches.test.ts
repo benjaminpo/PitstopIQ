@@ -24,6 +24,7 @@ function match(
     officialStationId: station.id,
     officialStationName: station.name,
     sourceStationId: `manual:${station.id}`,
+    sourceUrl: "https://www.petrolprices.com/stations/test-station/",
     sourceStationName: station.name,
     sourcePostcode: station.postcode!,
     sourcePrices,

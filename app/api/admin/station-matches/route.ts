@@ -27,12 +27,28 @@ function validPrices(value: unknown): value is Partial<Record<FuelType, number>>
   );
 }
 
+function validPetrolPricesUrl(value: unknown): value is string | null {
+  if (value === null) return true;
+  if (typeof value !== "string") return false;
+  try {
+    const url = new URL(value);
+    return (
+      url.protocol === "https:" &&
+      (url.hostname === "petrolprices.com" ||
+        url.hostname.endsWith(".petrolprices.com"))
+    );
+  } catch {
+    return false;
+  }
+}
+
 function validSource(value: unknown): value is PetrolPricesStation {
   if (!value || typeof value !== "object" || Array.isArray(value)) return false;
   const source = value as Partial<PetrolPricesStation>;
   return (
     typeof source.sourceId === "string" &&
     source.sourceId.length > 0 &&
+    validPetrolPricesUrl(source.sourceUrl) &&
     typeof source.name === "string" &&
     source.name.length > 0 &&
     typeof source.brand === "string" &&
