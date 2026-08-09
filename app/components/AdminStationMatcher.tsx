@@ -254,8 +254,10 @@ export function AdminStationMatcher() {
               ],
               stations: current.stations.map((station) => {
                 if (station.id !== savedMatch.officialStationId) return station;
+                const savedFuels = Object.keys(savedMatch.sourcePrices) as FuelType[];
+                if (savedFuels.length === 0) return station;
                 const pricesUpdatedAt = { ...station.pricesUpdatedAt };
-                for (const fuel of Object.keys(savedMatch.sourcePrices) as FuelType[]) {
+                for (const fuel of savedFuels) {
                   pricesUpdatedAt[fuel] = savedMatch.confirmedAt;
                 }
                 return {
@@ -437,8 +439,8 @@ export function AdminStationMatcher() {
       }
       prices[type] = Math.round(pence * 10) / 1000;
     }
-    if (Object.keys(prices).length === 0) {
-      setError("Enter at least one PetrolPrices value.");
+    if (Object.keys(prices).length === 0 && !sourceUrl) {
+      setError("Enter a PetrolPrices station link or at least one price.");
       return;
     }
     const source: PetrolPricesStation = {
@@ -521,9 +523,9 @@ export function AdminStationMatcher() {
               Manually compare a PetrolPrices station
             </h1>
             <p className="mt-1 max-w-2xl text-xs leading-5 text-slate-400">
-              Find the station in PitstopIQ, enter the prices shown on PetrolPrices,
-              review the difference, then save the check. Values are recorded for audit
-              only and do not override public prices.
+              Find the station in PitstopIQ, paste its PetrolPrices link, and save it for
+              quick access. You can optionally enter prices for comparison; values are
+              recorded for audit only and do not override public prices.
             </p>
           </div>
 
@@ -604,11 +606,12 @@ export function AdminStationMatcher() {
                 />
               </div>
               <p className="mt-1 text-[10px] text-slate-600">
-                Optional direct link to this station on petrolprices.com.
+                Paste the direct station link. Prices below are optional when a link is
+                provided.
               </p>
 
               <label className="mt-4 block text-xs font-medium text-slate-300">
-                3. Enter prices in pence per litre
+                3. Enter prices in pence per litre (optional)
               </label>
               <div className="mt-1.5 grid grid-cols-2 gap-3 sm:grid-cols-4">
                 {FUELS.map((fuel) => (
@@ -657,7 +660,7 @@ export function AdminStationMatcher() {
                 {saving?.startsWith("manual:") && (
                   <Loader2 className="h-4 w-4 animate-spin" />
                 )}
-                {selectedSavedMatch ? "Update price check" : "Save price check"}
+                {selectedSavedMatch ? "Update PetrolPrices details" : "Save PetrolPrices link"}
               </button>
             </div>
           </div>
