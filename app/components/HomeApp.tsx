@@ -1,6 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Coffee, Loader2, Menu, PanelLeftClose } from "lucide-react";
 import { AccountMenu } from "@/app/components/AccountMenu";
@@ -105,6 +106,12 @@ export function HomeApp() {
             </p>
           </div>
           <div className="flex items-center gap-2">
+            <Link
+              href="/stations"
+              className="inline-flex items-center rounded-lg border border-slate-700/80 bg-slate-900/60 px-2.5 py-1.5 text-xs font-medium text-slate-300 transition hover:border-teal-600/50 hover:bg-teal-950/50 hover:text-teal-200"
+            >
+              All stations
+            </Link>
             <AccountMenu />
             <button
               type="button"

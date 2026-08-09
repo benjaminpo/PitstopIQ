@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { LogIn, LogOut, Settings, UserRound } from "lucide-react";
+import { Fuel, LogIn, LogOut, Settings, UserRound } from "lucide-react";
 import { signOut, useSession } from "@/app/lib/auth-client";
 
 export function AccountMenu() {
@@ -75,10 +75,19 @@ export function AccountMenu() {
           </div>
           <div className="mx-1 h-px bg-slate-800/80" />
           <Link
-            href="/account"
+            href="/stations"
             role="menuitem"
             onClick={() => setOpen(false)}
             className="mt-1 flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs font-medium text-slate-300 transition hover:bg-slate-800/80 hover:text-slate-100"
+          >
+            <Fuel className="h-3.5 w-3.5" />
+            All stations
+          </Link>
+          <Link
+            href="/account"
+            role="menuitem"
+            onClick={() => setOpen(false)}
+            className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs font-medium text-slate-300 transition hover:bg-slate-800/80 hover:text-slate-100"
           >
             <Settings className="h-3.5 w-3.5" />
             Manage account

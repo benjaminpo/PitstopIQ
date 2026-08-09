@@ -4,6 +4,7 @@ import {
   DEFAULT_BASE_ROUTE_AVG_PRICE,
   DEFAULT_BOUNDS,
   FUEL_TYPE_LABELS,
+  UK_BOUNDS,
   VEHICLE_FUEL_OPTIONS,
   fuelGradesForVehicle,
   vehicleFuelKind,
@@ -15,6 +16,12 @@ describe("fuelConstants", () => {
     expect(DEFAULT_BOUNDS.north).toBeGreaterThan(DEFAULT_BOUNDS.south);
     expect(DEFAULT_BOUNDS.east).toBeGreaterThan(DEFAULT_BOUNDS.west);
     expect(DEFAULT_BASE_ROUTE_AVG_PRICE).toBeGreaterThan(1);
+  });
+
+  it("exposes UK national bounds", () => {
+    expect(UK_BOUNDS.north).toBeGreaterThan(UK_BOUNDS.south);
+    expect(UK_BOUNDS.east).toBeGreaterThan(UK_BOUNDS.west);
+    expect(UK_BOUNDS.north).toBeGreaterThan(DEFAULT_BOUNDS.north);
   });
 
   it("lists the UK grades with labels", () => {
