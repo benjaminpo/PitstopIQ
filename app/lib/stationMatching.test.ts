@@ -39,6 +39,14 @@ describe("parsePetrolPricesFile", () => {
     });
     expect(parsePetrolPricesFile(json, "prices.json")).toHaveLength(1);
   });
+
+  it("accepts PetrolPrices values above 350 pence", () => {
+    const [station] = parsePetrolPricesFile(
+      "name,postcode,unleaded\nTest Station,AB1 2CD,366.6",
+      "prices.csv"
+    );
+    expect(station.prices.E10).toBe(3.666);
+  });
 });
 
 describe("suggestStationMatches", () => {

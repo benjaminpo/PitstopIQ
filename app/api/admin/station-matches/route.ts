@@ -23,7 +23,7 @@ function validPrices(value: unknown): value is Partial<Record<FuelType, number>>
       typeof price === "number" &&
       Number.isFinite(price) &&
       price >= 0.8 &&
-      price <= 3.5
+      price <= 5
   );
 }
 

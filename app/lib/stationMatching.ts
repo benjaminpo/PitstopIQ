@@ -101,7 +101,7 @@ function priceValue(
   let value = Number(String(valueFor(record, aliases) ?? "").replace(/[£p,\s]/gi, ""));
   if (!Number.isFinite(value) || value <= 0) return undefined;
   if (value > 10) value /= 100;
-  return value >= 0.8 && value <= 3.5 ? Math.round(value * 1000) / 1000 : undefined;
+  return value >= 0.8 && value <= 5 ? Math.round(value * 1000) / 1000 : undefined;
 }
 
 function normalizeRecord(raw: Record<string, unknown>, index: number): PetrolPricesStation | null {

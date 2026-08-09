@@ -433,8 +433,8 @@ export function AdminStationMatcher() {
       const raw = manualPrices[type]?.trim();
       if (!raw) continue;
       const pence = Number(raw);
-      if (!Number.isFinite(pence) || pence < 80 || pence > 350) {
-        setError("Enter prices in pence per litre, between 80p and 350p.");
+      if (!Number.isFinite(pence) || pence < 80 || pence > 500) {
+        setError("Enter prices in pence per litre, between 80p and 500p.");
         return;
       }
       prices[type] = Math.round(pence * 10) / 1000;
@@ -621,7 +621,7 @@ export function AdminStationMatcher() {
                       <input
                         type="number"
                         min="80"
-                        max="350"
+                        max="500"
                         step="0.1"
                         inputMode="decimal"
                         disabled={!selectedStation}
