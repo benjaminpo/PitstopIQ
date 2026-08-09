@@ -6,6 +6,7 @@ import {
   ArrowUpDown,
   Ban,
   ChevronDown,
+  Clock,
   RefreshCw,
 } from "lucide-react";
 import { remainingRangeMiles } from "@/app/lib/detourCalculator";
@@ -53,6 +54,8 @@ export function StationList() {
     setBrandFilter,
     priceFreshnessFilter,
     setPriceFreshnessFilter,
+    openNowFilter,
+    setOpenNowFilter,
     excludedBrands,
     toggleExcludedBrand,
     clearExcludedBrands,
@@ -142,7 +145,7 @@ export function StationList() {
           <p className="mt-0.5 text-xs text-slate-500">
             {loading
               ? "Fetching Fuel Finder prices…"
-              : `${enriched.length} in range (≤${rangeMiles.toFixed(0)} mi) · ${stations.length} on corridor · ${filterLabel} · ${freshnessLabel.toLowerCase()} · ${SORT_OPTIONS.find((s) => s.key === sortKey)?.label.toLowerCase()}${hiddenBrandsSuffix}`}
+              : `${enriched.length} in range (≤${rangeMiles.toFixed(0)} mi) · ${stations.length} on corridor · ${filterLabel} · ${freshnessLabel.toLowerCase()}${openNowFilter ? " · open now" : ""} · ${SORT_OPTIONS.find((s) => s.key === sortKey)?.label.toLowerCase()}${hiddenBrandsSuffix}`}
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-1.5">
@@ -224,32 +227,62 @@ export function StationList() {
         )}
       </fieldset>
 
-      <label className="mb-3 flex items-center justify-between gap-3 rounded-lg bg-slate-900/60 px-2.5 py-2 ring-1 ring-slate-700/60">
-        <span>
-          <span className="block text-[11px] font-semibold text-slate-300">
-            Price last changed
+      <div className="mb-3 flex flex-col gap-2">
+        <label className="flex items-center justify-between gap-3 rounded-lg bg-slate-900/60 px-2.5 py-2 ring-1 ring-slate-700/60">
+          <span>
+            <span className="block text-[11px] font-semibold text-slate-300">
+              Price last changed
+            </span>
+            <span className="block text-[10px] text-slate-500">
+              Optional freshness filter
+            </span>
           </span>
-          <span className="block text-[10px] text-slate-500">
-            Optional freshness filter
-          </span>
-        </span>
-        <select
-          value={priceFreshnessFilter}
-          onChange={(event) =>
-            setPriceFreshnessFilter(
-              event.target.value as PriceFreshnessFilter
-            )
-          }
-          className="rounded-md border border-slate-700 bg-slate-950 px-2 py-1.5 text-[11px] font-medium text-slate-200 outline-none ring-teal-500/40 focus:border-teal-500/60 focus:ring-2"
-          aria-label="Maximum price age"
+          <select
+            value={priceFreshnessFilter}
+            onChange={(event) =>
+              setPriceFreshnessFilter(
+                event.target.value as PriceFreshnessFilter
+              )
+            }
+            className="rounded-md border border-slate-700 bg-slate-950 px-2 py-1.5 text-[11px] font-medium text-slate-200 outline-none ring-teal-500/40 focus:border-teal-500/60 focus:ring-2"
+            aria-label="Maximum price age"
+          >
+            {PRICE_FRESHNESS_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <button
+          type="button"
+          aria-pressed={openNowFilter}
+          title="Only show stations whose usual opening hours say they are open now (UK time). Stations without hours are hidden."
+          onClick={() => setOpenNowFilter(!openNowFilter)}
+          className={cn(
+            "inline-flex items-center justify-between gap-3 rounded-lg px-2.5 py-2 text-left text-[11px] font-semibold transition ring-1",
+            openNowFilter
+              ? "bg-teal-600/20 text-teal-200 ring-teal-500/40 hover:bg-teal-600/30"
+              : "bg-slate-900/60 text-slate-300 ring-slate-700/60 hover:bg-slate-800 hover:text-slate-100"
+          )}
         >
-          {PRICE_FRESHNESS_OPTIONS.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </select>
-      </label>
+          <span className="inline-flex items-center gap-1.5">
+            <Clock className="h-3.5 w-3.5" />
+            Open now
+          </span>
+          <span
+            className={cn(
+              "rounded-md px-2 py-0.5 text-[10px] font-semibold",
+              openNowFilter
+                ? "bg-teal-500/25 text-teal-100"
+                : "bg-slate-950/70 text-slate-500"
+            )}
+          >
+            {openNowFilter ? "On" : "Off"}
+          </span>
+        </button>
+      </div>
 
       {brandPanelOpen && brandOptions.length > 0 && (
         <div className="mb-3 rounded-lg bg-slate-900/60 p-2.5 ring-1 ring-slate-700/60">
@@ -326,6 +359,31 @@ export function StationList() {
         stations.length > 0 &&
         enriched.length === 0 &&
         !error &&
+        openNowFilter && (
+          <div className="mb-3 space-y-3">
+            <div className="rounded-lg border border-dashed border-slate-700 px-3 py-8 text-center text-sm text-slate-500">
+              <p>
+                No matching stations are open right now (based on usual opening
+                hours). Stations without hours data are hidden while this filter
+                is on.
+              </p>
+              <button
+                type="button"
+                onClick={() => setOpenNowFilter(false)}
+                className="mt-2 text-[12px] font-semibold text-teal-300 transition hover:text-teal-200"
+              >
+                Show stations regardless of hours
+              </button>
+            </div>
+            <ReportMissingStation />
+          </div>
+        )}
+
+      {!loading &&
+        stations.length > 0 &&
+        enriched.length === 0 &&
+        !error &&
+        !openNowFilter &&
         priceFreshnessFilter !== "any" && (
           <div className="mb-3 space-y-3">
             <div className="rounded-lg border border-dashed border-slate-700 px-3 py-8 text-center text-sm text-slate-500">
@@ -350,6 +408,7 @@ export function StationList() {
         stations.length > 0 &&
         enriched.length === 0 &&
         !error &&
+        !openNowFilter &&
         priceFreshnessFilter === "any" &&
         excludedBrands.length > 0 && (
           <div className="mb-3 space-y-3">
@@ -377,6 +436,7 @@ export function StationList() {
         stations.length > 0 &&
         enriched.length === 0 &&
         !error &&
+        !openNowFilter &&
         priceFreshnessFilter === "any" &&
         excludedBrands.length === 0 &&
         brandFilter !== "all" && (
@@ -394,6 +454,7 @@ export function StationList() {
         stations.length > 0 &&
         enriched.length === 0 &&
         !error &&
+        !openNowFilter &&
         priceFreshnessFilter === "any" &&
         excludedBrands.length === 0 &&
         brandFilter === "all" && (

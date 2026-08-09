@@ -399,17 +399,23 @@ function FitBounds({ points }: { points: GeoPoint[] }) {
 
 function FocusBestStations({
   freshnessFilter,
+  openNowFilter,
   enriched,
 }: {
   freshnessFilter: PriceFreshnessFilter;
+  openNowFilter: boolean;
   enriched: StationWithCalculation[];
 }) {
   const map = useMap();
-  const previousFilter = useRef(freshnessFilter);
+  const previousFreshness = useRef(freshnessFilter);
+  const previousOpenNow = useRef(openNowFilter);
 
   useEffect(() => {
-    if (previousFilter.current === freshnessFilter) return;
-    previousFilter.current = freshnessFilter;
+    const freshnessChanged = previousFreshness.current !== freshnessFilter;
+    const openNowChanged = previousOpenNow.current !== openNowFilter;
+    previousFreshness.current = freshnessFilter;
+    previousOpenNow.current = openNowFilter;
+    if (!freshnessChanged && !openNowChanged) return;
     if (enriched.length === 0) return;
 
     const best = [...enriched]
@@ -425,7 +431,7 @@ function FocusBestStations({
       ])
     );
     map.fitBounds(bounds.pad(0.2), { maxZoom: 12 });
-  }, [map, freshnessFilter, enriched]);
+  }, [map, freshnessFilter, openNowFilter, enriched]);
 
   return null;
 }
@@ -443,6 +449,7 @@ export default function MapView() {
     selectedStationId,
     setSelectedStationId,
     priceFreshnessFilter,
+    openNowFilter,
     vehicle,
     locateCurrentPosition,
     locating,
@@ -748,6 +755,7 @@ export default function MapView() {
       <FitBounds points={fitPoints} />
       <FocusBestStations
         freshnessFilter={priceFreshnessFilter}
+        openNowFilter={openNowFilter}
         enriched={enriched}
       />
     </MapContainer>

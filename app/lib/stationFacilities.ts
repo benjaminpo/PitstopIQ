@@ -132,6 +132,70 @@ export interface OpeningHoursRow {
   value: string;
 }
 
+function clockToMinutes(hhmm: string): number {
+  const [hours, minutes] = hhmm.split(":").map(Number);
+  return hours * 60 + minutes;
+}
+
+/** Whether a single day's hours cover `minutesOfDay` (0–1439). */
+export function isDayHoursOpenAt(
+  hours: StationDayHours,
+  minutesOfDay: number
+): boolean {
+  if (hours.is24Hours) return true;
+  if (hours.open === hours.close) return false;
+
+  const open = clockToMinutes(hours.open);
+  const close = clockToMinutes(hours.close);
+  if (close > open) {
+    return minutesOfDay >= open && minutesOfDay < close;
+  }
+  // Overnight window (e.g. 22:00–06:00)
+  return minutesOfDay >= open || minutesOfDay < close;
+}
+
+function weekdayInTimeZone(date: Date, timeZone: string): Weekday {
+  const label = new Intl.DateTimeFormat("en-GB", {
+    weekday: "long",
+    timeZone,
+  })
+    .format(date)
+    .toLowerCase();
+  return label as Weekday;
+}
+
+function minutesOfDayInTimeZone(date: Date, timeZone: string): number {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+    timeZone,
+  }).formatToParts(date);
+  const hour = Number(parts.find((p) => p.type === "hour")?.value ?? Number.NaN);
+  const minute = Number(
+    parts.find((p) => p.type === "minute")?.value ?? Number.NaN
+  );
+  if (!Number.isFinite(hour) || !Number.isFinite(minute)) return 0;
+  return hour * 60 + minute;
+}
+
+/**
+ * True when the station's usual-day hours say it is open at `now`.
+ * Stations without usable hours for today are treated as not open.
+ * Bank holidays are not detected — usual weekday hours are used.
+ */
+export function isStationOpenNow(
+  station: Pick<FuelStation, "openingHours">,
+  now: Date = new Date(),
+  timeZone = "Europe/London"
+): boolean {
+  const openingHours = station.openingHours;
+  if (!openingHours) return false;
+  const dayHours = openingHours.usualDays[weekdayInTimeZone(now, timeZone)];
+  if (!dayHours) return false;
+  return isDayHoursOpenAt(dayHours, minutesOfDayInTimeZone(now, timeZone));
+}
+
 /** Collapse consecutive identical weekday hours into compact rows. */
 export function formatOpeningHoursRows(
   hours: StationOpeningHours

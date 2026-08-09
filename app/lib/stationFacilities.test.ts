@@ -3,10 +3,12 @@ import {
   findNearbyStations,
   formatAmenityLabel,
   formatOpeningHoursRows,
+  isDayHoursOpenAt,
+  isStationOpenNow,
   parseAmenities,
   parseOpeningTimes,
 } from "./stationFacilities";
-import type { StationWithCalculation } from "./types";
+import type { StationDayHours, StationWithCalculation } from "./types";
 
 describe("parseAmenities", () => {
   it("normalises and dedupes amenity ids", () => {
@@ -73,6 +75,70 @@ describe("formatOpeningHoursRows", () => {
       { label: "Sat–Sun", value: "07:00–21:00" },
       { label: "Bank hol", value: "Open 24 hours" },
     ]);
+  });
+});
+
+describe("isDayHoursOpenAt", () => {
+  const daytime: StationDayHours = {
+    open: "06:00",
+    close: "22:00",
+    is24Hours: false,
+  };
+  const overnight: StationDayHours = {
+    open: "22:00",
+    close: "06:00",
+    is24Hours: false,
+  };
+  const closed: StationDayHours = {
+    open: "00:00",
+    close: "00:00",
+    is24Hours: false,
+  };
+  const allDay: StationDayHours = {
+    open: "00:00",
+    close: "00:00",
+    is24Hours: true,
+  };
+
+  it("handles daytime, overnight, closed, and 24h windows", () => {
+    expect(isDayHoursOpenAt(daytime, 5 * 60 + 59)).toBe(false);
+    expect(isDayHoursOpenAt(daytime, 6 * 60)).toBe(true);
+    expect(isDayHoursOpenAt(daytime, 21 * 60 + 59)).toBe(true);
+    expect(isDayHoursOpenAt(daytime, 22 * 60)).toBe(false);
+
+    expect(isDayHoursOpenAt(overnight, 22 * 60)).toBe(true);
+    expect(isDayHoursOpenAt(overnight, 3 * 60)).toBe(true);
+    expect(isDayHoursOpenAt(overnight, 6 * 60)).toBe(false);
+    expect(isDayHoursOpenAt(overnight, 12 * 60)).toBe(false);
+
+    expect(isDayHoursOpenAt(closed, 12 * 60)).toBe(false);
+    expect(isDayHoursOpenAt(allDay, 0)).toBe(true);
+    expect(isDayHoursOpenAt(allDay, 23 * 60 + 59)).toBe(true);
+  });
+});
+
+describe("isStationOpenNow", () => {
+  it("uses usual hours for the local weekday", () => {
+    const station = {
+      openingHours: {
+        usualDays: {
+          monday: { open: "06:00", close: "22:00", is24Hours: false },
+          sunday: { open: "00:00", close: "00:00", is24Hours: false },
+        },
+      },
+    };
+
+    // Monday 2026-08-10 12:00 London
+    expect(
+      isStationOpenNow(station, new Date("2026-08-10T11:00:00.000Z"))
+    ).toBe(true);
+    // Sunday 2026-08-09 12:00 London — marked closed
+    expect(
+      isStationOpenNow(station, new Date("2026-08-09T11:00:00.000Z"))
+    ).toBe(false);
+    expect(isStationOpenNow({}, new Date("2026-08-10T11:00:00.000Z"))).toBe(
+      false
+    );
   });
 });
 
