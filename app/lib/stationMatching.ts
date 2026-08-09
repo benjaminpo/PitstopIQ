@@ -159,7 +159,7 @@ export function parsePetrolPricesFile(text: string, fileName: string): PetrolPri
     );
   }
   return records
-    .map(normalizeRecord)
+    .map((record, index) => normalizeRecord(record, index))
     .filter((station): station is PetrolPricesStation => station !== null);
 }
 
