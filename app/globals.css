@@ -74,7 +74,7 @@ code,
   margin: 12px 14px;
 }
 
-.leaflet-popup-content p {
+.leaflet-container .leaflet-popup-content p {
   margin: 0;
 }
 
