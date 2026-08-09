@@ -608,7 +608,7 @@ export async function lookupVehicle(
       return {
         ok: false,
         error:
-          "Vehicle lookup is not configured. Set DVLA_API_KEY (and optionally MOT History credentials).",
+          "Vehicle lookup is not configured. Set MOT History credentials (and optionally DVLA_API_KEY for tax/weight).",
         status: 503,
       };
     }

@@ -296,9 +296,13 @@ export function VehiclePresets() {
                 {lookup.model ? ` ${titleCase(lookup.model)}` : ""}
               </div>
             </div>
-            {lookup.source === "mock" && (
+            {lookup.source === "mock" ? (
               <span className="shrink-0 rounded bg-amber-950/50 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-amber-300/90">
                 Demo
+              </span>
+            ) : (
+              <span className="shrink-0 rounded bg-teal-950/50 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-teal-300/90">
+                Live
               </span>
             )}
           </div>
@@ -365,8 +369,12 @@ export function VehiclePresets() {
           </dl>
 
           <p className="text-[10px] leading-snug text-slate-500">
-            Tank size is estimated from make, engine and weight — confirm against
-            your handbook, then tweak Tank (L) below if needed.
+            Tank size and MPG are estimated from make, engine
+            {lookup.taxDueDate || lookup.taxStatus
+              ? ", and weight"
+              : ""}{" "}
+            — confirm against your handbook, then tweak Tank (L) / MPG below if
+            needed.
           </p>
 
           <div className="flex flex-wrap gap-1.5">
