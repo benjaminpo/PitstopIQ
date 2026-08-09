@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   brandFaviconUrl,
   brandInitials,
+  KNOWN_BRAND_LABELS,
   resolveBrandLogo,
 } from "./brandLogo";
 
@@ -57,6 +58,19 @@ describe("resolveBrandLogo", () => {
     expect(a.initials).toBe("AF");
     expect(a.bg).toBe(b.bg);
     expect(a.fg).toBe(b.fg);
+  });
+});
+
+describe("KNOWN_BRAND_LABELS", () => {
+  it("covers common UK forecourt brands for admin selection", () => {
+    expect(KNOWN_BRAND_LABELS).toEqual(
+      [...KNOWN_BRAND_LABELS].sort((a, b) => a.localeCompare(b))
+    );
+    expect(KNOWN_BRAND_LABELS).toContain("Shell");
+    expect(KNOWN_BRAND_LABELS).toContain("Sainsbury's");
+    expect(KNOWN_BRAND_LABELS).toContain("Independent");
+    expect(resolveBrandLogo("Shell").id).toBe("shell");
+    expect(resolveBrandLogo("Welcome Break").id).toBe("welcomebreak");
   });
 });
 

@@ -10,6 +10,11 @@ import {
   listConfirmedStationMatches,
   type ConfirmedStationMatch,
 } from "@/app/lib/stationPriceMatches";
+import {
+  applyStationAdminOverrides,
+  listStationAdminOverrides,
+  type StationAdminOverride,
+} from "@/app/lib/stationAdminOverrides";
 import type { MapBounds } from "@/app/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -45,12 +50,19 @@ export async function GET(request: NextRequest) {
     const { stations: officialStations, source, pricesFetchedAt } =
       await fetchNearbyFuelStations(bounds);
     let confirmed: ConfirmedStationMatch[] = [];
+    let adminOverrides: StationAdminOverride[] = [];
     try {
       confirmed = await listConfirmedStationMatches();
     } catch (overrideError) {
       console.warn("[fuel-finder] Could not load admin price overrides", overrideError);
     }
-    const stations = applyConfirmedStationPrices(officialStations, confirmed);
+    try {
+      adminOverrides = await listStationAdminOverrides();
+    } catch (overrideError) {
+      console.warn("[fuel-finder] Could not load admin station overrides", overrideError);
+    }
+    const withPrices = applyConfirmedStationPrices(officialStations, confirmed);
+    const stations = applyStationAdminOverrides(withPrices, adminOverrides);
 
     return NextResponse.json(
       {
@@ -64,7 +76,7 @@ export async function GET(request: NextRequest) {
         headers: {
           // Bounds URLs repeat on reload/pan — let the CDN serve warm copies.
           "Cache-Control":
-            confirmed.length > 0
+            confirmed.length > 0 || adminOverrides.length > 0
               ? "no-store"
               : source === "live"
               ? "public, s-maxage=300, stale-while-revalidate=3600"

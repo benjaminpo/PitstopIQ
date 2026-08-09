@@ -23,11 +23,14 @@ import {
 } from "@/app/lib/stationMatching";
 import { AdminMissingStationReports } from "@/app/components/AdminMissingStationReports";
 import type { ConfirmedStationMatch } from "@/app/lib/stationPriceMatches";
+import type { StationAdminOverride } from "@/app/lib/stationAdminOverrides";
+import { KNOWN_BRAND_LABELS } from "@/app/lib/brandLogo";
 import type { FuelStation, FuelType } from "@/app/lib/types";
 
 interface AdminData {
   stations: FuelStation[];
   confirmed: ConfirmedStationMatch[];
+  overrides: StationAdminOverride[];
   source: "live" | "mock";
   pricesFetchedAt: number | null;
 }
@@ -124,6 +127,8 @@ export function AdminStationMatcher() {
     {}
   );
   const [manualSourceUrl, setManualSourceUrl] = useState("");
+  const [editBrand, setEditBrand] = useState("");
+  const [editClosed, setEditClosed] = useState(false);
   const [stationListQuery, setStationListQuery] = useState("");
   const [stationPage, setStationPage] = useState(1);
   const [stationSort, setStationSort] =
@@ -141,7 +146,7 @@ export function AdminStationMatcher() {
       });
       const body = (await response.json()) as AdminData & { error?: string };
       if (!response.ok) throw new Error(body.error || "Could not load station data");
-      setData(body);
+      setData({ ...body, overrides: body.overrides ?? [] });
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : "Could not load data");
     } finally {
@@ -155,7 +160,7 @@ export function AdminStationMatcher() {
       .then(async (response) => {
         const body = (await response.json()) as AdminData & { error?: string };
         if (!response.ok) throw new Error(body.error || "Could not load station data");
-        if (active) setData(body);
+        if (active) setData({ ...body, overrides: body.overrides ?? [] });
       })
       .catch((loadError: unknown) => {
         if (active) {
@@ -298,6 +303,20 @@ export function AdminStationMatcher() {
       .slice(0, 8);
   }, [data?.stations, stationSearch]);
 
+  const overridesById = useMemo(() => {
+    const map = new Map<string, StationAdminOverride>();
+    for (const override of data?.overrides ?? []) {
+      map.set(override.stationId, override);
+    }
+    return map;
+  }, [data?.overrides]);
+
+  const displayBrand = (station: FuelStation) =>
+    overridesById.get(station.id)?.brand?.trim() || station.brand;
+
+  const isStationClosed = (stationId: string) =>
+    Boolean(overridesById.get(stationId)?.closed);
+
   const selectedStation =
     data?.stations.find((station) => station.id === selectedStationId) ?? null;
   const selectedSavedMatch = selectedStation
@@ -307,6 +326,30 @@ export function AdminStationMatcher() {
           match.sourceStationId === `manual:${selectedStation.id}`
       )
     : undefined;
+  const selectedOverride = selectedStation
+    ? overridesById.get(selectedStation.id)
+    : undefined;
+
+  const brandOptions = useMemo(() => {
+    const options = [...KNOWN_BRAND_LABELS];
+    const extras = [editBrand.trim(), selectedStation?.brand?.trim()].filter(
+      (value): value is string => Boolean(value)
+    );
+    for (const extra of extras) {
+      if (!options.some((label) => label.toLowerCase() === extra.toLowerCase())) {
+        options.unshift(extra);
+      }
+    }
+    return options;
+  }, [editBrand, selectedStation?.brand]);
+
+  const brandSelectValue = useMemo(() => {
+    const current = editBrand.trim() || selectedStation?.brand || "";
+    const match = brandOptions.find(
+      (label) => label.toLowerCase() === current.toLowerCase()
+    );
+    return match ?? brandOptions[0] ?? "";
+  }, [brandOptions, editBrand, selectedStation?.brand]);
 
   const selectStationForEditing = (station: FuelStation) => {
     setSelectedStationId(station.id);
@@ -318,6 +361,7 @@ export function AdminStationMatcher() {
         match.officialStationId === station.id &&
         match.sourceStationId === `manual:${station.id}`
     );
+    const override = data?.overrides.find((item) => item.stationId === station.id);
     const savedPrices: Partial<Record<FuelType, string>> = {};
     if (saved) {
       for (const { type } of FUELS) {
@@ -327,6 +371,8 @@ export function AdminStationMatcher() {
     }
     setManualPrices(savedPrices);
     setManualSourceUrl(saved?.sourceUrl ?? "");
+    setEditBrand(override?.brand?.trim() || station.brand);
+    setEditClosed(Boolean(override?.closed));
     requestAnimationFrame(() => {
       document
         .getElementById("manual-price-editor")
@@ -334,15 +380,76 @@ export function AdminStationMatcher() {
     });
   };
 
+  const saveStationOverride = async () => {
+    if (!selectedStation || saving) return;
+    setSaving(`override:${selectedStation.id}`);
+    setError(null);
+    try {
+      const brand = editBrand.trim();
+      const response = await fetch("/api/admin/station-overrides", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          stationId: selectedStation.id,
+          brand:
+            brand && brand.toLowerCase() !== selectedStation.brand.toLowerCase()
+              ? brand
+              : null,
+          closed: editClosed,
+          note: selectedOverride?.note ?? null,
+        }),
+      });
+      const body = (await response.json()) as {
+        override?: StationAdminOverride;
+        error?: string;
+      };
+      if (!response.ok || !body.override) {
+        throw new Error(body.error || "Could not save station details");
+      }
+      const saved = body.override;
+      setData((current) => {
+        if (!current) return current;
+        const without = current.overrides.filter(
+          (item) => item.stationId !== saved.stationId
+        );
+        return {
+          ...current,
+          overrides:
+            saved.brand || saved.closed || saved.note
+              ? [saved, ...without]
+              : without,
+        };
+      });
+      setEditBrand(saved.brand?.trim() || selectedStation.brand);
+      setEditClosed(saved.closed);
+      window.localStorage.setItem(
+        "pitstopiq-admin-price-updated",
+        String(saved.updatedAt)
+      );
+    } catch (saveError) {
+      setError(
+        saveError instanceof Error ? saveError.message : "Could not save station details"
+      );
+    } finally {
+      setSaving(null);
+    }
+  };
+
   const filteredStations = useMemo(() => {
     const needle = stationListQuery.trim().toLowerCase();
     if (!needle) return data?.stations ?? [];
-    return (data?.stations ?? []).filter((station) =>
-      [station.name, station.brand, station.postcode, station.address].some((value) =>
-        value?.toLowerCase().includes(needle)
-      )
-    );
-  }, [data?.stations, stationListQuery]);
+    return (data?.stations ?? []).filter((station) => {
+      const override = overridesById.get(station.id);
+      return [
+        station.name,
+        station.brand,
+        override?.brand,
+        station.postcode,
+        station.address,
+        override?.closed ? "closed" : "",
+      ].some((value) => value?.toLowerCase().includes(needle));
+    });
+  }, [data?.stations, overridesById, stationListQuery]);
   const sortedStations = useMemo(() => {
     const valueFor = (station: FuelStation): string | number | null => {
       if (stationSort === "name") return station.name.toLowerCase();
@@ -559,9 +666,10 @@ export function AdminStationMatcher() {
                         {station.name}
                       </span>
                       <span className="mt-0.5 block truncate text-[10px] text-slate-500">
-                        {[station.brand, station.address, station.postcode]
+                        {[displayBrand(station), station.address, station.postcode]
                           .filter(Boolean)
                           .join(" · ")}
+                        {isStationClosed(station.id) ? " · Closed" : ""}
                       </span>
                     </button>
                   ))}
@@ -569,14 +677,72 @@ export function AdminStationMatcher() {
               )}
               {selectedStation && (
                 <div className="mt-3 rounded-xl border border-teal-800/60 bg-teal-950/25 p-3">
-                  <p className="text-xs font-semibold text-teal-100">
-                    {selectedStation.name}
-                  </p>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="text-xs font-semibold text-teal-100">
+                      {selectedStation.name}
+                    </p>
+                    {editClosed && (
+                      <span className="rounded-full bg-rose-950 px-2 py-0.5 text-[10px] font-semibold text-rose-300">
+                        Closed
+                      </span>
+                    )}
+                  </div>
                   <p className="mt-1 text-[10px] leading-4 text-slate-400">
-                    {[selectedStation.brand, selectedStation.address, selectedStation.postcode]
+                    {[
+                      selectedOverride?.brand || selectedStation.brand,
+                      selectedStation.address,
+                      selectedStation.postcode,
+                    ]
                       .filter(Boolean)
                       .join(" · ")}
                   </p>
+
+                  <div className="mt-3 space-y-3 border-t border-teal-900/50 pt-3">
+                    <label className="block">
+                      <span className="text-[10px] font-medium text-slate-400">
+                        Brand
+                      </span>
+                      <select
+                        value={brandSelectValue}
+                        onChange={(event) => setEditBrand(event.target.value)}
+                        className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm outline-none focus:border-teal-600"
+                      >
+                        {brandOptions.map((label) => (
+                          <option key={label} value={label}>
+                            {label}
+                          </option>
+                        ))}
+                      </select>
+                      {selectedOverride?.brand &&
+                        selectedOverride.brand.toLowerCase() !==
+                          selectedStation.brand.toLowerCase() && (
+                          <span className="mt-1 block text-[10px] text-slate-500">
+                            Fuel Finder: {selectedStation.brand || "Unknown"}
+                          </span>
+                        )}
+                    </label>
+                    <label className="flex items-center gap-2 text-xs text-slate-300">
+                      <input
+                        type="checkbox"
+                        checked={editClosed}
+                        onChange={(event) => setEditClosed(event.target.checked)}
+                        className="h-3.5 w-3.5 rounded border-slate-600 bg-slate-900 accent-rose-500"
+                      />
+                      Mark as closed (hidden from the public app)
+                    </label>
+                    <button
+                      type="button"
+                      disabled={saving !== null}
+                      onClick={() => void saveStationOverride()}
+                      className="inline-flex items-center justify-center gap-2 rounded-lg border border-teal-700/70 px-3 py-2 text-[11px] font-semibold text-teal-100 transition hover:border-teal-500 hover:bg-teal-950/60 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {saving === `override:${selectedStation.id}` && (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      )}
+                      Save brand / closed status
+                    </button>
+                  </div>
+
                   <a
                     href={petrolPricesSearchUrl(selectedStation)}
                     target="_blank"
@@ -781,7 +947,12 @@ export function AdminStationMatcher() {
                   </thead>
                   <tbody className="divide-y divide-slate-800/80">
                     {visibleStations.map((station) => (
-                      <tr key={station.id} className="transition hover:bg-slate-800/30">
+                      <tr
+                        key={station.id}
+                        className={`transition hover:bg-slate-800/30 ${
+                          isStationClosed(station.id) ? "opacity-70" : ""
+                        }`}
+                      >
                         <td className="px-4 py-3">
                           <button
                             type="button"
@@ -790,8 +961,18 @@ export function AdminStationMatcher() {
                           >
                             {station.name}
                           </button>
-                          <p className="mt-0.5 text-[10px] text-slate-500">
-                            {station.brand || "Independent"}
+                          <p className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[10px] text-slate-500">
+                            <span>{displayBrand(station) || "Independent"}</span>
+                            {isStationClosed(station.id) && (
+                              <span className="rounded-full bg-rose-950 px-1.5 py-0.5 font-semibold text-rose-300">
+                                Closed
+                              </span>
+                            )}
+                            {overridesById.get(station.id)?.brand && (
+                              <span className="rounded-full bg-slate-800 px-1.5 py-0.5 text-slate-400">
+                                brand override
+                              </span>
+                            )}
                           </p>
                         </td>
                         <td className="px-4 py-3">

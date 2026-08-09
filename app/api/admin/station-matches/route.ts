@@ -6,6 +6,7 @@ import {
   confirmStationMatch,
   listConfirmedStationMatches,
 } from "@/app/lib/stationPriceMatches";
+import { listStationAdminOverrides } from "@/app/lib/stationAdminOverrides";
 import type { FuelStation, FuelType } from "@/app/lib/types";
 import type { PetrolPricesStation } from "@/app/lib/stationMatching";
 
@@ -85,14 +86,21 @@ export async function GET(request: NextRequest) {
   const { response } = await authorize(request);
   if (response) return response;
   try {
-    const [{ stations: officialStations, source, pricesFetchedAt }, confirmed] = await Promise.all([
+    const [
+      { stations: officialStations, source, pricesFetchedAt },
+      confirmed,
+      overrides,
+    ] = await Promise.all([
       fetchNearbyFuelStations(UK_BOUNDS),
       listConfirmedStationMatches(),
+      listStationAdminOverrides(),
     ]);
+    // Keep closed stations visible for review; brand overrides are applied in the UI.
     const stations = applyConfirmedStationPrices(officialStations, confirmed);
     return NextResponse.json({
       stations,
       confirmed,
+      overrides,
       source,
       pricesFetchedAt,
     });

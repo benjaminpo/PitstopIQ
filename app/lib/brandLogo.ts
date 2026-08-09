@@ -253,6 +253,40 @@ const KNOWN_BRANDS: BrandDef[] = [
   },
 ];
 
+/**
+ * Canonical brand labels for admin selection. Keep in sync with KNOWN_BRANDS
+ * so logos and category filters resolve correctly.
+ */
+export const KNOWN_BRAND_LABELS: readonly string[] = [
+  "Aldi",
+  "Applegreen",
+  "Asda",
+  "BP",
+  "Circle K",
+  "Co-op",
+  "Costco",
+  "Esso",
+  "Extra",
+  "Gulf",
+  "Harrison's",
+  "Independent",
+  "Jet",
+  "Lidl",
+  "Morrisons",
+  "Moto",
+  "Murco",
+  "QFuel",
+  "Roadchef",
+  "Sainsbury's",
+  "Shell",
+  "Tesco",
+  "Texaco",
+  "TotalEnergies",
+  "Valero",
+  "Waitrose",
+  "Welcome Break",
+];
+
 const FALLBACK_PALETTE: { bg: string; fg: string }[] = [
   { bg: "#0F766E", fg: "#ECFDF5" },
   { bg: "#1D4ED8", fg: "#EFF6FF" },
