@@ -289,15 +289,6 @@ export function StationsDirectory() {
                 now={now}
               />
             )}
-            <button
-              type="button"
-              onClick={() => void loadStations()}
-              disabled={loading}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-700/80 bg-slate-900/60 px-2.5 py-1.5 text-xs font-medium text-slate-300 transition hover:border-teal-600/50 hover:bg-teal-950/50 hover:text-teal-200 disabled:opacity-50"
-            >
-              <RefreshCw className={cn("h-3.5 w-3.5", loading && "animate-spin")} />
-              Refresh
-            </button>
             <AccountMenu />
           </div>
         </header>
