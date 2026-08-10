@@ -343,6 +343,10 @@ export function StationPageView({
             Browse all UK stations
           </Link>
           {" · "}
+          <Link href="/locations" className="text-teal-400 hover:text-teal-300">
+            Prices by location
+          </Link>
+          {" · "}
           <Link href="/" className="text-teal-400 hover:text-teal-300">
             Back to planner
           </Link>

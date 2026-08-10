@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { Bell, Fuel, LogIn, LogOut, Settings, UserRound } from "lucide-react";
+import { Bell, Fuel, LogIn, LogOut, MapPin, Settings, UserRound } from "lucide-react";
 import { signOut, useSession } from "@/app/lib/auth-client";
 
 export function AccountMenu() {
@@ -112,6 +112,15 @@ export function AccountMenu() {
           >
             <Fuel className="h-3.5 w-3.5" />
             All stations
+          </Link>
+          <Link
+            href="/locations"
+            role="menuitem"
+            onClick={() => setOpen(false)}
+            className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs font-medium text-slate-300 transition hover:bg-slate-800/80 hover:text-slate-100"
+          >
+            <MapPin className="h-3.5 w-3.5" />
+            Locations
           </Link>
           <Link
             href="/account#alerts"
