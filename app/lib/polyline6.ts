@@ -18,7 +18,7 @@ export function decodePolyline(
     let shift = 0;
     let byte: number;
     do {
-      byte = encoded.charCodeAt(index++) - 63;
+      byte = (encoded.codePointAt(index++) ?? 0) - 63;
       result |= (byte & 0x1f) << shift;
       shift += 5;
     } while (byte >= 0x20);
@@ -27,7 +27,7 @@ export function decodePolyline(
     result = 0;
     shift = 0;
     do {
-      byte = encoded.charCodeAt(index++) - 63;
+      byte = (encoded.codePointAt(index++) ?? 0) - 63;
       result |= (byte & 0x1f) << shift;
       shift += 5;
     } while (byte >= 0x20);

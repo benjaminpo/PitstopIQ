@@ -8,7 +8,8 @@ export function slugifyStationName(name: string): string {
     .toLowerCase()
     .replace(/['’]/g, "")
     .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
+    .replace(/^-+/, "")
+    .replace(/-+$/, "")
     .slice(0, 80);
   return slug || "station";
 }

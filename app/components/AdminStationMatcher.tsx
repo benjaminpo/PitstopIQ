@@ -639,12 +639,16 @@ export function AdminStationMatcher() {
 
           <div className="mt-5 grid gap-5 lg:grid-cols-[minmax(260px,1fr)_2fr]">
             <div className="relative">
-              <label className="text-xs font-medium text-slate-300">
+              <label
+                htmlFor="admin-station-search"
+                className="text-xs font-medium text-slate-300"
+              >
                 1. Find a station
               </label>
               <div className="relative mt-1.5">
                 <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-500" />
                 <input
+                  id="admin-station-search"
                   value={stationSearch}
                   onChange={(event) => {
                     setStationSearch(event.target.value);
@@ -729,7 +733,7 @@ export function AdminStationMatcher() {
                         onChange={(event) => setEditClosed(event.target.checked)}
                         className="h-3.5 w-3.5 rounded border-slate-600 bg-slate-900 accent-rose-500"
                       />
-                      Mark as closed (hidden from the public app)
+                      <span>Mark as closed (hidden from the public app)</span>
                     </label>
                     <button
                       type="button"
@@ -758,12 +762,16 @@ export function AdminStationMatcher() {
             </div>
 
             <div>
-              <label className="text-xs font-medium text-slate-300">
+              <label
+                htmlFor="admin-petrolprices-url"
+                className="text-xs font-medium text-slate-300"
+              >
                 2. PetrolPrices station link
               </label>
               <div className="relative mt-1.5">
                 <ExternalLink className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-500" />
                 <input
+                  id="admin-petrolprices-url"
                   type="url"
                   disabled={!selectedStation}
                   value={manualSourceUrl}
@@ -777,9 +785,9 @@ export function AdminStationMatcher() {
                 provided.
               </p>
 
-              <label className="mt-4 block text-xs font-medium text-slate-300">
+              <p className="mt-4 text-xs font-medium text-slate-300">
                 3. Enter prices in pence per litre (optional)
-              </label>
+              </p>
               <div className="mt-1.5 grid grid-cols-2 gap-3 sm:grid-cols-4">
                 {FUELS.map((fuel) => (
                   <label key={fuel.type} className="block">

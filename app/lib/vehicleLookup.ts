@@ -78,7 +78,6 @@ export function normaliseRegistration(input: string): string | null {
 
 const PREFIX_STYLE = /^[A-Z]{2}\d{2}[A-Z]{3}$/;
 const SUFFIX_STYLE = /^[A-Z]\d{1,3}[A-Z]{3}$/;
-const TRAILING_LETTERS = /[A-Z]+$/;
 
 /** Format for display: "AB12 CDE" when the pattern fits, else raw. */
 export function formatRegistrationDisplay(vrn: string): string {
@@ -86,9 +85,7 @@ export function formatRegistrationDisplay(vrn: string): string {
     return `${vrn.slice(0, 4)} ${vrn.slice(4)}`;
   }
   if (SUFFIX_STYLE.test(vrn)) {
-    const match = TRAILING_LETTERS.exec(vrn);
-    const letters = match?.[0] ?? "";
-    return `${vrn.slice(0, vrn.length - letters.length)} ${letters}`.trim();
+    return `${vrn.slice(0, -3)} ${vrn.slice(-3)}`;
   }
   return vrn;
 }

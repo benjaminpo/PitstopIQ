@@ -4,6 +4,7 @@ import {
   type DrivingRoute,
 } from "./routing";
 import {
+  DEFAULT_ROUTE_AVOID,
   hasRouteAvoid,
   osrmExcludeClasses,
   type RouteAvoidOptions,
@@ -329,11 +330,7 @@ function toDrivingRoute(
  */
 export async function resolveDrivingRoute(
   points: GeoPoint[],
-  avoid: RouteAvoidOptions = {
-    motorways: false,
-    tolls: false,
-    ferries: false,
-  },
+  avoid: RouteAvoidOptions = DEFAULT_ROUTE_AVOID,
   options: { geometry?: boolean } = {}
 ): Promise<DrivingRoute | null> {
   const wantGeometry = options.geometry !== false;

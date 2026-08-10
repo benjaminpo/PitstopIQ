@@ -456,7 +456,7 @@ export function StationsDirectory() {
             <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
               <div className="flex flex-wrap items-center gap-2">
                 <label className="inline-flex items-center gap-2 text-[11px] text-slate-400">
-                  Fuel
+                  <span>Fuel</span>
                   <select
                     value={fuelType}
                     onChange={(event) =>
@@ -472,7 +472,7 @@ export function StationsDirectory() {
                   </select>
                 </label>
                 <label className="inline-flex items-center gap-2 text-[11px] text-slate-400">
-                  Price age
+                  <span>Price age</span>
                   <select
                     value={priceFreshnessFilter}
                     onChange={(event) =>
