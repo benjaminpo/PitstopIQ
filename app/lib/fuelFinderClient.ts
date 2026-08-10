@@ -662,31 +662,70 @@ async function refreshDataset(
   };
 }
 
+/**
+ * Start (or join) a dataset refresh without blocking the caller.
+ * Uses Next.js `after()` when available so Vercel keeps the isolate alive
+ * until the Fuel Finder pull finishes.
+ */
+function scheduleDatasetRefresh(baseline: CachedDataset | null): void {
+  if (inflightRefresh) return;
+
+  const refresh = refreshDataset(baseline)
+    .then(async (fresh) => {
+      await writeFuelDatasetCache(fresh);
+      return fresh;
+    })
+    .catch((error) => {
+      console.warn("[fuelFinder] background refresh failed:", error);
+      throw error;
+    })
+    .finally(() => {
+      if (inflightRefresh === refresh) inflightRefresh = null;
+    });
+
+  inflightRefresh = refresh;
+
+  void import("next/server")
+    .then(({ after }) => {
+      after(async () => {
+        try {
+          await refresh;
+        } catch {
+          // Already logged above.
+        }
+      });
+    })
+    .catch(() => {
+      // Outside a Next request (tests / scripts) — fire and forget.
+      void refresh;
+    });
+}
+
 async function getAllStationsCached(): Promise<CachedDataset> {
-  if (
-    datasetCache &&
-    Date.now() - datasetCache.fetchedAt < CACHE_TTL_MS
-  ) {
+  // Warm isolate: serve memory immediately; refresh in the background when stale.
+  if (datasetCache) {
+    if (Date.now() - datasetCache.fetchedAt >= CACHE_TTL_MS) {
+      scheduleDatasetRefresh(datasetCache);
+    }
     return datasetCache;
   }
 
-  // Durable cache (Neon/SQLite) — shared across serverless instances so a
-  // reload doesn't re-pull the national dataset on a cold function.
-  const persisted = await readFuelDatasetCache(CACHE_TTL_MS);
+  // Cold isolate: durable cache (Neon/SQLite) avoids a Fuel Finder pull.
+  // Serve even when past TTL, then refresh after the response.
+  const persisted = await readFuelDatasetCache(Number.POSITIVE_INFINITY);
   if (persisted) {
     datasetCache = persisted;
     console.info(
       `[fuelFinder] loaded ${persisted.stations.length} stations from durable cache`
     );
+    if (Date.now() - persisted.fetchedAt >= CACHE_TTL_MS) {
+      scheduleDatasetRefresh(persisted);
+    }
     return datasetCache;
   }
 
-  // An expired durable cache is the baseline for a small incremental pull.
-  // This is especially important after a serverless cold start.
-  const stale = datasetCache ?? await readFuelDatasetCache(Number.POSITIVE_INFINITY);
-  if (stale) datasetCache = stale;
-
-  inflightRefresh ??= refreshDataset(stale)
+  // First-ever load — must block until we have a baseline.
+  inflightRefresh ??= refreshDataset(null)
     .then(async (fresh) => {
       await writeFuelDatasetCache(fresh);
       return fresh;
@@ -695,32 +734,7 @@ async function getAllStationsCached(): Promise<CachedDataset> {
       inflightRefresh = null;
     });
 
-  try {
-    return await inflightRefresh;
-  } catch (error) {
-    // A failed refresh (e.g. token revoked mid-batch) shouldn't wipe out
-    // real data — serve the stale dataset rather than falling back to mocks.
-    if (datasetCache) {
-      console.warn(
-        "[fuelFinder] refresh failed, serving stale dataset from",
-        new Date(datasetCache.fetchedAt).toISOString(),
-        error
-      );
-      return datasetCache;
-    }
-    // Last resort: expired durable row still better than failing hard.
-    const stale = await readFuelDatasetCache(Number.POSITIVE_INFINITY);
-    if (stale) {
-      console.warn(
-        "[fuelFinder] refresh failed, serving expired durable cache from",
-        new Date(stale.fetchedAt).toISOString(),
-        error
-      );
-      datasetCache = stale;
-      return datasetCache;
-    }
-    throw error;
-  }
+  return inflightRefresh;
 }
 
 export interface FuelFinderFetchResult {

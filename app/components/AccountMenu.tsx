@@ -10,7 +10,7 @@ export function AccountMenu() {
   const router = useRouter();
   const { data: session, isPending } = useSession();
   const [open, setOpen] = useState(false);
-  const [unreadAlerts, setUnreadAlerts] = useState(0);
+  const [unreadAlertsState, setUnreadAlerts] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -23,10 +23,7 @@ export function AccountMenu() {
   }, [open]);
 
   useEffect(() => {
-    if (!session?.user) {
-      setUnreadAlerts(0);
-      return;
-    }
+    if (!session?.user) return;
     let cancelled = false;
     void (async () => {
       try {
@@ -42,6 +39,8 @@ export function AccountMenu() {
       cancelled = true;
     };
   }, [session?.user]);
+
+  const unreadAlerts = session?.user ? unreadAlertsState : 0;
 
   if (isPending) {
     return (

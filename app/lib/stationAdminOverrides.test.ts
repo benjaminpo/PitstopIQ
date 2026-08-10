@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { dbAll, dbGet, dbRun, ensureBigintEpochColumns } from "@/app/lib/db";
 import {
   applyStationAdminOverrides,
+  invalidateStationAdminOverridesCache,
   listStationAdminOverrides,
   upsertStationAdminOverride,
   type StationAdminOverride,
@@ -57,6 +58,7 @@ function override(
 
 beforeEach(() => {
   vi.clearAllMocks();
+  invalidateStationAdminOverridesCache();
   mockedRun.mockResolvedValue(undefined);
   mockedBigint.mockResolvedValue(undefined);
 });

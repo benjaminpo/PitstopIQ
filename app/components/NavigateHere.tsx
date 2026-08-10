@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 import {
   appleMapsNavigateUrl,
   googleMapsNavigateUrl,
@@ -66,11 +66,11 @@ export function NavigateHere({
 }: Readonly<NavigateHereProps>) {
   const googleHref = googleMapsNavigateUrl(target);
   const appleHref = appleMapsNavigateUrl(target);
-  const [showApple, setShowApple] = useState(false);
-
-  useEffect(() => {
-    setShowApple(isAppleMapsDevice());
-  }, []);
+  const showApple = useSyncExternalStore(
+    () => () => {},
+    isAppleMapsDevice,
+    () => false
+  );
 
   const onLinkClick = (e: React.MouseEvent) => {
     if (stopPropagation) e.stopPropagation();

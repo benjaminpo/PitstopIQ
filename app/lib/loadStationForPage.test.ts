@@ -25,12 +25,12 @@ vi.mock("@/app/lib/stationContributions", () => ({
 }));
 
 vi.mock("@/app/lib/stationPriceMatches", () => ({
-  applyConfirmedStationPrices: vi.fn((_stations: FuelStation[], _m: unknown) => _stations),
+  applyConfirmedStationPrices: vi.fn((stations: FuelStation[]) => stations),
   listConfirmedStationMatches: vi.fn(),
 }));
 
 vi.mock("@/app/lib/stationAdminOverrides", () => ({
-  applyStationAdminOverrides: vi.fn((_stations: FuelStation[], _o: unknown) => _stations),
+  applyStationAdminOverrides: vi.fn((stations: FuelStation[]) => stations),
   listStationAdminOverrides: vi.fn(),
 }));
 

@@ -21,6 +21,14 @@ interface OverrideRow {
 
 let schemaReady: Promise<void> | null = null;
 
+/** Short in-process cache — overrides change rarely vs map pans. */
+const LIST_CACHE_TTL_MS = 60_000;
+let listCache: { at: number; rows: StationAdminOverride[] } | null = null;
+
+export function invalidateStationAdminOverridesCache(): void {
+  listCache = null;
+}
+
 async function ensureSchema(): Promise<void> {
   schemaReady ??= (async () => {
     await dbRun(`
@@ -50,11 +58,16 @@ function fromRow(row: OverrideRow): StationAdminOverride {
 }
 
 export async function listStationAdminOverrides(): Promise<StationAdminOverride[]> {
+  if (listCache && Date.now() - listCache.at < LIST_CACHE_TTL_MS) {
+    return listCache.rows;
+  }
   await ensureSchema();
   const rows = await dbAll<OverrideRow>(
     `SELECT * FROM station_admin_override ORDER BY updated_at DESC`
   );
-  return rows.map(fromRow);
+  const mapped = rows.map(fromRow);
+  listCache = { at: Date.now(), rows: mapped };
+  return mapped;
 }
 
 /**
@@ -94,6 +107,7 @@ export async function upsertStationAdminOverride(input: {
     await dbRun(`DELETE FROM station_admin_override WHERE station_id = ?`, [
       input.stationId,
     ]);
+    invalidateStationAdminOverridesCache();
     return {
       stationId: input.stationId,
       brand: null,
@@ -129,6 +143,7 @@ export async function upsertStationAdminOverride(input: {
     `SELECT * FROM station_admin_override WHERE station_id = ?`,
     [input.stationId]
   );
+  invalidateStationAdminOverridesCache();
   if (!saved) {
     return {
       stationId: input.stationId,

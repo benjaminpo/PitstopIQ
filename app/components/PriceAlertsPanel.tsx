@@ -24,7 +24,6 @@ export function PriceAlertsPanel() {
   const [busyId, setBusyId] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
-    setError(null);
     try {
       const [watchesRes, alertsRes] = await Promise.all([
         fetch("/api/price-watches?evaluate=1"),
@@ -45,6 +44,7 @@ export function PriceAlertsPanel() {
       setWatches(watchesData.watches ?? []);
       setAlerts(alertsData.alerts ?? []);
       setUnreadCount(alertsData.unreadCount ?? 0);
+      setError(null);
     } catch {
       setError("Could not load alerts");
     } finally {
@@ -53,7 +53,14 @@ export function PriceAlertsPanel() {
   }, []);
 
   useEffect(() => {
-    void refresh();
+    let cancelled = false;
+    void (async () => {
+      await refresh();
+      if (cancelled) return;
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [refresh]);
 
   const markAllRead = async () => {

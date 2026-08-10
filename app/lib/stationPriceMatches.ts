@@ -35,6 +35,14 @@ interface MatchRow {
 
 let schemaReady: Promise<void> | null = null;
 
+/** Short in-process cache — these rows change rarely vs map pans. */
+const LIST_CACHE_TTL_MS = 60_000;
+let listCache: { at: number; rows: ConfirmedStationMatch[] } | null = null;
+
+export function invalidateConfirmedStationMatchesCache(): void {
+  listCache = null;
+}
+
 async function ensureSchema(): Promise<void> {
   schemaReady ??= (async () => {
     await dbRun(`
@@ -82,11 +90,16 @@ function fromRow(row: MatchRow): ConfirmedStationMatch {
 }
 
 export async function listConfirmedStationMatches(): Promise<ConfirmedStationMatch[]> {
+  if (listCache && Date.now() - listCache.at < LIST_CACHE_TTL_MS) {
+    return listCache.rows;
+  }
   await ensureSchema();
   const rows = await dbAll<MatchRow>(
     `SELECT * FROM station_price_match ORDER BY confirmed_at DESC`
   );
-  return rows.map(fromRow);
+  const mapped = rows.map(fromRow);
+  listCache = { at: Date.now(), rows: mapped };
+  return mapped;
 }
 
 /**
@@ -183,5 +196,6 @@ export async function confirmStationMatch(input: {
   }
   const saved = await dbGet<MatchRow>(`SELECT * FROM station_price_match WHERE id = ?`, [id]);
   if (!saved) throw new Error("Confirmed station match was not saved");
+  invalidateConfirmedStationMatchesCache();
   return fromRow(saved);
 }

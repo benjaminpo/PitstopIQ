@@ -11,7 +11,6 @@ import {
   type CreateStationWatchInput,
   type PriceAlertEvent,
   type PriceWatch,
-  type PriceWatchKind,
 } from "@/app/lib/priceWatchTypes";
 
 export type {

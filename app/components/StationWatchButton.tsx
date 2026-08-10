@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { Bell, BellOff, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { useSession } from "@/app/lib/auth-client";
@@ -34,32 +34,31 @@ export function StationWatchButton({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [checked, setChecked] = useState(false);
-
-  const loadWatch = useCallback(async () => {
-    if (!session?.user) {
-      setWatch(null);
-      setChecked(true);
-      return;
-    }
-    try {
-      const res = await fetch("/api/price-watches?evaluate=0");
-      if (!res.ok) return;
-      const data = (await res.json()) as { watches?: PriceWatch[] };
-      const match =
-        data.watches?.find(
-          (w) => w.stationId === stationId && w.fuelType === fuelType
-        ) ?? null;
-      setWatch(match);
-    } catch {
-      // Ignore — watch UI stays optional.
-    } finally {
-      setChecked(true);
-    }
-  }, [session?.user, stationId, fuelType]);
+  const loggedIn = Boolean(session?.user);
 
   useEffect(() => {
-    void loadWatch();
-  }, [loadWatch]);
+    if (!loggedIn) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await fetch("/api/price-watches?evaluate=0");
+        if (!res.ok || cancelled) return;
+        const data = (await res.json()) as { watches?: PriceWatch[] };
+        const match =
+          data.watches?.find(
+            (w) => w.stationId === stationId && w.fuelType === fuelType
+          ) ?? null;
+        if (!cancelled) setWatch(match);
+      } catch {
+        // Ignore — watch UI stays optional.
+      } finally {
+        if (!cancelled) setChecked(true);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [loggedIn, stationId, fuelType]);
 
   const onToggle = async (e: React.MouseEvent) => {
     if (stopPropagation) e.stopPropagation();
@@ -113,7 +112,7 @@ export function StationWatchButton({
     }
   };
 
-  if (isPending || !checked) {
+  if (isPending || (loggedIn && !checked)) {
     return (
       <div
         className={cn(

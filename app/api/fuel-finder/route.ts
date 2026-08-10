@@ -47,20 +47,28 @@ function parseBounds(searchParams: URLSearchParams): MapBounds {
 export async function GET(request: NextRequest) {
   try {
     const bounds = parseBounds(request.nextUrl.searchParams);
-    const { stations: officialStations, source, pricesFetchedAt } =
-      await fetchNearbyFuelStations(bounds);
-    let confirmed: ConfirmedStationMatch[] = [];
-    let adminOverrides: StationAdminOverride[] = [];
-    try {
-      confirmed = await listConfirmedStationMatches();
-    } catch (overrideError) {
-      console.warn("[fuel-finder] Could not load admin price overrides", overrideError);
-    }
-    try {
-      adminOverrides = await listStationAdminOverrides();
-    } catch (overrideError) {
-      console.warn("[fuel-finder] Could not load admin station overrides", overrideError);
-    }
+
+    // Fuel dataset + admin overlays are independent — run in parallel so a
+    // cold Neon round-trip doesn't stack three deep.
+    const [fuelResult, confirmed, adminOverrides] = await Promise.all([
+      fetchNearbyFuelStations(bounds),
+      listConfirmedStationMatches().catch((overrideError) => {
+        console.warn(
+          "[fuel-finder] Could not load admin price overrides",
+          overrideError
+        );
+        return [] as ConfirmedStationMatch[];
+      }),
+      listStationAdminOverrides().catch((overrideError) => {
+        console.warn(
+          "[fuel-finder] Could not load admin station overrides",
+          overrideError
+        );
+        return [] as StationAdminOverride[];
+      }),
+    ]);
+
+    const { stations: officialStations, source, pricesFetchedAt } = fuelResult;
     const withPrices = applyConfirmedStationPrices(officialStations, confirmed);
     const stations = applyStationAdminOverrides(withPrices, adminOverrides);
 
@@ -74,12 +82,12 @@ export async function GET(request: NextRequest) {
       },
       {
         headers: {
-          // Bounds URLs repeat on reload/pan — let the CDN serve warm copies.
+          // Overrides are already baked into `stations`, so CDN can cache the
+          // finished payload. Previously any admin row forced no-store and
+          // every pan hit a cold-ish serverless function (~1s).
           "Cache-Control":
-            confirmed.length > 0 || adminOverrides.length > 0
-              ? "no-store"
-              : source === "live"
-              ? "public, s-maxage=300, stale-while-revalidate=3600"
+            source === "live"
+              ? "public, s-maxage=60, stale-while-revalidate=600"
               : "no-store",
         },
       }

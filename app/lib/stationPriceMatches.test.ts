@@ -3,6 +3,7 @@ import { dbAll, dbGet, dbRun, ensureBigintEpochColumns } from "@/app/lib/db";
 import {
   applyConfirmedStationPrices,
   confirmStationMatch,
+  invalidateConfirmedStationMatchesCache,
   listConfirmedStationMatches,
   type ConfirmedStationMatch,
 } from "./stationPriceMatches";
@@ -55,6 +56,7 @@ function match(
 
 beforeEach(() => {
   vi.clearAllMocks();
+  invalidateConfirmedStationMatchesCache();
   mockedRun.mockResolvedValue(undefined);
   mockedBigint.mockResolvedValue(undefined);
 });

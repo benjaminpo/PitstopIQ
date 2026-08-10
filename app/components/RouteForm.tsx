@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type DragEvent } from "react";
+import { useState, useSyncExternalStore, type DragEvent } from "react";
 import {
   ArrowUpDown,
   Car,
@@ -242,13 +242,25 @@ export function RouteForm() {
   const [dropTarget, setDropTarget] = useState<TripRowKey | null>(null);
   const [optionsOpen, setOptionsOpen] = useState(false);
   // Collapsed on phones so From/To + Find surface first; open on desktop.
-  const [vehicleOpen, setVehicleOpen] = useState(false);
-
-  useEffect(() => {
-    if (window.matchMedia("(min-width: 768px)").matches) {
-      setVehicleOpen(true);
-    }
-  }, []);
+  const desktopVehicleOpen = useSyncExternalStore(
+    (onChange) => {
+      const mq = window.matchMedia("(min-width: 768px)");
+      mq.addEventListener("change", onChange);
+      return () => mq.removeEventListener("change", onChange);
+    },
+    () => window.matchMedia("(min-width: 768px)").matches,
+    () => false
+  );
+  const [vehicleOpenOverride, setVehicleOpenOverride] = useState<
+    boolean | null
+  >(null);
+  const vehicleOpen = vehicleOpenOverride ?? desktopVehicleOpen;
+  const setVehicleOpen = (next: boolean | ((open: boolean) => boolean)) => {
+    setVehicleOpenOverride((prev) => {
+      const current = prev ?? desktopVehicleOpen;
+      return typeof next === "function" ? next(current) : next;
+    });
+  };
 
   const maxRefill = vehicle.tankCapacityLitres;
   const refillPct = Math.round((litresToRefill / maxRefill) * 100);
