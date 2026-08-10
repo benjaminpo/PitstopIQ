@@ -326,7 +326,7 @@ export function StationCard({
         />
       )}
 
-      {selected && <StationDetails station={station} now={now} />}
+      {selected && <StationDetails station={station} />}
 
       {selected && (
         <StationContribute
