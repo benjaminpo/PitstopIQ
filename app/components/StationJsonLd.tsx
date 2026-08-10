@@ -13,6 +13,12 @@ export function StationJsonLd({
     .filter(Boolean)
     .join(", ");
 
+  const closed =
+    Boolean(station.temporaryClosure) || Boolean(station.permanentClosure);
+  const availability = closed
+    ? "https://schema.org/OutOfStock"
+    : "https://schema.org/InStock";
+
   const offers = ALL_FUEL_TYPES.flatMap((fuel) => {
     const price = station.prices[fuel];
     if (price == null || !Number.isFinite(price)) return [];
@@ -22,7 +28,7 @@ export function StationJsonLd({
         name: FUEL_TYPE_LABELS[fuel],
         price: price.toFixed(3),
         priceCurrency: "GBP",
-        availability: "https://schema.org/InStock",
+        availability,
       },
     ];
   });
@@ -38,6 +44,7 @@ export function StationJsonLd({
     },
     url,
     ...(locationLabel ? { description: `${station.brand} fuel station at ${locationLabel}` } : {}),
+    ...(closed ? { publicAccess: false } : {}),
     address: {
       "@type": "PostalAddress",
       ...(station.address ? { streetAddress: station.address } : {}),

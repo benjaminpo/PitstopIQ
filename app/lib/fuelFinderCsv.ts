@@ -97,17 +97,23 @@ export function parseFuelFinderCsv(
     const row = records[r];
     if (!row || row.length === 0) continue;
 
-    if (
-      truthyFlag(col("forecourts.temporary_closure", row)) ||
-      truthyFlag(col("forecourts.permanent_closure", row))
-    ) {
-      continue;
-    }
-
     const id = col("forecourts.node_id", row);
     const lat = Number(col("forecourts.location.latitude", row));
     const lng = Number(col("forecourts.location.longitude", row));
     if (!id || !Number.isFinite(lat) || !Number.isFinite(lng)) continue;
+
+    const temporaryClosure = truthyFlag(
+      col("forecourts.temporary_closure", row)
+    );
+    const permanentClosure = truthyFlag(
+      col("forecourts.permanent_closure", row)
+    );
+    const isClosed = temporaryClosure || permanentClosure;
+    const permanentClosureDateRaw = col(
+      "forecourts.permanent_closure_date",
+      row
+    );
+    const permanentClosureDate = permanentClosureDateRaw || null;
 
     const prices: Partial<Record<FuelType, number>> = {};
     const pricesUpdatedAt: Partial<Record<FuelType, number>> = {};
@@ -124,7 +130,9 @@ export function parseFuelFinderCsv(
       }
     }
 
-    if (Object.keys(prices).length === 0) continue;
+    // Closed forecourts may still appear on detail/directory pages without
+    // prices; open stations need at least one grade.
+    if (!isClosed && Object.keys(prices).length === 0) continue;
 
     const trading = col("forecourts.trading_name", row);
     const brand = col("forecourts.brand_name", row);
@@ -147,6 +155,9 @@ export function parseFuelFinderCsv(
       pricesUpdatedAt:
         Object.keys(pricesUpdatedAt).length > 0 ? pricesUpdatedAt : undefined,
       pricesLastUpdatedAt: latestUpdatedAt > 0 ? latestUpdatedAt : null,
+      temporaryClosure,
+      permanentClosure,
+      permanentClosureDate,
       distanceOffRouteMiles: Number(
         haversineMiles(routeCentre, location).toFixed(2)
       ),

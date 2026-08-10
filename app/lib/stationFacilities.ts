@@ -183,17 +183,64 @@ function minutesOfDayInTimeZone(date: Date, timeZone: string): number {
  * True when the station's usual-day hours say it is open at `now`.
  * Stations without usable hours for today are treated as not open.
  * Bank holidays are not detected — usual weekday hours are used.
+ * Official temporary/permanent closures always count as closed.
  */
 export function isStationOpenNow(
-  station: Pick<FuelStation, "openingHours">,
+  station: Pick<
+    FuelStation,
+    "openingHours" | "temporaryClosure" | "permanentClosure"
+  >,
   now: Date = new Date(),
   timeZone = "Europe/London"
 ): boolean {
+  if (isStationOfficiallyClosed(station)) return false;
   const openingHours = station.openingHours;
   if (!openingHours) return false;
   const dayHours = openingHours.usualDays[weekdayInTimeZone(now, timeZone)];
   if (!dayHours) return false;
   return isDayHoursOpenAt(dayHours, minutesOfDayInTimeZone(now, timeZone));
+}
+
+/** Fuel Finder temporary or permanent closure flags. */
+export function isStationOfficiallyClosed(
+  station: Pick<FuelStation, "temporaryClosure" | "permanentClosure">
+): boolean {
+  return Boolean(station.temporaryClosure || station.permanentClosure);
+}
+
+/** Format Fuel Finder `permanent_closure_date` (ISO date) for display. */
+export function formatPermanentClosureDate(
+  isoDate: string | null | undefined
+): string | null {
+  if (!isoDate) return null;
+  const trimmed = isoDate.trim();
+  if (!trimmed) return null;
+  const parsed = Date.parse(trimmed);
+  if (!Number.isFinite(parsed)) return trimmed;
+  return new Intl.DateTimeFormat("en-GB", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    timeZone: "UTC",
+  }).format(new Date(parsed));
+}
+
+/**
+ * Human label for official closures, including permanent closure date when known.
+ * Returns null when the station is not officially closed.
+ */
+export function stationClosureLabel(
+  station: Pick<
+    FuelStation,
+    "temporaryClosure" | "permanentClosure" | "permanentClosureDate"
+  >
+): string | null {
+  if (station.permanentClosure) {
+    const when = formatPermanentClosureDate(station.permanentClosureDate);
+    return when ? `Permanently closed · ${when}` : "Permanently closed";
+  }
+  if (station.temporaryClosure) return "Temporarily closed";
+  return null;
 }
 
 /** Collapse consecutive identical weekday hours into compact rows. */

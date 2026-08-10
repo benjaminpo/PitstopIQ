@@ -29,7 +29,7 @@ import {
   getBrowserPosition,
   reverseGeocode,
 } from "./geolocation";
-import { isStationOpenNow } from "./stationFacilities";
+import { isStationOfficiallyClosed, isStationOpenNow } from "./stationFacilities";
 import {
   approximateDetourSeconds,
   corridorPadDegrees,
@@ -1161,6 +1161,7 @@ export const usePitstopStore = create<PitstopState>()(
         );
 
         const enriched = stations
+          .filter((station) => !isStationOfficiallyClosed(station))
           .filter((station) =>
             stationMatchesBrandFilter(station, brandFilter)
           )

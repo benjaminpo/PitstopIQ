@@ -75,6 +75,7 @@ interface ApiStation {
   brand_name?: string | null;
   temporary_closure?: boolean;
   permanent_closure?: boolean | null;
+  permanent_closure_date?: string | null;
   location?: ApiLocation;
   amenities?: unknown;
   opening_times?: unknown;
@@ -348,13 +349,19 @@ function mapStations(
   const mapped: FuelStation[] = [];
 
   for (const s of stations) {
-    if (s.temporary_closure || s.permanent_closure) continue;
     const lat = Number(s.location?.latitude);
     const lng = Number(s.location?.longitude);
     if (!Number.isFinite(lat) || !Number.isFinite(lng)) continue;
 
-    const prices = pricesByNode.get(s.node_id);
-    if (!prices || Object.keys(prices).length === 0) continue;
+    const temporaryClosure = Boolean(s.temporary_closure);
+    const permanentClosure = s.permanent_closure == null
+      ? null
+      : Boolean(s.permanent_closure);
+    const isClosed = temporaryClosure || permanentClosure === true;
+    const prices = pricesByNode.get(s.node_id) ?? {};
+    // Closed forecourts may still be useful on detail/directory pages even
+    // without a live price; open stations need at least one grade.
+    if (!isClosed && Object.keys(prices).length === 0) continue;
 
     const location = { lat, lng };
     const postcode = s.location?.postcode?.trim() || null;
@@ -366,6 +373,10 @@ function mapStations(
     const pricesUpdatedAt = updatedByGradeByNode.get(s.node_id);
     const amenities = parseAmenities(s.amenities);
     const openingHours = parseOpeningTimes(s.opening_times);
+    const permanentClosureDate =
+      typeof s.permanent_closure_date === "string"
+        ? s.permanent_closure_date.trim() || null
+        : null;
     mapped.push({
       id: s.node_id,
       name: s.trading_name?.trim() || s.brand_name?.trim() || "Forecourt",
@@ -381,6 +392,9 @@ function mapStations(
       pricesLastUpdatedAt: updatedByNode.get(s.node_id) ?? null,
       amenities: amenities.length > 0 ? amenities : undefined,
       openingHours: openingHours ?? undefined,
+      temporaryClosure,
+      permanentClosure,
+      permanentClosureDate,
       distanceOffRouteMiles: Number(
         haversineMiles(routeCentre, location).toFixed(2)
       ),

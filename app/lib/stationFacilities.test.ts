@@ -3,10 +3,13 @@ import {
   findNearbyStations,
   formatAmenityLabel,
   formatOpeningHoursRows,
+  formatPermanentClosureDate,
   isDayHoursOpenAt,
+  isStationOfficiallyClosed,
   isStationOpenNow,
   parseAmenities,
   parseOpeningTimes,
+  stationClosureLabel,
 } from "./stationFacilities";
 import type { StationDayHours, StationWithCalculation } from "./types";
 
@@ -139,6 +142,47 @@ describe("isStationOpenNow", () => {
     expect(isStationOpenNow({}, new Date("2026-08-10T11:00:00.000Z"))).toBe(
       false
     );
+  });
+
+  it("treats official closures as closed even when hours say open", () => {
+    const station = {
+      openingHours: {
+        usualDays: {
+          monday: { open: "00:00", close: "00:00", is24Hours: true },
+        },
+      },
+      temporaryClosure: true,
+    };
+    expect(
+      isStationOpenNow(station, new Date("2026-08-10T11:00:00.000Z"))
+    ).toBe(false);
+  });
+});
+
+describe("station closure helpers", () => {
+  it("detects temporary and permanent closures", () => {
+    expect(isStationOfficiallyClosed({})).toBe(false);
+    expect(isStationOfficiallyClosed({ temporaryClosure: true })).toBe(true);
+    expect(isStationOfficiallyClosed({ permanentClosure: true })).toBe(true);
+    expect(isStationOfficiallyClosed({ permanentClosure: false })).toBe(false);
+  });
+
+  it("formats permanent closure dates and labels", () => {
+    expect(formatPermanentClosureDate("2026-03-01")).toBe("1 Mar 2026");
+    expect(formatPermanentClosureDate(null)).toBeNull();
+    expect(stationClosureLabel({ temporaryClosure: true })).toBe(
+      "Temporarily closed"
+    );
+    expect(
+      stationClosureLabel({
+        permanentClosure: true,
+        permanentClosureDate: "2026-03-01",
+      })
+    ).toBe("Permanently closed · 1 Mar 2026");
+    expect(stationClosureLabel({ permanentClosure: true })).toBe(
+      "Permanently closed"
+    );
+    expect(stationClosureLabel({})).toBeNull();
   });
 });
 

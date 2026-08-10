@@ -34,7 +34,10 @@ import {
   formatPriceAge,
   type PriceFreshnessFilter,
 } from "@/app/lib/freshness";
-import { isStationOpenNow } from "@/app/lib/stationFacilities";
+import {
+  isStationOfficiallyClosed,
+  isStationOpenNow,
+} from "@/app/lib/stationFacilities";
 import {
   DEFAULT_STATIONS_DIRECTORY_FILTERS,
   filterStationsDirectory,
@@ -48,6 +51,7 @@ import { stationHref } from "@/app/lib/stationPath";
 import { subscribeStationsAutoRefresh } from "@/app/lib/stationsAutoRefresh";
 import type { FuelStation, FuelType } from "@/app/lib/types";
 import { cn } from "@/app/lib/utils";
+import { StationClosureBadge } from "./StationClosureBadge";
 
 interface StationsResponse {
   stations: FuelStation[];
@@ -78,6 +82,7 @@ function openStatus(
   station: FuelStation,
   now: Date
 ): "open" | "closed" | "unknown" {
+  if (isStationOfficiallyClosed(station)) return "closed";
   if (!station.openingHours) return "unknown";
   return isStationOpenNow(station, now) ? "open" : "closed";
 }
@@ -599,6 +604,7 @@ export function StationsDirectory() {
                       </div>
 
                       <div className="mt-3 flex flex-wrap gap-1.5">
+                        <StationClosureBadge station={station} />
                         {ALL_FUEL_TYPES.map((type) => {
                           const gradePrice = station.prices[type];
                           if (gradePrice == null) return null;
@@ -617,14 +623,16 @@ export function StationsDirectory() {
                             </span>
                           );
                         })}
-                        <span
-                          className={cn(
-                            "rounded-md px-2 py-0.5 text-[11px] font-medium ring-1",
-                            openStatusClass(status)
-                          )}
-                        >
-                          {openStatusLabel(status)}
-                        </span>
+                        {!isStationOfficiallyClosed(station) && (
+                          <span
+                            className={cn(
+                              "rounded-md px-2 py-0.5 text-[11px] font-medium ring-1",
+                              openStatusClass(status)
+                            )}
+                          >
+                            {openStatusLabel(status)}
+                          </span>
+                        )}
                       </div>
                     </div>
 

@@ -9,7 +9,7 @@ import {
 } from "./fuelFinderCsv";
 
 const HEADER =
-  "forecourts.node_id,forecourts.trading_name,forecourts.brand_name,forecourts.temporary_closure,forecourts.permanent_closure,forecourts.location.address_line_1,forecourts.location.address_line_2,forecourts.location.city,forecourts.location.postcode,forecourts.location.latitude,forecourts.location.longitude,forecourts.fuel_price.E5,forecourts.price_submission_timestamp.E5,forecourts.fuel_price.E10,forecourts.price_submission_timestamp.E10,forecourts.fuel_price.B7S,forecourts.price_submission_timestamp.B7S,forecourts.fuel_price.B7P,forecourts.price_submission_timestamp.B7P,forecourts.fuel_price.HVO,forecourts.price_submission_timestamp.HVO";
+  "forecourts.node_id,forecourts.trading_name,forecourts.brand_name,forecourts.temporary_closure,forecourts.permanent_closure,forecourts.permanent_closure_date,forecourts.location.address_line_1,forecourts.location.address_line_2,forecourts.location.city,forecourts.location.postcode,forecourts.location.latitude,forecourts.location.longitude,forecourts.fuel_price.E5,forecourts.price_submission_timestamp.E5,forecourts.fuel_price.E10,forecourts.price_submission_timestamp.E10,forecourts.fuel_price.B7S,forecourts.price_submission_timestamp.B7S,forecourts.fuel_price.B7P,forecourts.price_submission_timestamp.B7P,forecourts.fuel_price.HVO,forecourts.price_submission_timestamp.HVO";
 
 describe("parseCsvRecords", () => {
   it("handles quoted fields, escaped quotes, and CR", () => {
@@ -38,21 +38,24 @@ describe("parseCsvRecords", () => {
 });
 
 describe("parseFuelFinderCsv", () => {
-  it("maps open stations with E10/E5/B7 prices and skips closures", () => {
+  it("maps open and closed stations with E10/E5/B7 prices and closure flags", () => {
     const csv = `${HEADER}
-abc123,PONTYPOOL SUPERSTORE,TESCO,false,false,LOWER BRIDGE STREET,,PONTYPOOL,NP4 0XB,51.7000700,-3.0402500,,,154.9000,Fri Jul 31 2026 16:15:08 GMT+0000 (Coordinated Universal Time),135.9000,Fri Jul 31 2026 12:00:00 GMT+0000 (Coordinated Universal Time),145.9000,Fri Jul 31 2026 14:00:00 GMT+0000 (Coordinated Universal Time),167.9000,Fri Jul 31 2026 13:00:00 GMT+0000 (Coordinated Universal Time)
-closed1,CLOSED SITE,GULF,true,false,,,OX15 6ER,51.96,-1.95,,,161.7000,Fri Jul 31 2026 14:36:15 GMT+0000 (Coordinated Universal Time),,,,,,
-perm1,GONE,BP,false,yes,,,SW1A 1AA,51.5,-0.1,,,130.0,Fri Jul 31 2026 14:36:15 GMT+0000 (Coordinated Universal Time),,,,,,
-quoted,"SHELL, READING",SHELL,false,false,Vastern Road,,Reading,RG1 8EQ,51.45,-0.97,142.9000,Fri Jul 31 2026 14:36:15 GMT+0000 (Coordinated Universal Time),132.9000,Fri Jul 31 2026 14:36:15 GMT+0000 (Coordinated Universal Time),,,,,,
-premiumOnly,PREMIUM ONLY,SHELL,false,false,Bath Road,,Reading,RG2 0AA,51.44,-0.96,,,,,,,149.9000,Fri Jul 31 2026 12:00:00 GMT+0000 (Coordinated Universal Time),,
+abc123,PONTYPOOL SUPERSTORE,TESCO,false,false,,LOWER BRIDGE STREET,,PONTYPOOL,NP4 0XB,51.7000700,-3.0402500,,,154.9000,Fri Jul 31 2026 16:15:08 GMT+0000 (Coordinated Universal Time),135.9000,Fri Jul 31 2026 12:00:00 GMT+0000 (Coordinated Universal Time),145.9000,Fri Jul 31 2026 14:00:00 GMT+0000 (Coordinated Universal Time),167.9000,Fri Jul 31 2026 13:00:00 GMT+0000 (Coordinated Universal Time)
+closed1,CLOSED SITE,GULF,true,false,,,,,OX15 6ER,51.96,-1.95,,,161.7000,Fri Jul 31 2026 14:36:15 GMT+0000 (Coordinated Universal Time),,,,,,
+perm1,GONE,BP,false,yes,2026-03-01,,,,SW1A 1AA,51.5,-0.1,,,130.0,Fri Jul 31 2026 14:36:15 GMT+0000 (Coordinated Universal Time),,,,,,
+quoted,"SHELL, READING",SHELL,false,false,,Vastern Road,,Reading,RG1 8EQ,51.45,-0.97,142.9000,Fri Jul 31 2026 14:36:15 GMT+0000 (Coordinated Universal Time),132.9000,Fri Jul 31 2026 14:36:15 GMT+0000 (Coordinated Universal Time),,,,,,
+premiumOnly,PREMIUM ONLY,SHELL,false,false,,Bath Road,,Reading,RG2 0AA,51.44,-0.96,,,,,,,149.9000,Fri Jul 31 2026 12:00:00 GMT+0000 (Coordinated Universal Time),,
 `;
     const stations = parseFuelFinderCsv(csv);
-    expect(stations).toHaveLength(3);
+    expect(stations).toHaveLength(5);
 
     const tesco = stations.find((s) => s.id === "abc123");
     expect(tesco?.brand).toBe("TESCO");
     expect(tesco?.address).toBe("LOWER BRIDGE STREET, PONTYPOOL");
     expect(tesco?.postcode).toBe("NP4 0XB");
+    expect(tesco?.temporaryClosure).toBe(false);
+    expect(tesco?.permanentClosure).toBe(false);
+    expect(tesco?.permanentClosureDate).toBeNull();
     expect(tesco?.prices.E10).toBe(1.549);
     expect(tesco?.prices.B7_Diesel).toBe(1.359);
     expect(tesco?.prices.B7_Premium).toBe(1.459);
@@ -84,24 +87,37 @@ premiumOnly,PREMIUM ONLY,SHELL,false,false,Bath Road,,Reading,RG2 0AA,51.44,-0.9
     expect(premiumOnly?.prices.B7_Premium).toBe(1.499);
     expect(premiumOnly?.prices.B7_Diesel).toBeUndefined();
 
-    expect(stations.some((s) => s.id === "closed1")).toBe(false);
-    expect(stations.some((s) => s.id === "perm1")).toBe(false);
+    const closed = stations.find((s) => s.id === "closed1");
+    expect(closed?.temporaryClosure).toBe(true);
+    expect(closed?.permanentClosure).toBe(false);
+    expect(closed?.prices.E10).toBe(1.617);
+
+    const perm = stations.find((s) => s.id === "perm1");
+    expect(perm?.temporaryClosure).toBe(false);
+    expect(perm?.permanentClosure).toBe(true);
+    expect(perm?.permanentClosureDate).toBe("2026-03-01");
   });
 
-  it("skips malformed or priceless rows and applies name fallbacks", () => {
+  it("skips malformed or priceless open rows and applies name fallbacks", () => {
     const csv = `${HEADER}
-,No Id,X,false,false,,,,,51.5,-0.1,,,130.0,,
-badcoords,X,Y,false,false,,,,,not-a-lat,-0.1,,,130.0,,
-noprices,Brand Only,,false,false,,,,,51.5,-0.1,,,,,,
-brandless,,Only Brand,false,false,,,,RG1 1AA,51.5,-0.1,,,130.0,,
-nameless,,,false,false,,,,,51.5,-0.1,1.329,,,
-flag1,ONE,GULF,false,1,,,,,51.5,-0.1,,,130.0,,
+,No Id,X,false,false,,,,,,51.5,-0.1,,,130.0,,
+badcoords,X,Y,false,false,,,,,,not-a-lat,-0.1,,,130.0,,
+noprices,Brand Only,,false,false,,,,,,51.5,-0.1,,,,,,
+brandless,,Only Brand,false,false,,,,,RG1 1AA,51.5,-0.1,,,130.0,,
+nameless,,,false,false,,,,,,51.5,-0.1,1.329,,,
+flag1,ONE,GULF,false,1,2025-12-01,,,,,51.5,-0.1,,,130.0,,
+closedNoPrice,SHUT,BP,false,true,2026-01-15,,,,,51.5,-0.1,,,,,,
 
 `;
     const stations = parseFuelFinderCsv(csv, { lat: 51.5, lng: -0.1 });
-    expect(stations).toHaveLength(2);
+    expect(stations).toHaveLength(4);
     expect(stations.find((s) => s.id === "noprices")).toBeUndefined();
-    expect(stations.find((s) => s.id === "flag1")).toBeUndefined();
+    const flag1 = stations.find((s) => s.id === "flag1");
+    expect(flag1?.permanentClosure).toBe(true);
+    expect(flag1?.permanentClosureDate).toBe("2025-12-01");
+    const closedNoPrice = stations.find((s) => s.id === "closedNoPrice");
+    expect(closedNoPrice?.permanentClosure).toBe(true);
+    expect(closedNoPrice?.prices).toEqual({});
     expect(stations.find((s) => s.id === "brandless")?.name).toBe("Only Brand");
     expect(stations.find((s) => s.id === "brandless")?.brand).toBe("Only Brand");
     expect(stations.find((s) => s.id === "brandless")?.postcode).toBe("RG1 1AA");

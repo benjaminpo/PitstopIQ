@@ -74,6 +74,12 @@ export interface FuelStation {
   amenities?: string[];
   /** Opening hours from Fuel Finder when provided */
   openingHours?: StationOpeningHours | null;
+  /** Fuel Finder temporary closure (typically ≥3 consecutive days) */
+  temporaryClosure?: boolean;
+  /** Fuel Finder permanent closure flag */
+  permanentClosure?: boolean | null;
+  /** ISO date string when permanently closed, if provided */
+  permanentClosureDate?: string | null;
   /** Extra miles vs remaining on the direct route */
   distanceOffRouteMiles: number;
   /** Extra driving time vs the direct route (seconds, from OSRM or estimate) */

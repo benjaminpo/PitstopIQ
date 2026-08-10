@@ -14,12 +14,14 @@ import { formatPriceAge } from "@/app/lib/freshness";
 import {
   formatAmenityLabel,
   formatOpeningHoursRows,
+  isStationOfficiallyClosed,
   isStationOpenNow,
 } from "@/app/lib/stationFacilities";
 import { subscribeStationsAutoRefresh } from "@/app/lib/stationsAutoRefresh";
 import { stationNearbySearchHref } from "@/app/lib/stationsDirectory";
 import type { FuelStation, FuelType, StationCommunitySummary } from "@/app/lib/types";
 import { cn } from "@/app/lib/utils";
+import { StationClosureBadge } from "./StationClosureBadge";
 
 const DETAIL_BOUNDS_PAD_DEG = 0.02;
 
@@ -37,6 +39,7 @@ function openStatus(
   station: FuelStation,
   now: Date
 ): "open" | "closed" | "unknown" {
+  if (isStationOfficiallyClosed(station)) return "closed";
   if (!station.openingHours) return "unknown";
   return isStationOpenNow(station, now) ? "open" : "closed";
 }
@@ -222,6 +225,7 @@ export function StationPageView({
               </div>
 
               <div className="mt-3 flex flex-wrap gap-1.5">
+                <StationClosureBadge station={station} />
                 {ALL_FUEL_TYPES.map((type) => {
                   const gradePrice = station.prices[type];
                   if (gradePrice == null) return null;
@@ -239,14 +243,16 @@ export function StationPageView({
                     </span>
                   );
                 })}
-                <span
-                  className={cn(
-                    "rounded-md px-2 py-0.5 text-[11px] font-medium ring-1",
-                    openStatusClass(status)
-                  )}
-                >
-                  {openStatusLabel(status)}
-                </span>
+                {!isStationOfficiallyClosed(station) && (
+                  <span
+                    className={cn(
+                      "rounded-md px-2 py-0.5 text-[11px] font-medium ring-1",
+                      openStatusClass(status)
+                    )}
+                  >
+                    {openStatusLabel(status)}
+                  </span>
+                )}
               </div>
             </div>
 
