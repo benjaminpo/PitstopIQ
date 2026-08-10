@@ -65,6 +65,43 @@ function formatUpdatedAt(timestamp: number | null | undefined): string {
   }).format(timestamp);
 }
 
+/** Compact per-grade stamp for table cells / fuel inputs. */
+function formatFuelUpdatedAt(timestamp: number | null | undefined): string | null {
+  if (!timestamp) return null;
+  return new Intl.DateTimeFormat("en-GB", {
+    day: "numeric",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(timestamp);
+}
+
+function fuelUpdatedAt(
+  station: Pick<FuelStation, "pricesUpdatedAt" | "pricesLastUpdatedAt"> | null | undefined,
+  fuel: FuelType
+): number | null {
+  if (!station) return null;
+  return station.pricesUpdatedAt?.[fuel] ?? station.pricesLastUpdatedAt ?? null;
+}
+
+function PriceCell({
+  price,
+  updatedAt,
+}: Readonly<{ price: number | undefined; updatedAt: number | null }>) {
+  const stamp = formatFuelUpdatedAt(updatedAt);
+  return (
+    <div className="min-w-[4.5rem]">
+      <div className="font-mono text-xs text-slate-200">{formatPrice(price)}</div>
+      <div
+        className="mt-0.5 text-[10px] leading-tight text-slate-500"
+        title={updatedAt ? formatUpdatedAt(updatedAt) : undefined}
+      >
+        {stamp ?? "—"}
+      </div>
+    </div>
+  );
+}
+
 function petrolPricesSearchUrl(station: FuelStation): string {
   const params = new URLSearchParams({
     fuelType: "2",
@@ -83,11 +120,17 @@ function petrolPricesSearchUrl(station: FuelStation): string {
 function PriceComparison({
   source,
   official,
-}: Readonly<{ source: number | undefined; official: number | undefined }>) {
+  officialUpdatedAt,
+}: Readonly<{
+  source: number | undefined;
+  official: number | undefined;
+  officialUpdatedAt?: number | null;
+}>) {
   const delta =
     source !== undefined && official !== undefined
       ? Math.round((source - official) * 1_000) / 10
       : null;
+  const stamp = formatFuelUpdatedAt(officialUpdatedAt);
   return (
     <div className="min-w-[72px]">
       <div className="font-mono text-xs text-slate-100">
@@ -107,6 +150,16 @@ function PriceComparison({
         >
           {delta > 0 ? "+" : ""}
           {delta.toFixed(1)}p
+        </div>
+      )}
+      {stamp && (
+        <div
+          className="mt-0.5 text-[10px] leading-tight text-slate-500"
+          title={
+            officialUpdatedAt ? formatUpdatedAt(officialUpdatedAt) : undefined
+          }
+        >
+          FF {stamp}
         </div>
       )}
     </div>
@@ -801,42 +854,53 @@ export function AdminStationMatcher() {
                 3. Enter prices in pence per litre (optional)
               </p>
               <div className="mt-1.5 grid grid-cols-2 gap-3 sm:grid-cols-4">
-                {FUELS.map((fuel) => (
-                  <label key={fuel.type} className="block">
-                    <span className="text-[10px] text-slate-500">{fuel.label}</span>
-                    <div className="relative mt-1">
-                      <input
-                        type="number"
-                        min="80"
-                        max="500"
-                        step="0.1"
-                        inputMode="decimal"
-                        disabled={!selectedStation}
-                        value={manualPrices[fuel.type] ?? ""}
-                        onChange={(event) =>
-                          setManualPrices((current) => ({
-                            ...current,
-                            [fuel.type]: event.target.value,
-                          }))
-                        }
-                        placeholder={
-                          selectedStation?.prices[fuel.type]
-                            ? (selectedStation.prices[fuel.type]! * 100).toFixed(1)
-                            : "—"
-                        }
-                        className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 pr-7 font-mono text-sm outline-none focus:border-teal-600 disabled:opacity-50"
-                      />
-                      <span className="pointer-events-none absolute right-2 top-2.5 text-[10px] text-slate-500">
-                        p
-                      </span>
-                    </div>
-                    {selectedStation && (
-                      <span className="mt-1 block text-[10px] text-slate-500">
-                        Fuel Finder: {formatPrice(selectedStation.prices[fuel.type])}
-                      </span>
-                    )}
-                  </label>
-                ))}
+                {FUELS.map((fuel) => {
+                  const updatedAt = fuelUpdatedAt(selectedStation, fuel.type);
+                  const stamp = formatFuelUpdatedAt(updatedAt);
+                  return (
+                    <label key={fuel.type} className="block">
+                      <span className="text-[10px] text-slate-500">{fuel.label}</span>
+                      <div className="relative mt-1">
+                        <input
+                          type="number"
+                          min="80"
+                          max="500"
+                          step="0.1"
+                          inputMode="decimal"
+                          disabled={!selectedStation}
+                          value={manualPrices[fuel.type] ?? ""}
+                          onChange={(event) =>
+                            setManualPrices((current) => ({
+                              ...current,
+                              [fuel.type]: event.target.value,
+                            }))
+                          }
+                          placeholder={
+                            selectedStation?.prices[fuel.type]
+                              ? (selectedStation.prices[fuel.type]! * 100).toFixed(1)
+                              : "—"
+                          }
+                          className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 pr-7 font-mono text-sm outline-none focus:border-teal-600 disabled:opacity-50"
+                        />
+                        <span className="pointer-events-none absolute right-2 top-2.5 text-[10px] text-slate-500">
+                          p
+                        </span>
+                      </div>
+                      {selectedStation && (
+                        <span
+                          className="mt-1 block text-[10px] leading-tight text-slate-500"
+                          title={
+                            updatedAt ? formatUpdatedAt(updatedAt) : undefined
+                          }
+                        >
+                          Fuel Finder:{" "}
+                          {formatPrice(selectedStation.prices[fuel.type])}
+                          {stamp ? ` · ${stamp}` : ""}
+                        </span>
+                      )}
+                    </label>
+                  );
+                })}
               </div>
               <button
                 type="button"
@@ -1005,16 +1069,11 @@ export function AdminStationMatcher() {
                           </p>
                         </td>
                         {FUELS.map((fuel) => (
-                          <td
-                            key={fuel.type}
-                            className="px-3 py-3 font-mono text-xs text-slate-200"
-                            title={
-                              station.pricesUpdatedAt?.[fuel.type]
-                                ? `Updated ${formatUpdatedAt(station.pricesUpdatedAt[fuel.type])}`
-                                : undefined
-                            }
-                          >
-                            {formatPrice(station.prices[fuel.type])}
+                          <td key={fuel.type} className="px-3 py-3">
+                            <PriceCell
+                              price={station.prices[fuel.type]}
+                              updatedAt={fuelUpdatedAt(station, fuel.type)}
+                            />
                           </td>
                         ))}
                         <td className="px-4 py-3 text-[10px] text-slate-400">
@@ -1215,6 +1274,11 @@ export function AdminStationMatcher() {
                             <PriceComparison
                               source={suggestion.source.prices[fuel.type]}
                               official={suggestion.station?.prices[fuel.type]}
+                              officialUpdatedAt={
+                                suggestion.station
+                                  ? fuelUpdatedAt(suggestion.station, fuel.type)
+                                  : null
+                              }
                             />
                           </td>
                         ))}
