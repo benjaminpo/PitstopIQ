@@ -29,7 +29,12 @@ import {
   getBrowserPosition,
   reverseGeocode,
 } from "./geolocation";
-import { isStationOfficiallyClosed, isStationOpenNow } from "./stationFacilities";
+import {
+  isStationOfficiallyClosed,
+  isStationOpenNow,
+  sanitizeAmenityFilter,
+  stationHasRequiredAmenities,
+} from "./stationFacilities";
 import {
   approximateDetourSeconds,
   corridorPadDegrees,
@@ -157,6 +162,8 @@ interface PitstopState {
   priceFreshnessFilter: PriceFreshnessFilter;
   /** When true, only stations open right now (London local time) */
   openNowFilter: boolean;
+  /** Amenity ids the station must list (AND) */
+  amenityFilter: string[];
   /** Brand keys hidden from results (e.g. membership-only forecourts) */
   excludedBrands: string[];
   /** Previously selected origin/destination places, most recent first */
@@ -197,6 +204,8 @@ interface PitstopState {
   setBrandFilter: (filter: BrandFilter) => void;
   setPriceFreshnessFilter: (filter: PriceFreshnessFilter) => void;
   setOpenNowFilter: (openNow: boolean) => void;
+  toggleAmenityFilter: (amenityId: string) => void;
+  clearAmenityFilter: () => void;
   toggleExcludedBrand: (brandKey: string) => void;
   clearExcludedBrands: () => void;
   setSelectedStationId: (id: string | null) => void;
@@ -269,6 +278,7 @@ type PersistedSettings = Pick<
   | "brandFilter"
   | "priceFreshnessFilter"
   | "openNowFilter"
+  | "amenityFilter"
   | "excludedBrands"
   | "recentPlaces"
   | "routeAvoid"
@@ -320,6 +330,7 @@ export const usePitstopStore = create<PitstopState>()(
       brandFilter: "all",
       priceFreshnessFilter: "any",
       openNowFilter: false,
+      amenityFilter: [],
       excludedBrands: [],
       recentPlaces: [],
       sidebarOpen: true,
@@ -536,6 +547,40 @@ export const usePitstopStore = create<PitstopState>()(
       },
       setOpenNowFilter: (openNowFilter) => {
         set({ openNowFilter });
+        const best = get().getEnrichedStations().reduce<
+          StationWithCalculation | undefined
+        >(
+          (top, item) =>
+            !top ||
+            item.calculation.netAfterTime > top.calculation.netAfterTime
+              ? item
+              : top,
+          undefined
+        );
+        get().setSelectedStationId(best?.station.id ?? null);
+      },
+      toggleAmenityFilter: (amenityId) => {
+        const id = amenityId.trim().toLowerCase();
+        if (!id) return;
+        const current = get().amenityFilter;
+        const amenityFilter = current.includes(id)
+          ? current.filter((entry) => entry !== id)
+          : [...current, id];
+        set({ amenityFilter });
+        const best = get().getEnrichedStations().reduce<
+          StationWithCalculation | undefined
+        >(
+          (top, item) =>
+            !top ||
+            item.calculation.netAfterTime > top.calculation.netAfterTime
+              ? item
+              : top,
+          undefined
+        );
+        get().setSelectedStationId(best?.station.id ?? null);
+      },
+      clearAmenityFilter: () => {
+        set({ amenityFilter: [] });
         const best = get().getEnrichedStations().reduce<
           StationWithCalculation | undefined
         >(
@@ -1121,6 +1166,7 @@ export const usePitstopStore = create<PitstopState>()(
           brandFilter,
           priceFreshnessFilter,
           openNowFilter,
+          amenityFilter,
           excludedBrands,
           route,
           originCoords,
@@ -1138,6 +1184,7 @@ export const usePitstopStore = create<PitstopState>()(
           brandFilter,
           priceFreshnessFilter,
           openNowFilter,
+          amenityFilter,
           excludedBrands,
           route,
           originCoords,
@@ -1167,6 +1214,9 @@ export const usePitstopStore = create<PitstopState>()(
           )
           .filter(
             (station) => !excludedBrands.includes(stationBrandKey(station))
+          )
+          .filter((station) =>
+            stationHasRequiredAmenities(station, amenityFilter)
           )
           .filter((station) => {
             const community = communityByStationId[station.id];
@@ -1342,6 +1392,7 @@ export const usePitstopStore = create<PitstopState>()(
         brandFilter: state.brandFilter,
         priceFreshnessFilter: state.priceFreshnessFilter,
         openNowFilter: state.openNowFilter,
+        amenityFilter: state.amenityFilter,
         excludedBrands: state.excludedBrands,
         recentPlaces: state.recentPlaces,
         routeAvoid: state.routeAvoid,
@@ -1390,6 +1441,7 @@ export const usePitstopStore = create<PitstopState>()(
             ? freshnessRaw
             : "any";
         const openNowFilter = p.openNowFilter === true;
+        const amenityFilter = sanitizeAmenityFilter(p.amenityFilter);
 
         return {
           vehicle,
@@ -1407,6 +1459,7 @@ export const usePitstopStore = create<PitstopState>()(
           brandFilter,
           priceFreshnessFilter,
           openNowFilter,
+          amenityFilter,
           excludedBrands: sanitizeExcludedBrands(p.excludedBrands),
           recentPlaces: sanitizeRecentPlaces(p.recentPlaces),
           routeAvoid: normalizeRouteAvoid(
@@ -1414,7 +1467,7 @@ export const usePitstopStore = create<PitstopState>()(
           ),
         };
       },
-      version: 10,
+      version: 11,
     }
   )
 );

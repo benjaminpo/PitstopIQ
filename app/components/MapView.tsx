@@ -177,6 +177,18 @@ function sampleRoute(coords: GeoPoint[], maxSamples = 40): GeoPoint[] {
   return coords.filter((_, i) => i % step === 0);
 }
 
+function isNearbySearch(
+  originCoords: GeoPoint | null,
+  destinationCoords: GeoPoint | null,
+  stopCoords: GeoPoint[]
+): boolean {
+  if (!originCoords || !destinationCoords || stopCoords.length > 0) return false;
+  return (
+    Math.abs(originCoords.lat - destinationCoords.lat) < 0.00001 &&
+    Math.abs(originCoords.lng - destinationCoords.lng) < 0.00001
+  );
+}
+
 interface FitPointsInputs {
   originCoords: GeoPoint | null;
   destinationCoords: GeoPoint | null;
@@ -208,16 +220,16 @@ function computeFitPoints(args: FitPointsInputs): GeoPoint[] {
     if (selected) pts.push(selected.station.location);
     return pts;
   }
-  const startsAndEndsAtSamePlace =
-    originCoords != null &&
-    destinationCoords != null &&
-    stopCoords.length === 0 &&
-    Math.abs(originCoords.lat - destinationCoords.lat) < 0.00001 &&
-    Math.abs(originCoords.lng - destinationCoords.lng) < 0.00001;
-  if (startsAndEndsAtSamePlace && enriched.length > 0) {
+  if (
+    isNearbySearch(originCoords, destinationCoords, stopCoords) &&
+    enriched.length > 0 &&
+    originCoords
+  ) {
     const best = enriched.reduce(
       (top, item) =>
-        item.calculation.netAfterTime > top.calculation.netAfterTime ? item : top,
+        item.calculation.netAfterTime > top.calculation.netAfterTime
+          ? item
+          : top,
       enriched[0]!
     );
     return [originCoords, best.station.location];
@@ -401,37 +413,103 @@ function FocusBestStations({
   freshnessFilter,
   openNowFilter,
   enriched,
+  originCoords,
+  destinationCoords,
+  stopCoords,
+  detourRoute,
 }: {
   freshnessFilter: PriceFreshnessFilter;
   openNowFilter: boolean;
   enriched: StationWithCalculation[];
+  originCoords: GeoPoint | null;
+  destinationCoords: GeoPoint | null;
+  stopCoords: GeoPoint[];
+  detourRoute: { coordinates: GeoPoint[] } | null;
 }) {
   const map = useMap();
   const previousFreshness = useRef(freshnessFilter);
   const previousOpenNow = useRef(openNowFilter);
+  /** Keep focusing until a nearby-search detour route arrives after a filter flip. */
+  const pendingNearbyRouteFocus = useRef(false);
 
   useEffect(() => {
     const freshnessChanged = previousFreshness.current !== freshnessFilter;
     const openNowChanged = previousOpenNow.current !== openNowFilter;
     previousFreshness.current = freshnessFilter;
     previousOpenNow.current = openNowFilter;
-    if (!freshnessChanged && !openNowChanged) return;
+
+    const nearby = isNearbySearch(
+      originCoords,
+      destinationCoords,
+      stopCoords
+    );
+
+    if (freshnessChanged || openNowChanged) {
+      if (nearby) pendingNearbyRouteFocus.current = true;
+      else pendingNearbyRouteFocus.current = false;
+    }
+
+    if (!freshnessChanged && !openNowChanged && !pendingNearbyRouteFocus.current) {
+      return;
+    }
     if (enriched.length === 0) return;
 
-    const best = [...enriched]
+    const best = enriched.reduce(
+      (top, item) =>
+        item.calculation.netAfterTime > top.calculation.netAfterTime
+          ? item
+          : top,
+      enriched[0]!
+    );
+
+    if (nearby && originCoords) {
+      // Prefer the drawn A→station route once it lands; otherwise frame origin + best.
+      if (detourRoute?.coordinates?.length) {
+        pendingNearbyRouteFocus.current = false;
+        const bounds = L.latLngBounds(
+          sampleRoute(detourRoute.coordinates).map((p) => [p.lat, p.lng])
+        );
+        bounds.extend([best.station.location.lat, best.station.location.lng]);
+        bounds.extend([originCoords.lat, originCoords.lng]);
+        map.fitBounds(bounds.pad(0.2), { maxZoom: 14 });
+        return;
+      }
+
+      map.fitBounds(
+        L.latLngBounds([
+          [originCoords.lat, originCoords.lng],
+          [best.station.location.lat, best.station.location.lng],
+        ]).pad(0.25),
+        { maxZoom: 14 }
+      );
+      return;
+    }
+
+    if (!freshnessChanged && !openNowChanged) return;
+
+    const top = [...enriched]
       .sort(
         (a, b) =>
           b.calculation.netAfterTime - a.calculation.netAfterTime
       )
       .slice(0, 3);
     const bounds = L.latLngBounds(
-      best.map((item) => [
+      top.map((item) => [
         item.station.location.lat,
         item.station.location.lng,
       ])
     );
     map.fitBounds(bounds.pad(0.2), { maxZoom: 12 });
-  }, [map, freshnessFilter, openNowFilter, enriched]);
+  }, [
+    map,
+    freshnessFilter,
+    openNowFilter,
+    enriched,
+    originCoords,
+    destinationCoords,
+    stopCoords,
+    detourRoute,
+  ]);
 
   return null;
 }
@@ -757,6 +835,10 @@ export default function MapView() {
         freshnessFilter={priceFreshnessFilter}
         openNowFilter={openNowFilter}
         enriched={enriched}
+        originCoords={originCoords}
+        destinationCoords={destinationCoords}
+        stopCoords={stopCoords}
+        detourRoute={detourRoute}
       />
     </MapContainer>
   );

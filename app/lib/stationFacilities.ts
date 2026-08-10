@@ -37,6 +37,15 @@ export const AMENITY_LABELS: Record<string, string> = {
   water_filling: "Water",
 };
 
+/** Stable order for facility filter chips. */
+export const AMENITY_FILTER_IDS: readonly string[] = [
+  "customer_toilets",
+  "car_wash",
+  "water_filling",
+  "adblue_pumps",
+  "adblue_packaged",
+];
+
 export function formatAmenityLabel(id: string): string {
   const known = AMENITY_LABELS[id];
   if (known) return known;
@@ -45,6 +54,66 @@ export function formatAmenityLabel(id: string): string {
     .filter(Boolean)
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(" ");
+}
+
+export interface AmenityOption {
+  id: string;
+  label: string;
+  count: number;
+}
+
+/** Distinct amenities present in the list, known ids first, with station counts. */
+export function distinctAmenityOptions(
+  stations: Pick<FuelStation, "amenities">[]
+): AmenityOption[] {
+  const counts = new Map<string, number>();
+  for (const station of stations) {
+    const seen = new Set<string>();
+    for (const id of station.amenities ?? []) {
+      if (!id || seen.has(id)) continue;
+      seen.add(id);
+      counts.set(id, (counts.get(id) ?? 0) + 1);
+    }
+  }
+
+  const options: AmenityOption[] = [];
+  for (const id of AMENITY_FILTER_IDS) {
+    const count = counts.get(id);
+    if (!count) continue;
+    options.push({ id, label: formatAmenityLabel(id), count });
+    counts.delete(id);
+  }
+  for (const [id, count] of [...counts.entries()].sort(([a], [b]) =>
+    formatAmenityLabel(a).localeCompare(formatAmenityLabel(b))
+  )) {
+    options.push({ id, label: formatAmenityLabel(id), count });
+  }
+  return options;
+}
+
+/** True when the station lists every required amenity (AND match). */
+export function stationHasRequiredAmenities(
+  station: Pick<FuelStation, "amenities">,
+  required: readonly string[]
+): boolean {
+  if (required.length === 0) return true;
+  const have = new Set(station.amenities ?? []);
+  return required.every((id) => have.has(id));
+}
+
+/** Validate a persisted amenity-filter list. */
+export function sanitizeAmenityFilter(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  const ids: string[] = [];
+  const seen = new Set<string>();
+  for (const entry of value) {
+    if (typeof entry !== "string") continue;
+    const id = entry.trim().toLowerCase();
+    if (!id || seen.has(id)) continue;
+    seen.add(id);
+    ids.push(id);
+  }
+  return ids;
 }
 
 function asRecord(value: unknown): Record<string, unknown> | null {

@@ -4,12 +4,15 @@ import {
   formatAmenityLabel,
   formatOpeningHoursRows,
   formatPermanentClosureDate,
+  distinctAmenityOptions,
   isDayHoursOpenAt,
   isStationOfficiallyClosed,
   isStationOpenNow,
   parseAmenities,
   parseOpeningTimes,
+  sanitizeAmenityFilter,
   stationClosureLabel,
+  stationHasRequiredAmenities,
 } from "./stationFacilities";
 import type { StationDayHours, StationWithCalculation } from "./types";
 
@@ -190,6 +193,38 @@ describe("formatAmenityLabel", () => {
   it("uses known labels and title-cases unknowns", () => {
     expect(formatAmenityLabel("car_wash")).toBe("Car wash");
     expect(formatAmenityLabel("ev_chargers")).toBe("Ev Chargers");
+  });
+});
+
+describe("amenity filter helpers", () => {
+  it("requires every selected amenity", () => {
+    const station = { amenities: ["customer_toilets", "car_wash"] };
+    expect(stationHasRequiredAmenities(station, [])).toBe(true);
+    expect(stationHasRequiredAmenities(station, ["car_wash"])).toBe(true);
+    expect(
+      stationHasRequiredAmenities(station, ["customer_toilets", "water_filling"])
+    ).toBe(false);
+  });
+
+  it("lists distinct amenities with counts", () => {
+    const options = distinctAmenityOptions([
+      { amenities: ["car_wash", "customer_toilets"] },
+      { amenities: ["customer_toilets"] },
+      { amenities: undefined },
+    ]);
+    expect(options.map((o) => o.id)).toEqual([
+      "customer_toilets",
+      "car_wash",
+    ]);
+    expect(options[0].count).toBe(2);
+    expect(options[1].count).toBe(1);
+  });
+
+  it("sanitizes persisted amenity filters", () => {
+    expect(sanitizeAmenityFilter([" Car_Wash ", "car_wash", 1, ""])).toEqual([
+      "car_wash",
+    ]);
+    expect(sanitizeAmenityFilter(null)).toEqual([]);
   });
 });
 

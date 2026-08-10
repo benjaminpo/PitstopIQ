@@ -8,6 +8,7 @@ import {
   ChevronDown,
   Clock,
   RefreshCw,
+  Wrench,
 } from "lucide-react";
 import { remainingRangeMiles } from "@/app/lib/detourCalculator";
 import {
@@ -19,6 +20,7 @@ import {
   PRICE_FRESHNESS_OPTIONS,
   type PriceFreshnessFilter,
 } from "@/app/lib/freshness";
+import { distinctAmenityOptions } from "@/app/lib/stationFacilities";
 import { usePitstopStore } from "@/app/lib/store";
 import { CORRIDOR_MAX_DISTANCE_MILES } from "@/app/lib/routing";
 import type { StationSortKey, StationWithCalculation } from "@/app/lib/types";
@@ -56,6 +58,9 @@ export function StationList() {
     setPriceFreshnessFilter,
     openNowFilter,
     setOpenNowFilter,
+    amenityFilter,
+    toggleAmenityFilter,
+    clearAmenityFilter,
     excludedBrands,
     toggleExcludedBrand,
     clearExcludedBrands,
@@ -83,12 +88,18 @@ export function StationList() {
       ?.label ?? "Any time";
   const rangeMiles = remainingRangeMiles(vehicle);
   const brandOptions = distinctBrandOptions(stations);
+  const amenityOptions = distinctAmenityOptions(stations);
   const [brandPanelOpen, setBrandPanelOpen] = useState(false);
+  const [amenityPanelOpen, setAmenityPanelOpen] = useState(false);
   const hiddenBrandsSuffix = (() => {
     if (excludedBrands.length === 0) return "";
     const noun = excludedBrands.length === 1 ? "brand" : "brands";
     return ` · ${excludedBrands.length} ${noun} hidden`;
   })();
+  const amenityFilterSuffix =
+    amenityFilter.length > 0
+      ? ` · ${amenityFilter.length} facilit${amenityFilter.length === 1 ? "y" : "ies"}`
+      : "";
 
   const selectStation = (stationId: string) => {
     setSelectedStationId(stationId);
@@ -123,7 +134,7 @@ export function StationList() {
           <p className="mt-0.5 text-xs text-slate-500">
             {loading
               ? "Fetching Fuel Finder prices…"
-              : `${enriched.length} in range (≤${rangeMiles.toFixed(0)} mi) · ${stations.length} on corridor · ${filterLabel} · ${freshnessLabel.toLowerCase()}${openNowFilter ? " · open now" : ""} · ${SORT_OPTIONS.find((s) => s.key === sortKey)?.label.toLowerCase()}${hiddenBrandsSuffix}`}
+              : `${enriched.length} in range (≤${rangeMiles.toFixed(0)} mi) · ${stations.length} on corridor · ${filterLabel} · ${freshnessLabel.toLowerCase()}${openNowFilter ? " · open now" : ""}${amenityFilterSuffix} · ${SORT_OPTIONS.find((s) => s.key === sortKey)?.label.toLowerCase()}${hiddenBrandsSuffix}`}
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-1.5">
@@ -199,6 +210,30 @@ export function StationList() {
               className={cn(
                 "h-3 w-3 transition-transform",
                 brandPanelOpen && "rotate-180"
+              )}
+            />
+          </button>
+        )}
+        {amenityOptions.length > 0 && (
+          <button
+            type="button"
+            onClick={() => setAmenityPanelOpen((open) => !open)}
+            title="Only show stations that list the selected facilities"
+            aria-expanded={amenityPanelOpen}
+            className={cn(
+              "inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-[11px] font-semibold transition",
+              amenityFilter.length > 0
+                ? "bg-teal-600/20 text-teal-200 ring-1 ring-teal-500/40 hover:bg-teal-600/30"
+                : "bg-slate-900/80 text-slate-400 ring-1 ring-slate-700/60 hover:bg-slate-800 hover:text-slate-200"
+            )}
+          >
+            <Wrench className="h-3 w-3" />
+            Facilities
+            {amenityFilter.length > 0 && ` (${amenityFilter.length})`}
+            <ChevronDown
+              className={cn(
+                "h-3 w-3 transition-transform",
+                amenityPanelOpen && "rotate-180"
               )}
             />
           </button>
@@ -308,6 +343,50 @@ export function StationList() {
         </div>
       )}
 
+      {amenityPanelOpen && amenityOptions.length > 0 && (
+        <div className="mb-3 rounded-lg bg-slate-900/60 p-2.5 ring-1 ring-slate-700/60">
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <p className="text-[11px] text-slate-400">
+              Show only stations that list every selected facility.
+            </p>
+            {amenityFilter.length > 0 && (
+              <button
+                type="button"
+                onClick={clearAmenityFilter}
+                className="shrink-0 text-[11px] font-semibold text-teal-300 transition hover:text-teal-200"
+              >
+                Clear
+              </button>
+            )}
+          </div>
+          <fieldset className="flex max-h-36 flex-wrap gap-1.5 overflow-y-auto border-0 p-0 pr-1">
+            <legend className="sr-only">Required facilities</legend>
+            {amenityOptions.map((opt) => {
+              const active = amenityFilter.includes(opt.id);
+              return (
+                <button
+                  key={opt.id}
+                  type="button"
+                  aria-pressed={active}
+                  onClick={() => toggleAmenityFilter(opt.id)}
+                  className={cn(
+                    "inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-[11px] font-medium transition",
+                    active
+                      ? "bg-teal-600/25 text-teal-100 ring-1 ring-teal-500/45 hover:bg-teal-600/35"
+                      : "bg-slate-950/60 text-slate-300 ring-1 ring-slate-700/60 hover:bg-slate-800 hover:text-slate-100"
+                  )}
+                >
+                  {opt.label}
+                  <span className="ml-1 text-[10px] text-slate-500">
+                    {opt.count}
+                  </span>
+                </button>
+              );
+            })}
+          </fieldset>
+        </div>
+      )}
+
       {error && !loading && (
         <div className="mb-2 rounded-lg bg-rose-950/50 px-3 py-2.5 ring-1 ring-rose-500/30">
           <p className="text-xs leading-snug text-rose-300">{error}</p>
@@ -388,6 +467,32 @@ export function StationList() {
         !error &&
         !openNowFilter &&
         priceFreshnessFilter === "any" &&
+        amenityFilter.length > 0 && (
+          <div className="mb-3 space-y-3">
+            <div className="rounded-lg border border-dashed border-slate-700 px-3 py-8 text-center text-sm text-slate-500">
+              <p>
+                No in-range stations list every selected facility. Try fewer
+                facilities or clear the filter.
+              </p>
+              <button
+                type="button"
+                onClick={clearAmenityFilter}
+                className="mt-2 text-[12px] font-semibold text-teal-300 transition hover:text-teal-200"
+              >
+                Clear facilities filter
+              </button>
+            </div>
+            <ReportMissingStation />
+          </div>
+        )}
+
+      {!loading &&
+        stations.length > 0 &&
+        enriched.length === 0 &&
+        !error &&
+        !openNowFilter &&
+        priceFreshnessFilter === "any" &&
+        amenityFilter.length === 0 &&
         excludedBrands.length > 0 && (
           <div className="mb-3 space-y-3">
             <div className="rounded-lg border border-dashed border-slate-700 px-3 py-8 text-center text-sm text-slate-500">
@@ -416,6 +521,7 @@ export function StationList() {
         !error &&
         !openNowFilter &&
         priceFreshnessFilter === "any" &&
+        amenityFilter.length === 0 &&
         excludedBrands.length === 0 &&
         brandFilter !== "all" && (
           <div className="mb-3 space-y-3">
@@ -434,6 +540,7 @@ export function StationList() {
         !error &&
         !openNowFilter &&
         priceFreshnessFilter === "any" &&
+        amenityFilter.length === 0 &&
         excludedBrands.length === 0 &&
         brandFilter === "all" && (
           <div className="mb-3 space-y-3">

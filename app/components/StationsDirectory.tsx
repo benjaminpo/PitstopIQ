@@ -13,6 +13,7 @@ import {
   MapPin,
   RefreshCw,
   Search,
+  Wrench,
 } from "lucide-react";
 import { AppLogo } from "@/app/components/AppLogo";
 import { AccountMenu } from "@/app/components/AccountMenu";
@@ -35,6 +36,7 @@ import {
   type PriceFreshnessFilter,
 } from "@/app/lib/freshness";
 import {
+  distinctAmenityOptions,
   isStationOfficiallyClosed,
   isStationOpenNow,
 } from "@/app/lib/stationFacilities";
@@ -116,6 +118,10 @@ export function StationsDirectory() {
   );
   const [excludedBrands, setExcludedBrands] = useState<string[]>([]);
   const [brandPanelOpen, setBrandPanelOpen] = useState(false);
+  const [amenityFilter, setAmenityFilter] = useState<string[]>(
+    DEFAULT_STATIONS_DIRECTORY_FILTERS.amenityFilter
+  );
+  const [amenityPanelOpen, setAmenityPanelOpen] = useState(false);
   const [fuelType, setFuelType] = useState<FuelType>(
     DEFAULT_STATIONS_DIRECTORY_FILTERS.fuelType
   );
@@ -194,6 +200,7 @@ export function StationsDirectory() {
         fuelType,
         priceFreshnessFilter,
         openNowFilter,
+        amenityFilter.join("\0"),
         requireSelectedFuel,
         sortKey,
         sortDirection,
@@ -205,6 +212,7 @@ export function StationsDirectory() {
       fuelType,
       priceFreshnessFilter,
       openNowFilter,
+      amenityFilter,
       requireSelectedFuel,
       sortKey,
       sortDirection,
@@ -220,6 +228,10 @@ export function StationsDirectory() {
     () => distinctBrandOptions(stations),
     [stations]
   );
+  const amenityOptions = useMemo(
+    () => distinctAmenityOptions(stations),
+    [stations]
+  );
 
   const filtered = useMemo(
     () =>
@@ -232,6 +244,7 @@ export function StationsDirectory() {
           fuelType,
           priceFreshnessFilter,
           openNowFilter,
+          amenityFilter,
           requireSelectedFuel,
         },
         new Date(now)
@@ -244,6 +257,7 @@ export function StationsDirectory() {
       fuelType,
       priceFreshnessFilter,
       openNowFilter,
+      amenityFilter,
       requireSelectedFuel,
       now,
     ]
@@ -273,6 +287,14 @@ export function StationsDirectory() {
       current.includes(brandKey)
         ? current.filter((key) => key !== brandKey)
         : [...current, brandKey]
+    );
+  };
+
+  const toggleAmenityFilter = (amenityId: string) => {
+    setAmenityFilter((current) =>
+      current.includes(amenityId)
+        ? current.filter((id) => id !== amenityId)
+        : [...current, amenityId]
     );
   };
 
@@ -380,6 +402,30 @@ export function StationsDirectory() {
                     />
                   </button>
                 )}
+                {amenityOptions.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setAmenityPanelOpen((open) => !open)}
+                    aria-expanded={amenityPanelOpen}
+                    title="Only show stations that list the selected facilities"
+                    className={cn(
+                      "inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-[11px] font-semibold transition",
+                      amenityFilter.length > 0
+                        ? "bg-teal-600/20 text-teal-200 ring-1 ring-teal-500/40"
+                        : "bg-slate-900/80 text-slate-400 ring-1 ring-slate-700/60 hover:bg-slate-800 hover:text-slate-200"
+                    )}
+                  >
+                    <Wrench className="h-3 w-3" />
+                    Facilities
+                    {amenityFilter.length > 0 && ` (${amenityFilter.length})`}
+                    <ChevronDown
+                      className={cn(
+                        "h-3 w-3 transition-transform",
+                        amenityPanelOpen && "rotate-180"
+                      )}
+                    />
+                  </button>
+                )}
               </fieldset>
 
               <button
@@ -447,6 +493,50 @@ export function StationsDirectory() {
                         )}
                       >
                         <BrandLogo brand={opt.label} size="sm" />
+                        {opt.label}
+                        <span className="text-[10px] text-slate-500">
+                          {opt.count}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </fieldset>
+              </div>
+            )}
+
+            {amenityPanelOpen && amenityOptions.length > 0 && (
+              <div className="rounded-lg bg-slate-900/60 p-2.5 ring-1 ring-slate-700/60">
+                <div className="mb-2 flex items-center justify-between gap-2">
+                  <p className="text-[11px] text-slate-400">
+                    Show only stations that list every selected facility.
+                  </p>
+                  {amenityFilter.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setAmenityFilter([])}
+                      className="shrink-0 text-[11px] font-semibold text-teal-300 transition hover:text-teal-200"
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
+                <fieldset className="flex max-h-36 flex-wrap gap-1.5 overflow-y-auto border-0 p-0 pr-1">
+                  <legend className="sr-only">Required facilities</legend>
+                  {amenityOptions.map((opt) => {
+                    const active = amenityFilter.includes(opt.id);
+                    return (
+                      <button
+                        key={opt.id}
+                        type="button"
+                        aria-pressed={active}
+                        onClick={() => toggleAmenityFilter(opt.id)}
+                        className={cn(
+                          "inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-[11px] font-medium transition",
+                          active
+                            ? "bg-teal-600/25 text-teal-100 ring-1 ring-teal-500/45"
+                            : "bg-slate-950/60 text-slate-300 ring-1 ring-slate-700/60 hover:bg-slate-800"
+                        )}
+                      >
                         {opt.label}
                         <span className="text-[10px] text-slate-500">
                           {opt.count}

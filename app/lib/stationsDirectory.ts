@@ -7,7 +7,7 @@ import {
   matchesPriceFreshness,
   type PriceFreshnessFilter,
 } from "@/app/lib/freshness";
-import { isStationOpenNow } from "@/app/lib/stationFacilities";
+import { isStationOpenNow, stationHasRequiredAmenities } from "@/app/lib/stationFacilities";
 import type { FuelStation, FuelType } from "@/app/lib/types";
 
 export type StationsDirectorySortKey =
@@ -25,6 +25,8 @@ export interface StationsDirectoryFilters {
   fuelType: FuelType;
   priceFreshnessFilter: PriceFreshnessFilter;
   openNowFilter: boolean;
+  /** Amenity ids the station must list (AND) */
+  amenityFilter: string[];
   /** Only stations that list a price for the selected fuel */
   requireSelectedFuel: boolean;
 }
@@ -36,6 +38,7 @@ export const DEFAULT_STATIONS_DIRECTORY_FILTERS: StationsDirectoryFilters = {
   fuelType: "E10",
   priceFreshnessFilter: "any",
   openNowFilter: false,
+  amenityFilter: [],
   requireSelectedFuel: false,
 };
 
@@ -82,6 +85,10 @@ export function filterStationsDirectory(
     }
 
     if (filters.openNowFilter && !isStationOpenNow(station, now)) {
+      return false;
+    }
+
+    if (!stationHasRequiredAmenities(station, filters.amenityFilter)) {
       return false;
     }
 

@@ -46,6 +46,7 @@ describe("filterStationsDirectory", () => {
       brand: "Shell",
       prices: { E10: 1.4 },
       pricesUpdatedAt: { E10: Date.parse("2026-08-09T12:00:00Z") },
+      amenities: ["customer_toilets", "car_wash"],
       openingHours: {
         usualDays: {
           sunday: { open: "00:00", close: "00:00", is24Hours: true },
@@ -58,6 +59,7 @@ describe("filterStationsDirectory", () => {
       brand: "Tesco",
       prices: { E10: 1.35, B7_Diesel: 1.42 },
       pricesUpdatedAt: { E10: Date.parse("2026-08-01T12:00:00Z") },
+      amenities: ["customer_toilets", "water_filling"],
       openingHours: {
         usualDays: {
           sunday: { open: "00:00", close: "00:00", is24Hours: false },
@@ -69,10 +71,11 @@ describe("filterStationsDirectory", () => {
       name: "Moto Services",
       brand: "Moto",
       prices: { B7_Diesel: 1.5 },
+      amenities: ["car_wash"],
     }),
   ];
 
-  it("applies brand, fuel, freshness, and open-now filters", () => {
+  it("applies brand, fuel, freshness, open-now, and amenity filters", () => {
     const now = new Date("2026-08-09T18:00:00Z"); // Sunday evening London
     const filtered = filterStationsDirectory(
       stations,
@@ -83,6 +86,7 @@ describe("filterStationsDirectory", () => {
         fuelType: "E10",
         priceFreshnessFilter: "any",
         openNowFilter: false,
+        amenityFilter: [],
         requireSelectedFuel: true,
       },
       now
@@ -98,6 +102,7 @@ describe("filterStationsDirectory", () => {
         fuelType: "E10",
         priceFreshnessFilter: "any",
         openNowFilter: true,
+        amenityFilter: [],
         requireSelectedFuel: false,
       },
       now
@@ -113,11 +118,28 @@ describe("filterStationsDirectory", () => {
         fuelType: "E10",
         priceFreshnessFilter: "24h",
         openNowFilter: false,
+        amenityFilter: [],
         requireSelectedFuel: false,
       },
       now
     );
     expect(fresh.map((s) => s.id)).toEqual(["shell"]);
+
+    const withToiletsAndWash = filterStationsDirectory(
+      stations,
+      {
+        query: "",
+        brandFilter: "all",
+        excludedBrands: [],
+        fuelType: "E10",
+        priceFreshnessFilter: "any",
+        openNowFilter: false,
+        amenityFilter: ["customer_toilets", "car_wash"],
+        requireSelectedFuel: false,
+      },
+      now
+    );
+    expect(withToiletsAndWash.map((s) => s.id)).toEqual(["shell"]);
   });
 });
 
