@@ -25,6 +25,7 @@ import { AdminMissingStationReports } from "@/app/components/AdminMissingStation
 import type { ConfirmedStationMatch } from "@/app/lib/stationPriceMatches";
 import type { StationAdminOverride } from "@/app/lib/stationAdminOverrides";
 import { KNOWN_BRAND_LABELS } from "@/app/lib/brandLogo";
+import { stationHref } from "@/app/lib/stationPath";
 import type { FuelStation, FuelType } from "@/app/lib/types";
 
 interface AdminData {
@@ -748,15 +749,26 @@ export function AdminStationMatcher() {
                     </button>
                   </div>
 
-                  <a
-                    href={petrolPricesSearchUrl(selectedStation)}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-teal-700/70 px-2.5 py-1.5 text-[11px] font-medium text-teal-200 transition hover:border-teal-500 hover:bg-teal-950/60"
-                  >
-                    <ExternalLink className="h-3 w-3" />
-                    Search PetrolPrices near station
-                  </a>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <Link
+                      href={stationHref(selectedStation)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-teal-700/70 px-2.5 py-1.5 text-[11px] font-medium text-teal-200 transition hover:border-teal-500 hover:bg-teal-950/60"
+                    >
+                      <ExternalLink className="h-3 w-3" />
+                      Open station details
+                    </Link>
+                    <a
+                      href={petrolPricesSearchUrl(selectedStation)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-teal-700/70 px-2.5 py-1.5 text-[11px] font-medium text-teal-200 transition hover:border-teal-500 hover:bg-teal-950/60"
+                    >
+                      <ExternalLink className="h-3 w-3" />
+                      Search PetrolPrices near station
+                    </a>
+                  </div>
                 </div>
               )}
             </div>
