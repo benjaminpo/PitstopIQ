@@ -29,7 +29,7 @@ function googleMapsClass(
   size: "default" | "large"
 ): string {
   const padding =
-    size === "large" ? "min-h-12 px-4 py-3 text-sm" : "px-3 py-2 text-xs";
+    size === "large" ? "px-4 py-3 text-sm" : "px-3 py-2 text-xs";
   if (tone === "light") {
     return cn(
       padding,
@@ -101,7 +101,7 @@ export function NavigateHere({
           onClick={onLinkClick}
           className={cn(
             "inline-flex w-full items-center justify-center gap-1.5 rounded-lg font-semibold transition",
-            size === "large" ? "min-h-11 px-4 py-2.5 text-sm" : "px-3 py-2 text-xs",
+            size === "large" ? "px-4 py-2.5 text-sm" : "px-3 py-2 text-xs",
             tone === "light"
               ? "bg-slate-200 text-slate-800 hover:bg-slate-300"
               : "bg-slate-900 text-slate-200 ring-1 ring-slate-600/60 hover:bg-slate-800"

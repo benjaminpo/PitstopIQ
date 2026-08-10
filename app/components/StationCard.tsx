@@ -33,7 +33,6 @@ interface StationCardProps {
   now?: number;
   fuelType?: FuelType;
   onSelect?: () => void;
-  onSelectNearby?: (stationId: string) => void;
 }
 
 interface GradePriceRow {
@@ -168,7 +167,6 @@ export function StationCard({
   now,
   fuelType,
   onSelect,
-  onSelectNearby,
 }: Readonly<StationCardProps>) {
   const { station, calculation, pricePerLitre, priceFromCommunity, community } =
     item;
@@ -328,13 +326,7 @@ export function StationCard({
         />
       )}
 
-      {selected && (
-        <StationDetails
-          station={station}
-          fuelType={activeFuel}
-          onSelectNearby={onSelectNearby}
-        />
-      )}
+      {selected && <StationDetails station={station} />}
 
       {selected && (
         <StationContribute

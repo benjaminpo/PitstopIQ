@@ -130,7 +130,7 @@ export function HomeApp() {
           <div className="flex items-center gap-2">
             <Link
               href="/stations"
-              className="inline-flex min-h-11 items-center rounded-lg border border-slate-700/80 bg-slate-900/60 px-2.5 py-1.5 text-xs font-medium text-slate-300 transition hover:border-teal-600/50 hover:bg-teal-950/50 hover:text-teal-200"
+              className="inline-flex items-center rounded-lg border border-slate-700/80 bg-slate-900/60 px-2.5 py-1.5 text-xs font-medium text-slate-300 transition hover:border-teal-600/50 hover:bg-teal-950/50 hover:text-teal-200"
             >
               All stations
             </Link>
@@ -198,7 +198,7 @@ export function HomeApp() {
           <button
             type="button"
             onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="flex min-h-11 items-center gap-2 rounded-lg border border-slate-700/80 bg-slate-950/90 px-3 py-2.5 text-sm font-medium text-slate-100 shadow-lg backdrop-blur hover:bg-slate-900"
+            className="flex items-center gap-2 rounded-lg border border-slate-700/80 bg-slate-950/90 px-3 py-2.5 text-sm font-medium text-slate-100 shadow-lg backdrop-blur hover:bg-slate-900"
             aria-label="Toggle sidebar"
           >
             <Menu className="h-5 w-5" />
@@ -257,7 +257,7 @@ export function HomeApp() {
             <button
               type="button"
               onClick={() => setSelectedStationId(null)}
-              className="min-h-11 rounded-lg border border-teal-800/50 bg-slate-950/90 px-3 py-2 text-left text-xs shadow-lg backdrop-blur transition hover:border-teal-600/70 hover:bg-teal-950/40"
+              className="rounded-lg border border-teal-800/50 bg-slate-950/90 px-3 py-2 text-left text-xs shadow-lg backdrop-blur transition hover:border-teal-600/70 hover:bg-teal-950/40"
               aria-label="Switch back to the direct route"
             >
               <p className="font-semibold text-teal-300">Direct route</p>

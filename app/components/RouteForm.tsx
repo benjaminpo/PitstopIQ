@@ -564,7 +564,7 @@ export function RouteForm() {
                       type="button"
                       onClick={() => setFuelType(opt.value)}
                       className={cn(
-                        "min-h-11 rounded-md px-2 py-2 text-center text-[11px] font-semibold transition",
+                        "rounded-md px-2 py-2 text-center text-[11px] font-semibold transition",
                         active
                           ? "bg-teal-600 text-white shadow-sm shadow-teal-900/40"
                           : "text-slate-400 hover:bg-slate-800 hover:text-slate-200"
@@ -745,7 +745,7 @@ export function RouteForm() {
         type="submit"
         disabled={loading || !tripReady}
         title={tripReady ? undefined : "Choose an origin and destination first"}
-        className="flex min-h-12 w-full items-center justify-center gap-2 rounded-lg bg-teal-600 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-teal-950/40 transition hover:bg-teal-500 disabled:cursor-not-allowed disabled:opacity-60"
+        className="flex w-full items-center justify-center gap-2 rounded-lg bg-teal-600 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-teal-950/40 transition hover:bg-teal-500 disabled:cursor-not-allowed disabled:opacity-60"
       >
         {submitButtonLabel(loading, tripReady)}
       </button>

@@ -1,52 +1,23 @@
 "use client";
 
-import { Clock, MapPin, Wrench } from "lucide-react";
+import { Clock, Wrench } from "lucide-react";
 import {
-  findNearbyStations,
   formatAmenityLabel,
   formatOpeningHoursRows,
 } from "@/app/lib/stationFacilities";
-import { usePitstopStore } from "@/app/lib/store";
-import type { FuelStation, FuelType } from "@/app/lib/types";
-import { BrandLogo } from "./BrandLogo";
+import type { FuelStation } from "@/app/lib/types";
 
 interface StationDetailsProps {
   station: FuelStation;
-  fuelType: FuelType;
-  onSelectNearby?: (stationId: string) => void;
 }
 
-export function StationDetails({
-  station,
-  fuelType,
-  onSelectNearby,
-}: Readonly<StationDetailsProps>) {
-  const getEnrichedStations = usePitstopStore((s) => s.getEnrichedStations);
-  const setSelectedStationId = usePitstopStore((s) => s.setSelectedStationId);
-  const setSidebarOpen = usePitstopStore((s) => s.setSidebarOpen);
-
+export function StationDetails({ station }: Readonly<StationDetailsProps>) {
   const hourRows = station.openingHours
     ? formatOpeningHoursRows(station.openingHours)
     : [];
   const amenities = station.amenities ?? [];
-  const nearby = findNearbyStations(
-    station.location,
-    getEnrichedStations(),
-    { excludeId: station.id, maxMiles: 3, limit: 4 }
-  );
 
-  const selectNearby = (stationId: string) => {
-    if (onSelectNearby) {
-      onSelectNearby(stationId);
-      return;
-    }
-    setSelectedStationId(stationId);
-    if (window.matchMedia("(max-width: 767px)").matches) {
-      setSidebarOpen(false);
-    }
-  };
-
-  if (hourRows.length === 0 && amenities.length === 0 && nearby.length === 0) {
+  if (hourRows.length === 0 && amenities.length === 0) {
     return null;
   }
 
@@ -84,44 +55,6 @@ export function StationDetails({
                 {formatAmenityLabel(id)}
               </li>
             ))}
-          </ul>
-        </section>
-      )}
-
-      {nearby.length > 0 && (
-        <section>
-          <h3 className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-            <MapPin className="h-3 w-3" />
-            Fuel stations nearby
-          </h3>
-          <ul className="mt-1.5 space-y-1">
-            {nearby.map(({ item, miles }) => {
-              const price = item.station.prices[fuelType] ?? item.pricePerLitre;
-              return (
-                <li key={item.station.id}>
-                  <button
-                    type="button"
-                    onClick={() => selectNearby(item.station.id)}
-                    className="flex w-full items-center gap-2 rounded-lg px-1.5 py-1.5 text-left transition hover:bg-slate-950/50"
-                  >
-                    <BrandLogo brand={item.station.brand} size="sm" />
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-xs font-medium text-slate-200">
-                        {item.station.name}
-                      </p>
-                      <p className="text-[10px] text-slate-500">
-                        {miles.toFixed(1)} mi · {item.station.brand}
-                      </p>
-                    </div>
-                    {price != null && Number.isFinite(price) && (
-                      <span className="shrink-0 font-mono text-xs text-slate-300">
-                        £{price.toFixed(3)}
-                      </span>
-                    )}
-                  </button>
-                </li>
-              );
-            })}
           </ul>
         </section>
       )}

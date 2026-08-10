@@ -117,7 +117,7 @@ export function StationWatchButton({
     return (
       <div
         className={cn(
-          "mt-3 flex min-h-10 items-center justify-center rounded-lg bg-slate-900/50",
+          "mt-3 flex items-center justify-center rounded-lg bg-slate-900/50",
           className
         )}
       >
@@ -152,7 +152,7 @@ export function StationWatchButton({
         onClick={(e) => void onToggle(e)}
         disabled={loading || (baselinePrice == null && !watching)}
         className={cn(
-          "inline-flex min-h-11 w-full items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-50",
+          "inline-flex w-full items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold transition disabled:cursor-not-allowed disabled:opacity-50",
           watching
             ? "bg-amber-950/50 text-amber-200 ring-1 ring-amber-600/40 hover:bg-amber-950/80"
             : "bg-slate-800 text-slate-100 ring-1 ring-slate-600/60 hover:bg-slate-700"

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   AlertTriangle,
   ArrowUpDown,
@@ -90,8 +90,6 @@ export function StationList() {
     return ` · ${excludedBrands.length} ${noun} hidden`;
   })();
 
-  const pendingScrollStationId = useRef<string | null>(null);
-
   const selectStation = (stationId: string) => {
     setSelectedStationId(stationId);
     // Below the md breakpoint the sidebar overlays the map, so close it to
@@ -99,12 +97,6 @@ export function StationList() {
     if (window.matchMedia("(max-width: 767px)").matches) {
       setSidebarOpen(false);
     }
-  };
-
-  const selectNearbyStation = (stationId: string) => {
-    pendingScrollStationId.current = stationId;
-    // Keep the list open so the scrolled-to card stays visible.
-    setSelectedStationId(stationId);
   };
 
   const handleSelect = (stationId: string) => {
@@ -122,20 +114,6 @@ export function StationList() {
     const id = window.setInterval(() => setNow(Date.now()), 30_000);
     return () => window.clearInterval(id);
   }, [dataSource]);
-
-  useEffect(() => {
-    if (!selectedStationId) return;
-    if (pendingScrollStationId.current !== selectedStationId) return;
-    pendingScrollStationId.current = null;
-
-    // Wait a frame so the newly selected card can expand before scrolling.
-    const frame = window.requestAnimationFrame(() => {
-      document
-        .getElementById(`station-card-${selectedStationId}`)
-        ?.scrollIntoView({ behavior: "smooth", block: "nearest" });
-    });
-    return () => window.cancelAnimationFrame(frame);
-  }, [selectedStationId]);
 
   return (
     <div className="flex shrink-0 flex-col">
@@ -157,7 +135,7 @@ export function StationList() {
                 type="button"
                 onClick={() => setSortKey(opt.key)}
                 className={cn(
-                  "min-h-10 rounded-md px-2.5 py-1.5 text-[11px] font-medium transition",
+                  "rounded-md px-2.5 py-1.5 text-[11px] font-medium transition",
                   sortKey === opt.key
                     ? "bg-slate-700 text-slate-100"
                     : "text-slate-400 hover:text-slate-200"
@@ -191,7 +169,7 @@ export function StationList() {
               title={opt.hint}
               onClick={() => setBrandFilter(opt.key as BrandFilter)}
               className={cn(
-                "min-h-10 rounded-md px-2.5 py-1.5 text-[11px] font-semibold transition",
+                "rounded-md px-2.5 py-1.5 text-[11px] font-semibold transition",
                 active
                   ? "bg-teal-600 text-white shadow-sm shadow-teal-900/40"
                   : "bg-slate-900/80 text-slate-400 ring-1 ring-slate-700/60 hover:bg-slate-800 hover:text-slate-200"
@@ -485,7 +463,6 @@ export function StationList() {
             fuelType={vehicle.fuelType}
             selected={selectedStationId === item.station.id}
             onSelect={() => handleSelect(item.station.id)}
-            onSelectNearby={selectNearbyStation}
           />
         ))}
       </div>
