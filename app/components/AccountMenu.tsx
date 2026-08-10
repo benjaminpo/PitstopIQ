@@ -111,7 +111,7 @@ export function AccountMenu() {
             className="mt-1 flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs font-medium text-slate-300 transition hover:bg-slate-800/80 hover:text-slate-100"
           >
             <Fuel className="h-3.5 w-3.5" />
-            All stations
+            Stations
           </Link>
           <Link
             href="/locations"
@@ -131,6 +131,7 @@ export function AccountMenu() {
             <Store className="h-3.5 w-3.5" />
             Brands
           </Link>
+          <div className="mx-1 my-1 h-px bg-slate-800/80" />
           <Link
             href="/account#alerts"
             role="menuitem"

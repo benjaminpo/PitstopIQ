@@ -1,11 +1,11 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Coffee, HelpCircle, Loader2, Menu, PanelLeftClose } from "lucide-react";
 import { AccountMenu } from "@/app/components/AccountMenu";
 import { AppLogo } from "@/app/components/AppLogo";
+import { DirectoryNav } from "@/app/components/DirectoryNav";
 import { FreshnessBadge } from "@/app/components/FreshnessBadge";
 import { MobileSelectedStationBar } from "@/app/components/MobileSelectedStationBar";
 import { RouteForm } from "@/app/components/RouteForm";
@@ -127,25 +127,8 @@ export function HomeApp() {
               time.
             </p>
           </div>
-          <div className="flex items-center gap-2">
-            <Link
-              href="/stations"
-              className="inline-flex items-center rounded-lg border border-slate-700/80 bg-slate-900/60 px-2.5 py-1.5 text-xs font-medium text-slate-300 transition hover:border-teal-600/50 hover:bg-teal-950/50 hover:text-teal-200"
-            >
-              All stations
-            </Link>
-            <Link
-              href="/locations"
-              className="inline-flex items-center rounded-lg border border-slate-700/80 bg-slate-900/60 px-2.5 py-1.5 text-xs font-medium text-slate-300 transition hover:border-teal-600/50 hover:bg-teal-950/50 hover:text-teal-200"
-            >
-              Locations
-            </Link>
-            <Link
-              href="/brands"
-              className="inline-flex items-center rounded-lg border border-slate-700/80 bg-slate-900/60 px-2.5 py-1.5 text-xs font-medium text-slate-300 transition hover:border-teal-600/50 hover:bg-teal-950/50 hover:text-teal-200"
-            >
-              Brands
-            </Link>
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <DirectoryNav variant="segment" current={null} />
             <AccountMenu />
             <button
               type="button"

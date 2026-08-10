@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound } from "next/navigation";
+import { DataUnavailable } from "@/app/components/DataUnavailable";
 import { LocationAreaView } from "@/app/components/LocationAreaView";
 import { loadLocationAreaDetail } from "@/app/lib/loadLocations";
 import { postcodeAreaLabel } from "@/app/lib/postcodeAreas";
@@ -18,6 +18,13 @@ export async function generateMetadata({
   const { areaKey } = await params;
   const loaded = await loadLocationAreaDetail(areaKey);
   if (!loaded.ok) {
+    if (loaded.reason === "unavailable") {
+      return {
+        title: "Location prices temporarily unavailable",
+        description:
+          "Live Fuel Finder location prices are temporarily unavailable. Please try again shortly.",
+      };
+    }
     return {
       title: "Location not found",
       description: "This postcode area could not be found on PitstopIQ.",
@@ -51,20 +58,13 @@ export default async function LocationAreaPage({
     if (loaded.reason === "unavailable") {
       const label = postcodeAreaLabel(areaKey);
       return (
-        <main className="flex min-h-dvh flex-col items-center justify-center bg-slate-950 px-6 text-center text-slate-100">
-          <h1 className="text-2xl font-semibold tracking-tight">
-            {label} prices temporarily unavailable
-          </h1>
-          <p className="mt-2 max-w-md text-sm text-slate-400">
-            Live Fuel Finder data isn’t available right now. Try again shortly.
-          </p>
-          <Link
-            href="/locations"
-            className="mt-6 rounded-lg bg-teal-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-teal-500"
-          >
-            All locations
-          </Link>
-        </main>
+        <DataUnavailable
+          title={`${label} prices temporarily unavailable`}
+          description="Live Fuel Finder data isn’t available right now. Try again shortly."
+          actions={[
+            { href: "/locations", label: "All locations", primary: true },
+          ]}
+        />
       );
     }
     notFound();

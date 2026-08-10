@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { BrandDetailView } from "@/app/components/BrandDetailView";
+import { DataUnavailable } from "@/app/components/DataUnavailable";
 import { loadBrandDetail } from "@/app/lib/loadBrands";
 import { SITE_NAME } from "@/app/lib/site";
 
@@ -17,6 +17,13 @@ export async function generateMetadata({
   const { brandKey } = await params;
   const loaded = await loadBrandDetail(brandKey);
   if (!loaded.ok) {
+    if (loaded.reason === "unavailable") {
+      return {
+        title: "Brand prices temporarily unavailable",
+        description:
+          "Live Fuel Finder brand prices are temporarily unavailable. Please try again shortly.",
+      };
+    }
     return {
       title: "Brand not found",
       description: "This fuel brand could not be found on PitstopIQ.",
@@ -49,20 +56,11 @@ export default async function BrandDetailPage({
   if (!loaded.ok) {
     if (loaded.reason === "unavailable") {
       return (
-        <main className="flex min-h-dvh flex-col items-center justify-center bg-slate-950 px-6 text-center text-slate-100">
-          <h1 className="text-2xl font-semibold tracking-tight">
-            Brand prices temporarily unavailable
-          </h1>
-          <p className="mt-2 max-w-md text-sm text-slate-400">
-            Live Fuel Finder data isn’t available right now. Try again shortly.
-          </p>
-          <Link
-            href="/brands"
-            className="mt-6 rounded-lg bg-teal-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-teal-500"
-          >
-            All brands
-          </Link>
-        </main>
+        <DataUnavailable
+          title="Brand prices temporarily unavailable"
+          description="Live Fuel Finder data isn’t available right now. Try again shortly."
+          actions={[{ href: "/brands", label: "All brands", primary: true }]}
+        />
       );
     }
     notFound();

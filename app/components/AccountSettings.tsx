@@ -14,6 +14,7 @@ import {
   UserRound,
 } from "lucide-react";
 import { AppLogo } from "@/app/components/AppLogo";
+import { DirectoryShell } from "@/app/components/DirectoryShell";
 import { NumberInput } from "@/app/components/NumberInput";
 import { PriceAlertsPanel } from "@/app/components/PriceAlertsPanel";
 import { VehiclePresets } from "@/app/components/VehiclePresets";
@@ -93,21 +94,15 @@ export function AccountSettings() {
   }
 
   return (
-    <div className="relative min-h-dvh overflow-hidden bg-slate-950 px-4 py-10 text-slate-100">
+    <DirectoryShell width="narrow" className="px-0" contentClassName="px-4 py-10 sm:px-4">
       <VehiclePresetsSync />
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_20%_0%,rgba(13,148,136,0.18),transparent_50%),radial-gradient(ellipse_at_80%_100%,rgba(14,116,144,0.12),transparent_45%)]"
-      />
-
-      <div className="relative z-10 mx-auto w-full max-w-lg">
-        <div className="mb-6 flex items-center justify-between gap-3">
+        <div className="mb-2 flex items-center justify-between gap-3">
           <Link
             href="/"
             className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-400 transition hover:text-slate-200"
           >
             <ArrowLeft className="h-3.5 w-3.5" />
-            Back to map
+            Back to planner
           </Link>
           <Link
             href="/"
@@ -299,7 +294,6 @@ export function AccountSettings() {
             </div>
           </section>
         </div>
-      </div>
-    </div>
+    </DirectoryShell>
   );
 }

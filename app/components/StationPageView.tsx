@@ -2,10 +2,11 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { ArrowLeft, Clock, MapPin, Star, Wrench } from "lucide-react";
-import { AccountMenu } from "@/app/components/AccountMenu";
-import { AppLogo } from "@/app/components/AppLogo";
+import { Clock, MapPin, Star, Wrench } from "lucide-react";
 import { BrandLogo } from "@/app/components/BrandLogo";
+import { DirectoryHeader } from "@/app/components/DirectoryHeader";
+import { DirectoryShell } from "@/app/components/DirectoryShell";
+import { formatDirectoryPrice } from "@/app/components/DirectoryUi";
 import { FreshnessBadge } from "@/app/components/FreshnessBadge";
 import { NavigateHere } from "@/app/components/NavigateHere";
 import { StationPageInteractive } from "@/app/components/StationPageInteractive";
@@ -24,12 +25,6 @@ import { cn } from "@/app/lib/utils";
 import { StationClosureBadge } from "./StationClosureBadge";
 
 const DETAIL_BOUNDS_PAD_DEG = 0.02;
-
-function formatPrice(price: number | undefined): string {
-  return price === undefined || !Number.isFinite(price)
-    ? "—"
-    : `${(price * 100).toFixed(1)}p`;
-}
 
 function locationLabel(station: FuelStation): string {
   return [station.address, station.postcode].filter(Boolean).join(", ") || "—";
@@ -150,103 +145,64 @@ export function StationPageView({
   const amenities = station.amenities ?? [];
   const status = openStatus(station, new Date(now));
   const fuelType = primaryFuel(station);
-  const highlightPrice = station.prices[fuelType];
-  const updatedAt =
-    station.pricesUpdatedAt?.[fuelType] ?? station.pricesLastUpdatedAt;
   const avgRating = community?.avgRating;
   const ratingCount = community?.ratingCount ?? 0;
   const place = locationLabel(station);
 
   return (
-    <div className="relative min-h-dvh overflow-hidden bg-slate-950 text-slate-100">
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_20%_0%,rgba(13,148,136,0.18),transparent_50%),radial-gradient(ellipse_at_80%_100%,rgba(14,116,144,0.12),transparent_45%)]"
+    <DirectoryShell>
+      <DirectoryHeader
+        current="stations"
+        backHref="/stations"
+        backLabel="All stations"
+        title={station.name}
+        description={
+          <>
+            {station.brand}
+            {place !== "—" ? ` · ${place}` : ""}. Live Fuel Finder prices,
+            opening hours, facilities, and member updates.
+          </>
+        }
+        trailing={
+          <FreshnessBadge
+            source={source}
+            pricesFetchedAt={pricesFetchedAt}
+            now={now}
+          />
+        }
       />
 
-      <div className="relative z-10 mx-auto flex w-full max-w-6xl flex-col gap-5 px-4 py-8 sm:px-6">
-        <header className="flex flex-wrap items-start justify-between gap-4">
-          <div className="min-w-0 space-y-3">
-            <Link
-              href="/stations"
-              className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-400 transition hover:text-slate-200"
-            >
-              <ArrowLeft className="h-3.5 w-3.5" />
-              Back to all stations
-            </Link>
-            <div className="flex items-center gap-3">
-              <Link href="/" aria-label="PitstopIQ home">
-                <AppLogo />
-              </Link>
-            </div>
-            <div>
-              <h1 className="text-xl font-semibold text-white sm:text-2xl">
-                {station.name}
-              </h1>
-              <p className="mt-1 max-w-2xl text-sm text-slate-400">
-                {station.brand}
-                {place !== "—" ? ` · ${place}` : ""}. Live Fuel Finder prices,
-                opening hours, facilities, and member updates.
-              </p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <FreshnessBadge
-              source={source}
-              pricesFetchedAt={pricesFetchedAt}
-              now={now}
-            />
-            <AccountMenu />
-          </div>
-        </header>
-
-        <section className="rounded-2xl border border-slate-800/80 bg-slate-950/75 p-3.5 shadow-lg shadow-slate-950/30 sm:p-4">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-            <div className="min-w-0 flex-1">
-              <div className="flex items-start gap-2.5">
-                <BrandLogo brand={station.brand} size="md" />
-                <div className="min-w-0">
-                  <p className="text-sm font-semibold text-slate-100">
-                    {station.name}
+      <section className="rounded-2xl border border-slate-800/80 bg-slate-950/75 p-3.5 shadow-lg shadow-slate-950/30 sm:p-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0 flex-1">
+            <div className="flex items-start gap-2.5">
+              <BrandLogo brand={station.brand} size="md" />
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-slate-100">
+                  {station.name}
+                </p>
+                <p className="mt-0.5 text-xs text-slate-400">{station.brand}</p>
+                <p className="mt-1 inline-flex items-start gap-1 text-[11px] text-slate-500">
+                  <MapPin className="mt-0.5 h-3 w-3 shrink-0" />
+                  <span>{place}</span>
+                </p>
+                {ratingCount > 0 && avgRating != null && (
+                  <p className="mt-1.5 inline-flex items-center gap-0.5 text-[11px] text-amber-300/90">
+                    <Star className="h-3 w-3 fill-amber-400 text-amber-400" />
+                    {avgRating.toFixed(1)}
+                    <span className="text-slate-500">({ratingCount})</span>
                   </p>
-                  <p className="mt-0.5 text-xs text-slate-400">{station.brand}</p>
-                  <p className="mt-1 inline-flex items-start gap-1 text-[11px] text-slate-500">
-                    <MapPin className="mt-0.5 h-3 w-3 shrink-0" />
-                    <span>{place}</span>
-                  </p>
-                  {ratingCount > 0 && avgRating != null && (
-                    <p className="mt-1.5 inline-flex items-center gap-0.5 text-[11px] text-amber-300/90">
-                      <Star className="h-3 w-3 fill-amber-400 text-amber-400" />
-                      {avgRating.toFixed(1)}
-                      <span className="text-slate-500">({ratingCount})</span>
-                    </p>
-                  )}
-                </div>
+                )}
               </div>
+            </div>
 
-              <div className="mt-3 flex flex-wrap gap-1.5">
+            <div className="mt-3 space-y-2">
+              <div className="flex flex-wrap gap-1.5">
                 <StationClosureBadge station={station} />
-                {ALL_FUEL_TYPES.map((type) => {
-                  const gradePrice = station.prices[type];
-                  if (gradePrice == null) return null;
-                  return (
-                    <span
-                      key={type}
-                      className={cn(
-                        "rounded-md px-2 py-0.5 font-mono text-[11px] ring-1",
-                        type === fuelType
-                          ? "bg-teal-500/15 text-teal-200 ring-teal-500/40"
-                          : "bg-slate-900/80 text-slate-300 ring-slate-700/60"
-                      )}
-                    >
-                      {FUEL_TYPE_SHORT[type]} {formatPrice(gradePrice)}
-                    </span>
-                  );
-                })}
                 {!isStationOfficiallyClosed(station) && (
                   <span
                     className={cn(
-                      "rounded-md px-2 py-0.5 text-[11px] font-medium ring-1",
+                      "inline-flex rounded-md px-2 py-0.5 text-[11px] font-medium ring-1",
                       openStatusClass(status)
                     )}
                   >
@@ -254,108 +210,130 @@ export function StationPageView({
                   </span>
                 )}
               </div>
-            </div>
-
-            <div className="flex shrink-0 flex-col items-stretch gap-2 sm:w-40">
-              <div className="rounded-xl bg-slate-900/70 px-3 py-2 text-center ring-1 ring-slate-700/60">
-                <p className="text-[10px] uppercase tracking-wide text-slate-500">
-                  {FUEL_TYPE_SHORT[fuelType]}
-                </p>
-                <p className="font-mono text-lg font-semibold text-slate-100">
-                  {formatPrice(highlightPrice)}
-                </p>
-                <p className="mt-0.5 text-[10px] text-slate-500">
-                  {updatedAt
-                    ? `Updated ${formatPriceAge(updatedAt, now)}`
-                    : "Update time unknown"}
-                </p>
-              </div>
-              <Link
-                href={stationNearbySearchHref(station)}
-                className="inline-flex items-center justify-center rounded-lg bg-teal-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-teal-500"
-              >
-                Compare nearby
-              </Link>
-              <NavigateHere
-                target={{
-                  location: station.location,
-                  name: station.name,
-                }}
-              />
+              <dl className="grid gap-1.5 sm:grid-cols-2">
+                {ALL_FUEL_TYPES.map((type) => {
+                  const gradePrice = station.prices[type];
+                  if (gradePrice == null) return null;
+                  const gradeUpdatedAt =
+                    station.pricesUpdatedAt?.[type] ??
+                    station.pricesLastUpdatedAt ??
+                    null;
+                  return (
+                    <div
+                      key={type}
+                      className={cn(
+                        "flex items-baseline justify-between gap-3 rounded-lg px-2.5 py-1.5 ring-1",
+                        type === fuelType
+                          ? "bg-teal-500/10 ring-teal-500/35"
+                          : "bg-slate-900/70 ring-slate-700/60"
+                      )}
+                    >
+                      <dt className="text-[11px] text-slate-400">
+                        {FUEL_TYPE_SHORT[type]}
+                      </dt>
+                      <dd className="text-right">
+                        <span className="font-mono text-sm font-semibold text-slate-100">
+                          {formatDirectoryPrice(gradePrice)}
+                        </span>
+                        <span className="mt-0.5 block font-mono text-[10px] text-slate-500">
+                          {gradeUpdatedAt != null
+                            ? formatPriceAge(gradeUpdatedAt, now)
+                            : "age unknown"}
+                        </span>
+                      </dd>
+                    </div>
+                  );
+                })}
+              </dl>
             </div>
           </div>
-        </section>
 
-        {(hourRows.length > 0 || amenities.length > 0) && (
-          <section className="rounded-2xl border border-slate-800/80 bg-slate-950/80 p-4 shadow-xl shadow-slate-950/40 backdrop-blur-md sm:p-5">
-            <div
-              className={cn(
-                "grid gap-5",
-                hourRows.length > 0 && amenities.length > 0 && "sm:grid-cols-2"
-              )}
+          <div className="flex shrink-0 flex-col items-stretch gap-2 sm:w-40">
+            <Link
+              href={stationNearbySearchHref(station)}
+              className="inline-flex items-center justify-center rounded-lg bg-teal-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-teal-500"
             >
-              {hourRows.length > 0 && (
-                <div>
-                  <h2 className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-slate-400">
-                    <Clock className="h-3.5 w-3.5" />
-                    Opening hours
-                  </h2>
-                  <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
-                    {hourRows.map((row) => (
-                      <div key={row.label} className="contents">
-                        <dt className="text-slate-500">{row.label}</dt>
-                        <dd className="font-mono text-slate-200">{row.value}</dd>
-                      </div>
-                    ))}
-                  </dl>
-                </div>
-              )}
-              {amenities.length > 0 && (
-                <div>
-                  <h2 className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-slate-400">
-                    <Wrench className="h-3.5 w-3.5" />
-                    Facilities
-                  </h2>
-                  <ul className="mt-2 flex flex-wrap gap-1.5">
-                    {amenities.map((id) => (
-                      <li
-                        key={id}
-                        className="rounded-md bg-slate-900/80 px-2.5 py-1 text-xs text-slate-300 ring-1 ring-slate-700/70"
-                      >
-                        {formatAmenityLabel(id)}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-            </div>
-          </section>
-        )}
+              Compare nearby
+            </Link>
+            <NavigateHere
+              target={{
+                location: station.location,
+                name: station.name,
+              }}
+            />
+          </div>
+        </div>
+      </section>
 
-        <StationPageInteractive
-          station={station}
-          fuelType={fuelType}
-          initialCommunity={community}
-        />
+      {(hourRows.length > 0 || amenities.length > 0) && (
+        <section className="rounded-2xl border border-slate-800/80 bg-slate-950/80 p-4 shadow-xl shadow-slate-950/40 backdrop-blur-md sm:p-5">
+          <div
+            className={cn(
+              "grid gap-5",
+              hourRows.length > 0 && amenities.length > 0 && "sm:grid-cols-2"
+            )}
+          >
+            {hourRows.length > 0 && (
+              <div>
+                <h2 className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-slate-400">
+                  <Clock className="h-3.5 w-3.5" />
+                  Opening hours
+                </h2>
+                <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
+                  {hourRows.map((row) => (
+                    <div key={row.label} className="contents">
+                      <dt className="text-slate-500">{row.label}</dt>
+                      <dd className="font-mono text-slate-200">{row.value}</dd>
+                    </div>
+                  ))}
+                </dl>
+              </div>
+            )}
+            {amenities.length > 0 && (
+              <div>
+                <h2 className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-slate-400">
+                  <Wrench className="h-3.5 w-3.5" />
+                  Facilities
+                </h2>
+                <ul className="mt-2 flex flex-wrap gap-1.5">
+                  {amenities.map((id) => (
+                    <li
+                      key={id}
+                      className="rounded-md bg-slate-900/80 px-2.5 py-1 text-xs text-slate-300 ring-1 ring-slate-700/70"
+                    >
+                      {formatAmenityLabel(id)}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        </section>
+      )}
 
-        <p className="pb-6 text-center text-xs text-slate-500">
-          <Link href="/stations" className="text-teal-400 hover:text-teal-300">
-            Browse all UK stations
-          </Link>
-          {" · "}
-          <Link href="/locations" className="text-teal-400 hover:text-teal-300">
-            Prices by location
-          </Link>
-          {" · "}
-          <Link href="/brands" className="text-teal-400 hover:text-teal-300">
-            Brands
-          </Link>
-          {" · "}
-          <Link href="/" className="text-teal-400 hover:text-teal-300">
-            Back to planner
-          </Link>
-        </p>
-      </div>
-    </div>
+      <StationPageInteractive
+        station={station}
+        fuelType={fuelType}
+        initialCommunity={community}
+      />
+
+      <p className="pb-6 text-center text-xs text-slate-500">
+        <Link href="/stations" className="text-teal-400 hover:text-teal-300">
+          All stations
+        </Link>
+        {" · "}
+        <Link href="/locations" className="text-teal-400 hover:text-teal-300">
+          Locations
+        </Link>
+        {" · "}
+        <Link href="/brands" className="text-teal-400 hover:text-teal-300">
+          Brands
+        </Link>
+        {" · "}
+        <Link href="/" className="text-teal-400 hover:text-teal-300">
+          Planner
+        </Link>
+      </p>
+    </DirectoryShell>
   );
 }

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound, permanentRedirect } from "next/navigation";
+import { DataUnavailable } from "@/app/components/DataUnavailable";
 import { StationJsonLd } from "@/app/components/StationJsonLd";
 import { StationPageView } from "@/app/components/StationPageView";
 import { ALL_FUEL_TYPES, FUEL_TYPE_SHORT } from "@/app/lib/fuelConstants";
@@ -52,6 +52,13 @@ export async function generateMetadata({
   const { stationKey } = await params;
   const loaded = await loadStationForPage(stationKey);
   if (!loaded.ok) {
+    if (loaded.reason === "unavailable") {
+      return {
+        title: "Prices temporarily unavailable",
+        description:
+          "Live Fuel Finder prices are temporarily unavailable. Please try again shortly.",
+      };
+    }
     return {
       title: "Station not found",
       description: "This fuel station could not be found on PitstopIQ.",
@@ -94,21 +101,14 @@ export default async function StationDetailPage({
   if (!loaded.ok) {
     if (loaded.reason === "unavailable") {
       return (
-        <main className="flex min-h-dvh flex-col items-center justify-center bg-slate-950 px-6 text-center text-slate-100">
-          <h1 className="text-2xl font-semibold tracking-tight">
-            Prices temporarily unavailable
-          </h1>
-          <p className="mt-2 max-w-md text-sm text-slate-400">
-            Live Fuel Finder data isn’t available right now. Try again in a
-            minute, or browse the station directory.
-          </p>
-          <Link
-            href="/stations"
-            className="mt-6 rounded-lg bg-teal-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-teal-500"
-          >
-            All stations
-          </Link>
-        </main>
+        <DataUnavailable
+          title="Prices temporarily unavailable"
+          description="Live Fuel Finder data isn’t available right now. Try again in a minute, or browse the station directory."
+          actions={[
+            { href: "/stations", label: "All stations", primary: true },
+            { href: "/brands", label: "Brands" },
+          ]}
+        />
       );
     }
 
