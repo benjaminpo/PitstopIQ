@@ -65,6 +65,12 @@ export function LocationsIndexView({
             >
               All stations
             </Link>
+            <Link
+              href="/brands"
+              className="inline-flex items-center rounded-lg border border-slate-700/80 bg-slate-900/60 px-2.5 py-1.5 text-xs font-medium text-slate-300 transition hover:border-teal-600/50 hover:text-teal-200"
+            >
+              Brands
+            </Link>
             <AccountMenu />
           </div>
         </header>

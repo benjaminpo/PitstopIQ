@@ -347,6 +347,10 @@ export function StationPageView({
             Prices by location
           </Link>
           {" · "}
+          <Link href="/brands" className="text-teal-400 hover:text-teal-300">
+            Brands
+          </Link>
+          {" · "}
           <Link href="/" className="text-teal-400 hover:text-teal-300">
             Back to planner
           </Link>

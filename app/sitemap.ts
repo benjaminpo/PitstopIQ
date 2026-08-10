@@ -3,6 +3,7 @@ import {
   fetchAllFuelStations,
   FuelDataUnavailableError,
 } from "@/app/lib/fuelApiAdapter";
+import { buildBrandSummaries } from "@/app/lib/brandsDirectory";
 import { buildLocationAreaSummaries } from "@/app/lib/locationsDirectory";
 import {
   applyStationAdminOverrides,
@@ -36,6 +37,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: "hourly",
       priority: 0.8,
     },
+    {
+      url: `${siteUrl}/brands`,
+      lastModified,
+      changeFrequency: "hourly",
+      priority: 0.8,
+    },
   ];
 
   try {
@@ -55,6 +62,15 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     for (const area of buildLocationAreaSummaries(stations)) {
       entries.push({
         url: `${siteUrl}${area.href}`,
+        lastModified: stationLastMod,
+        changeFrequency: "hourly",
+        priority: 0.7,
+      });
+    }
+
+    for (const brand of buildBrandSummaries(stations)) {
+      entries.push({
+        url: `${siteUrl}${brand.href}`,
         lastModified: stationLastMod,
         changeFrequency: "hourly",
         priority: 0.7,

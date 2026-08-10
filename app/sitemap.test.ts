@@ -46,7 +46,7 @@ afterEach(() => {
 });
 
 describe("sitemap", () => {
-  it("includes home, directory, locations, and station URLs", async () => {
+  it("includes home, directory, locations, brands, and station URLs", async () => {
     vi.stubEnv("NEXT_PUBLIC_SITE_URL", "https://pitstopiq.example");
     mockedFetch.mockResolvedValue({
       stations: [station],
@@ -59,10 +59,12 @@ describe("sitemap", () => {
       "https://pitstopiq.example",
       "https://pitstopiq.example/stations",
       "https://pitstopiq.example/locations",
+      "https://pitstopiq.example/brands",
       "https://pitstopiq.example/locations/rg",
+      "https://pitstopiq.example/brands/shell",
       "https://pitstopiq.example/stations/ff-1-shell-reading",
     ]);
-    expect(entries[4]?.changeFrequency).toBe("hourly");
+    expect(entries[6]?.changeFrequency).toBe("hourly");
   });
 
   it("still returns core pages when fuel data is unavailable", async () => {
@@ -74,6 +76,7 @@ describe("sitemap", () => {
       "https://pitstopiq.example",
       "https://pitstopiq.example/stations",
       "https://pitstopiq.example/locations",
+      "https://pitstopiq.example/brands",
     ]);
   });
 
@@ -88,7 +91,7 @@ describe("sitemap", () => {
     mockedOverrides.mockRejectedValue(new Error("db down"));
 
     const entries = await sitemap();
-    expect(entries).toHaveLength(5);
+    expect(entries).toHaveLength(7);
     expect(warn).toHaveBeenCalled();
     warn.mockRestore();
   });
@@ -99,7 +102,7 @@ describe("sitemap", () => {
     mockedFetch.mockRejectedValue(new Error("network"));
 
     const entries = await sitemap();
-    expect(entries).toHaveLength(3);
+    expect(entries).toHaveLength(4);
     expect(warn).toHaveBeenCalled();
     warn.mockRestore();
   });
