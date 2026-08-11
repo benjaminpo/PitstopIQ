@@ -290,11 +290,12 @@ const KNOWN_BRANDS: BrandDef[] = [
       /\bgoforecourt\b/i,
       /\bg\s*o\s+oil\b/i,
     ],
-    // Google favicon is a blank 16px stub; bundled mark matches site #1D1D1D + lime
-    src: "/brands/go.svg",
-    initials: "GO",
-    bg: "#1D1D1D",
-    fg: "#8CC63F",
+    // Official GO Forecourt mark (goforecourt.com / LinkedIn): red field,
+    // white disc, italic “Go” + orange wing tip
+    src: "/brands/go.png",
+    initials: "Go",
+    bg: "#D80810",
+    fg: "#FFFFFF",
   },
 ];
 

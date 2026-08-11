@@ -46,11 +46,11 @@ describe("resolveBrandLogo", () => {
     expect(resolveBrandLogo("Welcome Break").id).toBe("welcomebreak");
     expect(resolveBrandLogo("Circle K").id).toBe("circlek");
     expect(resolveBrandLogo("GO").id).toBe("go");
-    expect(resolveBrandLogo("GO").src).toBe("/brands/go.svg");
+    expect(resolveBrandLogo("GO").src).toBe("/brands/go.png");
     expect(resolveBrandLogo("GO Forecourt").id).toBe("go");
     expect(resolveBrandLogo("GO Belfast").id).toBe("go");
     expect(resolveBrandLogo("GO OIL COMPANY").id).toBe("go");
-    expect(resolveBrandLogo("GO OIL COMPANY").src).toBe("/brands/go.svg");
+    expect(resolveBrandLogo("GO OIL COMPANY").src).toBe("/brands/go.png");
     expect(resolveBrandLogo("Go Oil Company").id).toBe("go");
     expect(resolveBrandLogo("Stop & Go").id).not.toBe("go");
   });
