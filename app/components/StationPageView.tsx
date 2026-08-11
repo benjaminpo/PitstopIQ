@@ -118,7 +118,9 @@ export function StationPageView({
             east: String(lng + DETAIL_BOUNDS_PAD_DEG),
             west: String(lng - DETAIL_BOUNDS_PAD_DEG),
           });
-          const response = await fetch(`/api/fuel-finder?${params}`);
+          const response = await fetch(`/api/fuel-finder?${params}`, {
+            cache: "no-store",
+          });
           if (!response.ok) return;
           const body = (await response.json()) as {
             stations?: FuelStation[];

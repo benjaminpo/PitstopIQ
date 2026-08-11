@@ -82,13 +82,17 @@ export async function GET(request: NextRequest) {
       },
       {
         headers: {
-          // Overrides are already baked into `stations`, so CDN can cache the
-          // finished payload. Previously any admin row forced no-store and
-          // every pan hit a cold-ish serverless function (~1s).
+          // Admin brand/closed overrides and confirmed prices are applied in
+          // this payload. CDN-caching the finished JSON left public clients on
+          // stale brands for up to s-maxage + stale-while-revalidate after an
+          // admin edit. The Fuel Finder dataset itself is already cached
+          // server-side, so skipping CDN here stays cheap.
           "Cache-Control":
-            source === "live"
-              ? "public, s-maxage=60, stale-while-revalidate=600"
-              : "no-store",
+            confirmed.length > 0 || adminOverrides.length > 0
+              ? "private, no-store"
+              : source === "live"
+                ? "public, s-maxage=60, stale-while-revalidate=600"
+                : "no-store",
         },
       }
     );

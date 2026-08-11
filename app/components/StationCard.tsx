@@ -246,7 +246,7 @@ export function StationCard({
           <StatusBadge status={calculation.status} />
         </div>
 
-        <div className="mt-3 grid grid-cols-3 gap-2">
+        <div className="mt-3 grid gap-2">
           <div className="rounded-lg bg-slate-950/50 px-2 py-1.5">
             <div className="flex items-center gap-1 text-[10px] uppercase tracking-wide text-slate-500">
               <Fuel className="h-3 w-3" />
@@ -273,32 +273,34 @@ export function StationCard({
               ))}
             </ul>
           </div>
-          <div className="rounded-lg bg-slate-950/50 px-2 py-1.5">
-            <div className="flex items-center gap-1 text-[10px] uppercase tracking-wide text-slate-500">
-              <Route className="h-3 w-3" />
-              Detour
+          <div className="grid grid-cols-2 gap-2">
+            <div className="rounded-lg bg-slate-950/50 px-2 py-1.5">
+              <div className="flex items-center gap-1 text-[10px] uppercase tracking-wide text-slate-500">
+                <Route className="h-3 w-3" />
+                Detour
+              </div>
+              <p className="mt-0.5 font-mono text-sm font-semibold text-slate-100">
+                {station.distanceOffRouteMiles.toFixed(1)} mi
+              </p>
+              <p className="mt-0.5 flex items-center gap-0.5 font-mono text-[10px] text-slate-500">
+                <Clock className="h-2.5 w-2.5" />
+                {formatExtraMinutes(calculation.detourExtraMinutes)}
+              </p>
             </div>
-            <p className="mt-0.5 font-mono text-sm font-semibold text-slate-100">
-              {station.distanceOffRouteMiles.toFixed(1)} mi
-            </p>
-            <p className="mt-0.5 flex items-center gap-0.5 font-mono text-[10px] text-slate-500">
-              <Clock className="h-2.5 w-2.5" />
-              {formatExtraMinutes(calculation.detourExtraMinutes)}
-            </p>
-          </div>
-          <div className="rounded-lg bg-slate-950/50 px-2 py-1.5">
-            <div className="flex items-center gap-1 text-[10px] uppercase tracking-wide text-slate-500">
-              <ArrowRightLeft className="h-3 w-3" />
-              Net
+            <div className="rounded-lg bg-slate-950/50 px-2 py-1.5">
+              <div className="flex items-center gap-1 text-[10px] uppercase tracking-wide text-slate-500">
+                <ArrowRightLeft className="h-3 w-3" />
+                Net
+              </div>
+              <p
+                className={cn(
+                  "mt-0.5 font-mono text-base font-semibold sm:text-sm",
+                  netColorClass(net)
+                )}
+              >
+                {formatGbp(net)}
+              </p>
             </div>
-            <p
-              className={cn(
-                "mt-0.5 font-mono text-base font-semibold sm:text-sm",
-                netColorClass(net)
-              )}
-            >
-              {formatGbp(net)}
-            </p>
           </div>
         </div>
 

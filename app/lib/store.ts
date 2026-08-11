@@ -978,7 +978,9 @@ export const usePitstopStore = create<PitstopState>()(
             east: String(route.bounds.east),
             west: String(route.bounds.west),
           });
-          const res = await fetch(`/api/fuel-finder?${params}`);
+          const res = await fetch(`/api/fuel-finder?${params}`, {
+            cache: "no-store",
+          });
           if (generation !== loadStationsGeneration) return;
           if (!res.ok) {
             throw new Error(await readApiErrorMessage(res));

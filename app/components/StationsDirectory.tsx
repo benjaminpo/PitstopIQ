@@ -103,7 +103,9 @@ export function StationsDirectory() {
         east: String(UK_BOUNDS.east),
         west: String(UK_BOUNDS.west),
       });
-      const response = await fetch(`/api/fuel-finder?${params}`);
+      const response = await fetch(`/api/fuel-finder?${params}`, {
+        cache: "no-store",
+      });
       const body = (await response.json()) as StationsResponse;
       if (!response.ok) {
         throw new Error(body.error || "Could not load stations");

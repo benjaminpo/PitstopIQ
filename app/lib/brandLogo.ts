@@ -282,8 +282,14 @@ const KNOWN_BRANDS: BrandDef[] = [
   {
     id: "go",
     label: "GO",
-    // LCC Group’s GO network (goforecourt.com)
-    patterns: [/\bgo\b/i, /\bgoforecourt\b/i],
+    // LCC Group’s GO network (goforecourt.com) — Fuel Finder often lists
+    // “GO OIL COMPANY” / “GO Oil”. Lead-anchored so “Stop & Go” stays out.
+    patterns: [
+      /^go\b/i,
+      /\bgo\s+oil\b/i,
+      /\bgoforecourt\b/i,
+      /\bg\s*o\s+oil\b/i,
+    ],
     // Google favicon is a blank 16px stub; bundled mark matches site #1D1D1D + lime
     src: "/brands/go.svg",
     initials: "GO",

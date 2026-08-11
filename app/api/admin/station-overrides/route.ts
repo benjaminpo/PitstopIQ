@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import { getAdminSession } from "@/app/lib/adminAuth";
+import { brandHref } from "@/app/lib/brandsDirectory";
 import {
   listStationAdminOverrides,
   upsertStationAdminOverride,
@@ -16,6 +18,25 @@ async function authorize(request: NextRequest) {
     };
   }
   return { session, response: null };
+}
+
+/** ISR directory pages that list stations by brand / area. */
+function revalidatePublicStationViews(
+  brands: Array<string | null | undefined>
+) {
+  revalidatePath("/stations");
+  revalidatePath("/brands");
+  revalidatePath("/locations");
+  revalidatePath("/");
+  const seen = new Set<string>();
+  for (const brand of brands) {
+    const trimmed = brand?.trim();
+    if (!trimmed) continue;
+    const href = brandHref(trimmed);
+    if (seen.has(href)) continue;
+    seen.add(href);
+    revalidatePath(href);
+  }
 }
 
 export async function GET(request: NextRequest) {
@@ -63,6 +84,10 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: "Brand is too long" }, { status: 400 });
     }
 
+    const previous = (await listStationAdminOverrides()).find(
+      (row) => row.stationId === stationId.trim()
+    );
+
     const override = await upsertStationAdminOverride({
       stationId: stationId.trim(),
       brand: typeof brand === "string" ? brand : null,
@@ -70,6 +95,9 @@ export async function PUT(request: NextRequest) {
       note: typeof note === "string" ? note : null,
       updatedBy: session.user.id,
     });
+
+    revalidatePublicStationViews([override.brand, previous?.brand]);
+
     return NextResponse.json({ override });
   } catch (error) {
     console.error("[admin/station-overrides PUT]", error);
