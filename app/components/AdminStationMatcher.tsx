@@ -108,7 +108,7 @@ function petrolPricesSearchUrl(station: FuelStation): string {
     brandType: "0",
     resultLimit: "0",
     offset: "0",
-    sortType: "price",
+    sortType: "distance",
     lat: String(station.location.lat),
     lng: String(station.location.lng),
     z: "10",
