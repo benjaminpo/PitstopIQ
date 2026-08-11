@@ -94,7 +94,7 @@ export function AccountSettings() {
   }
 
   return (
-    <DirectoryShell width="narrow" className="px-0" contentClassName="px-4 py-10 sm:px-4">
+    <DirectoryShell width="narrow" className="px-0" contentClassName="px-4 py-10 sm:px-4 sm:py-10">
       <VehiclePresetsSync />
         <div className="mb-2 flex items-center justify-between gap-3">
           <Link

@@ -1,4 +1,7 @@
+"use client";
+
 import Link from "next/link";
+import { useMemo, useState } from "react";
 import { Fuel } from "lucide-react";
 import { BrandLogo } from "@/app/components/BrandLogo";
 import { DirectoryHeader } from "@/app/components/DirectoryHeader";
@@ -8,25 +11,51 @@ import { formatDirectoryPrice } from "@/app/components/DirectoryUi";
 import {
   BRAND_BROWSE_CATEGORY_LABELS,
   type BrandDetail,
+  type BrandStationRow,
 } from "@/app/lib/brandsDirectory";
 import { ALL_FUEL_TYPES, FUEL_TYPE_SHORT } from "@/app/lib/fuelConstants";
 import type { FuelType } from "@/app/lib/types";
 import { cn } from "@/app/lib/utils";
 
+function sortStationsByFuel(
+  rows: BrandStationRow[],
+  fuel: FuelType
+): BrandStationRow[] {
+  return [...rows].sort((a, b) => {
+    const pa = a.station.prices[fuel];
+    const pb = b.station.prices[fuel];
+    if (pa == null && pb == null)
+      return a.station.name.localeCompare(b.station.name);
+    if (pa == null) return 1;
+    if (pb == null) return -1;
+    return pa - pb;
+  });
+}
+
 interface BrandDetailViewProps {
   detail: BrandDetail;
-  sortFuel?: FuelType;
   source: "live" | "mock";
 }
 
 export function BrandDetailView({
   detail,
-  sortFuel = "E10",
   source,
 }: Readonly<BrandDetailViewProps>) {
-  const fuelSnapshot = ALL_FUEL_TYPES.filter(
-    (fuel) =>
-      detail.cheapestByFuel[fuel] != null || detail.averageByFuel[fuel] != null
+  const availableFuels = useMemo(
+    () =>
+      ALL_FUEL_TYPES.filter(
+        (fuel) =>
+          detail.cheapestByFuel[fuel] != null ||
+          detail.averageByFuel[fuel] != null
+      ),
+    [detail.cheapestByFuel, detail.averageByFuel]
+  );
+
+  const [sortFuel, setSortFuel] = useState<FuelType>("E10");
+
+  const sorted = useMemo(
+    () => sortStationsByFuel(detail.stations, sortFuel),
+    [detail.stations, sortFuel]
   );
 
   return (
@@ -60,34 +89,39 @@ export function BrandDetailView({
         </div>
       </section>
 
-      {fuelSnapshot.length > 0 && (
+      {availableFuels.length > 0 && (
         <section aria-label="Network price snapshot">
           <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
-            Network from / avg
+            Sort by fuel &amp; network from / avg
           </p>
           <ul className="flex gap-2 overflow-x-auto pb-0.5">
-            {fuelSnapshot.map((fuel) => {
+            {availableFuels.map((fuel) => {
               const cheapest = detail.cheapestByFuel[fuel];
               const average = detail.averageByFuel[fuel];
+              const isActive = fuel === sortFuel;
               return (
-                <li
-                  key={fuel}
-                  className={cn(
-                    "min-w-[7.5rem] shrink-0 rounded-xl px-3 py-2.5 ring-1",
-                    fuel === sortFuel
-                      ? "bg-teal-500/10 ring-teal-500/35"
-                      : "bg-slate-900/60 ring-slate-800/80"
-                  )}
-                >
-                  <p className="text-[10px] uppercase tracking-wide text-slate-500">
-                    {FUEL_TYPE_SHORT[fuel]}
-                  </p>
-                  <p className="mt-0.5 font-mono text-base font-semibold text-slate-100">
-                    {formatDirectoryPrice(cheapest)}
-                  </p>
-                  <p className="text-[11px] text-slate-500">
-                    avg {formatDirectoryPrice(average)}
-                  </p>
+                <li key={fuel}>
+                  <button
+                    type="button"
+                    onClick={() => setSortFuel(fuel)}
+                    aria-pressed={isActive}
+                    className={cn(
+                      "min-w-[7.5rem] shrink-0 rounded-xl px-3 py-2.5 text-left ring-1 transition",
+                      isActive
+                        ? "bg-teal-500/10 ring-teal-500/35"
+                        : "bg-slate-900/60 ring-slate-800/80 hover:bg-slate-800/60 hover:ring-slate-700/80"
+                    )}
+                  >
+                    <p className="text-[10px] uppercase tracking-wide text-slate-500">
+                      {FUEL_TYPE_SHORT[fuel]}
+                    </p>
+                    <p className="mt-0.5 font-mono text-base font-semibold text-slate-100">
+                      {formatDirectoryPrice(cheapest)}
+                    </p>
+                    <p className="text-[11px] text-slate-500">
+                      avg {formatDirectoryPrice(average)}
+                    </p>
+                  </button>
                 </li>
               );
             })}
@@ -96,7 +130,7 @@ export function BrandDetailView({
       )}
 
       <ul className="space-y-2.5 pb-10">
-        {detail.stations.map(({ station }, index) => (
+        {sorted.map(({ station }, index) => (
           <DirectoryStationCard
             key={station.id}
             station={station}
