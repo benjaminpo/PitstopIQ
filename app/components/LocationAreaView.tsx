@@ -1,4 +1,7 @@
+"use client";
+
 import Link from "next/link";
+import { useMemo, useState } from "react";
 import { Fuel, Navigation } from "lucide-react";
 import { DirectoryHeader } from "@/app/components/DirectoryHeader";
 import { DirectoryShell } from "@/app/components/DirectoryShell";
@@ -6,21 +9,54 @@ import { DirectoryStationCard } from "@/app/components/DirectoryStationCard";
 import { formatDirectoryPrice } from "@/app/components/DirectoryUi";
 import { NavigateHere } from "@/app/components/NavigateHere";
 import { ALL_FUEL_TYPES, FUEL_TYPE_SHORT } from "@/app/lib/fuelConstants";
-import type { LocationAreaDetail } from "@/app/lib/locationsDirectory";
+import type {
+  LocationAreaDetail,
+  LocationAreaStationRow,
+} from "@/app/lib/locationsDirectory";
 import type { FuelType } from "@/app/lib/types";
 import { cn } from "@/app/lib/utils";
 
+function sortStationsByFuel(
+  rows: LocationAreaStationRow[],
+  fuel: FuelType
+): LocationAreaStationRow[] {
+  return [...rows].sort((a, b) => {
+    const pa = a.station.prices[fuel];
+    const pb = b.station.prices[fuel];
+    if (pa == null && pb == null)
+      return a.station.name.localeCompare(b.station.name);
+    if (pa == null) return 1;
+    if (pb == null) return -1;
+    return pa - pb;
+  });
+}
+
 interface LocationAreaViewProps {
   detail: LocationAreaDetail;
-  sortFuel?: FuelType;
   source: "live" | "mock";
 }
 
 export function LocationAreaView({
   detail,
-  sortFuel = "E10",
   source,
 }: Readonly<LocationAreaViewProps>) {
+  const availableFuels = useMemo(
+    () =>
+      ALL_FUEL_TYPES.filter(
+        (fuel) =>
+          detail.cheapestByFuel[fuel] != null ||
+          detail.averageByFuel[fuel] != null
+      ),
+    [detail.cheapestByFuel, detail.averageByFuel]
+  );
+
+  const [sortFuel, setSortFuel] = useState<FuelType>("E10");
+
+  const sorted = useMemo(
+    () => sortStationsByFuel(detail.stations, sortFuel),
+    [detail.stations, sortFuel]
+  );
+
   return (
     <DirectoryShell>
       <DirectoryHeader
@@ -41,27 +77,8 @@ export function LocationAreaView({
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-              Cheapest in {detail.area}
+              Area {detail.area}
             </p>
-            <div className="mt-2 flex flex-wrap gap-1.5">
-              {ALL_FUEL_TYPES.map((fuel) => {
-                const price = detail.cheapestByFuel[fuel];
-                if (price == null) return null;
-                return (
-                  <span
-                    key={fuel}
-                    className={cn(
-                      "rounded-md px-2 py-0.5 font-mono text-[11px] ring-1",
-                      fuel === sortFuel
-                        ? "bg-teal-500/15 text-teal-200 ring-teal-500/40"
-                        : "bg-slate-900/80 text-slate-300 ring-slate-700/60"
-                    )}
-                  >
-                    {FUEL_TYPE_SHORT[fuel]} {formatDirectoryPrice(price)}
-                  </span>
-                );
-              })}
-            </div>
             <p className="mt-2 inline-flex items-center gap-1 text-[11px] text-slate-500">
               <Fuel className="h-3 w-3" />
               {detail.stationCount.toLocaleString()} stations
@@ -89,12 +106,53 @@ export function LocationAreaView({
         </div>
       </section>
 
+      {availableFuels.length > 0 && (
+        <section aria-label="Area price snapshot">
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+            Sort by fuel &amp; area from / avg
+          </p>
+          <ul className="flex gap-2 overflow-x-auto pb-0.5">
+            {availableFuels.map((fuel) => {
+              const cheapest = detail.cheapestByFuel[fuel];
+              const average = detail.averageByFuel[fuel];
+              const isActive = fuel === sortFuel;
+              return (
+                <li key={fuel}>
+                  <button
+                    type="button"
+                    onClick={() => setSortFuel(fuel)}
+                    aria-pressed={isActive}
+                    className={cn(
+                      "min-w-[7.5rem] shrink-0 rounded-xl px-3 py-2.5 text-left ring-1 transition",
+                      isActive
+                        ? "bg-teal-500/10 ring-teal-500/35"
+                        : "bg-slate-900/60 ring-slate-800/80 hover:bg-slate-800/60 hover:ring-slate-700/80"
+                    )}
+                  >
+                    <p className="text-[10px] uppercase tracking-wide text-slate-500">
+                      {FUEL_TYPE_SHORT[fuel]}
+                    </p>
+                    <p className="mt-0.5 font-mono text-base font-semibold text-slate-100">
+                      {formatDirectoryPrice(cheapest)}
+                    </p>
+                    <p className="text-[11px] text-slate-500">
+                      avg {formatDirectoryPrice(average)}
+                    </p>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      )}
+
       <ul className="space-y-2.5 pb-10">
-        {detail.stations.map(({ station }) => (
+        {sorted.map(({ station }, index) => (
           <DirectoryStationCard
             key={station.id}
             station={station}
             fuelType={sortFuel}
+            rank={index + 1}
           />
         ))}
       </ul>

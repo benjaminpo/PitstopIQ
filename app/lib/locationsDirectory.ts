@@ -32,6 +32,7 @@ export interface LocationAreaDetail {
   href: string;
   stationCount: number;
   cheapestByFuel: Partial<Record<FuelType, number>>;
+  averageByFuel: Partial<Record<FuelType, number>>;
   centroid: { lat: number; lng: number } | null;
   nearbySearchHref: string | null;
   stations: LocationAreaStationRow[];
@@ -62,6 +63,21 @@ function cheapestPrice(
     if (best === null || price < best) best = price;
   }
   return best;
+}
+
+function averagePrice(
+  stations: FuelStation[],
+  fuel: FuelType
+): number | null {
+  const prices: number[] = [];
+  for (const station of stations) {
+    const price = station.prices[fuel];
+    if (price == null || !Number.isFinite(price)) continue;
+    prices.push(price);
+  }
+  if (prices.length === 0) return null;
+  const sum = prices.reduce((acc, price) => acc + price, 0);
+  return Math.round((sum / prices.length) * 1000) / 1000;
 }
 
 function centroidOf(stations: FuelStation[]): {
@@ -159,9 +175,12 @@ export function buildLocationAreaDetail(
 
   const fuels: FuelType[] = ["E10", "E5", "B7_Diesel", "B7_Premium", "HVO"];
   const cheapestByFuel: Partial<Record<FuelType, number>> = {};
+  const averageByFuel: Partial<Record<FuelType, number>> = {};
   for (const fuel of fuels) {
-    const price = cheapestPrice(areaStations, fuel);
-    if (price != null) cheapestByFuel[fuel] = price;
+    const cheapest = cheapestPrice(areaStations, fuel);
+    if (cheapest != null) cheapestByFuel[fuel] = cheapest;
+    const average = averagePrice(areaStations, fuel);
+    if (average != null) averageByFuel[fuel] = average;
   }
 
   const centroid = centroidOf(areaStations);
@@ -181,6 +200,7 @@ export function buildLocationAreaDetail(
     href: locationAreaHref(needle),
     stationCount: areaStations.length,
     cheapestByFuel,
+    averageByFuel,
     centroid,
     nearbySearchHref,
     stations: sorted.map((station) => ({

@@ -86,6 +86,7 @@ describe("locationsDirectory", () => {
     expect(detail?.stationCount).toBe(2);
     expect(detail?.stations.map((row) => row.station.id)).toEqual(["b", "a"]);
     expect(detail?.cheapestByFuel.E10).toBe(1.39);
+    expect(detail?.averageByFuel.E10).toBe(1.405);
     expect(detail?.nearbySearchHref).toContain("from=");
   });
 
