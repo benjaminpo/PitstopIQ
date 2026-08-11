@@ -65,8 +65,8 @@ const PREMIUM_PATTERNS = [
   /\bharrison'?s?\b/i,
   /\bvalero\b/i,
   /\bqfuel\b/i,
-  /^\s*go\s*$/i,
-  /\bgo\s+forecourt\b/i,
+  // Combined brand+name text (e.g. "GO GO Belfast") — not whole-string only
+  /\bgo\b/i,
   /\bgoforecourt\b/i,
 ];
 

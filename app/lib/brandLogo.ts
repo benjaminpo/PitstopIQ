@@ -282,14 +282,8 @@ const KNOWN_BRANDS: BrandDef[] = [
   {
     id: "go",
     label: "GO",
-    // LCC Group’s GO network (goforecourt.com) — short name needs tight patterns
-    patterns: [
-      /^\s*go\s*$/i,
-      /\bgo\s+forecourt\b/i,
-      /\bgoforecourt\b/i,
-      /\bgo\s+(fuel|petrol|diesel|station|garage)\b/i,
-    ],
-    domain: "goforecourt.com",
+    // LCC Group’s GO network (goforecourt.com)
+    patterns: [/\bgo\b/i, /\bgoforecourt\b/i],
     // Google favicon is a blank 16px stub; bundled mark matches site #1D1D1D + lime
     src: "/brands/go.svg",
     initials: "GO",

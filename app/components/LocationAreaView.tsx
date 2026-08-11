@@ -50,7 +50,11 @@ export function LocationAreaView({
     [detail.cheapestByFuel, detail.averageByFuel]
   );
 
-  const [sortFuel, setSortFuel] = useState<FuelType>("E10");
+  const [sortFuelChoice, setSortFuel] = useState<FuelType | null>(null);
+  const sortFuel =
+    sortFuelChoice != null && availableFuels.includes(sortFuelChoice)
+      ? sortFuelChoice
+      : (availableFuels[0] ?? "E10");
 
   const sorted = useMemo(
     () => sortStationsByFuel(detail.stations, sortFuel),
@@ -67,8 +71,10 @@ export function LocationAreaView({
         description={
           <>
             Live Fuel Finder prices for postcode area {detail.area}
-            {source === "mock" ? " (demo data)" : ""}. Sorted by{" "}
-            {FUEL_TYPE_SHORT[sortFuel]} cheapest first.
+            {source === "mock" ? " (demo data)" : ""}
+            {availableFuels.length > 0
+              ? `. Sorted by ${FUEL_TYPE_SHORT[sortFuel]} cheapest first.`
+              : "."}
           </>
         }
       />

@@ -51,7 +51,11 @@ export function BrandDetailView({
     [detail.cheapestByFuel, detail.averageByFuel]
   );
 
-  const [sortFuel, setSortFuel] = useState<FuelType>("E10");
+  const [sortFuelChoice, setSortFuel] = useState<FuelType | null>(null);
+  const sortFuel =
+    sortFuelChoice != null && availableFuels.includes(sortFuelChoice)
+      ? sortFuelChoice
+      : (availableFuels[0] ?? "E10");
 
   const sorted = useMemo(
     () => sortStationsByFuel(detail.stations, sortFuel),
@@ -68,8 +72,10 @@ export function BrandDetailView({
         description={
           <>
             Live Fuel Finder prices
-            {source === "mock" ? " (demo data)" : ""}, sorted by{" "}
-            {FUEL_TYPE_SHORT[sortFuel]} cheapest first.
+            {source === "mock" ? " (demo data)" : ""}
+            {availableFuels.length > 0
+              ? `, sorted by ${FUEL_TYPE_SHORT[sortFuel]} cheapest first.`
+              : "."}
           </>
         }
       />
