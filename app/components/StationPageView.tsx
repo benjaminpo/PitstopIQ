@@ -11,7 +11,7 @@ import { FreshnessBadge } from "@/app/components/FreshnessBadge";
 import { NavigateHere } from "@/app/components/NavigateHere";
 import { StationPageInteractive } from "@/app/components/StationPageInteractive";
 import { ALL_FUEL_TYPES, FUEL_TYPE_SHORT } from "@/app/lib/fuelConstants";
-import { formatPriceAge } from "@/app/lib/freshness";
+import { formatOfficialPriceAgeLine } from "@/app/lib/freshness";
 import {
   formatAmenityLabel,
   formatOpeningHoursRows,
@@ -236,9 +236,11 @@ export function StationPageView({
                           {formatDirectoryPrice(gradePrice)}
                         </span>
                         <span className="mt-0.5 block font-mono text-[10px] text-slate-500">
-                          {gradeUpdatedAt != null
-                            ? formatPriceAge(gradeUpdatedAt, now)
-                            : "age unknown"}
+                          {formatOfficialPriceAgeLine(
+                            gradeUpdatedAt,
+                            pricesFetchedAt,
+                            now
+                          )}
                         </span>
                       </dd>
                     </div>

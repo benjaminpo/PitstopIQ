@@ -34,11 +34,13 @@ function sortStationsByFuel(
 interface LocationAreaViewProps {
   detail: LocationAreaDetail;
   source: "live" | "mock";
+  pricesFetchedAt?: number | null;
 }
 
 export function LocationAreaView({
   detail,
   source,
+  pricesFetchedAt = null,
 }: Readonly<LocationAreaViewProps>) {
   const availableFuels = useMemo(
     () =>
@@ -159,6 +161,7 @@ export function LocationAreaView({
             station={station}
             fuelType={sortFuel}
             rank={index + 1}
+            pricesFetchedAt={pricesFetchedAt}
           />
         ))}
       </ul>

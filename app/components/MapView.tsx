@@ -21,6 +21,7 @@ import {
   fuelGradesForVehicle,
 } from "@/app/lib/fuelConstants";
 import {
+  formatOfficialPriceAgeLine,
   formatPriceAge,
   stationPriceAgeTitle,
   stationPriceTone,
@@ -85,6 +86,14 @@ function popupGradePrices(
     });
   }
   return rows;
+}
+
+function communityPriceAgeLabel(
+  updatedAt: number | null,
+  now: number
+): string {
+  if (updatedAt == null) return "Update time unknown";
+  return `Updated ${formatPriceAge(updatedAt, now)}`;
 }
 
 function statusColor(status: DetourStatus): string {
@@ -571,6 +580,7 @@ export default function MapView() {
     priceFreshnessFilter,
     openNowFilter,
     vehicle,
+    pricesFetchedAt,
     locateCurrentPosition,
     locating,
   } = usePitstopStore();
@@ -702,11 +712,19 @@ export default function MapView() {
                         "text-[10px]",
                         STATION_AGE_TEXT_CLASSES_LIGHT[rowTone]
                       )}
-                      title={stationPriceAgeTitle(row.updatedAt, rowTone)}
+                      title={stationPriceAgeTitle(
+                        row.updatedAt,
+                        rowTone,
+                        row.fromCommunity ? undefined : pricesFetchedAt
+                      )}
                     >
-                      {row.updatedAt != null
-                        ? `Updated ${formatPriceAge(row.updatedAt, now)}`
-                        : "Update time unknown"}
+                      {row.fromCommunity
+                        ? communityPriceAgeLabel(row.updatedAt, now)
+                        : formatOfficialPriceAgeLine(
+                            row.updatedAt,
+                            pricesFetchedAt,
+                            now
+                          )}
                     </p>
                   </li>
                 );

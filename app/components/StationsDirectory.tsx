@@ -56,7 +56,7 @@ const SORT_OPTIONS: { key: StationsDirectorySortKey; label: string }[] = [
   { key: "price", label: "Price" },
   { key: "name", label: "Name" },
   { key: "location", label: "Location" },
-  { key: "updated", label: "Updated" },
+  { key: "updated", label: "Changed" },
 ];
 
 export function StationsDirectory() {
@@ -591,6 +591,7 @@ export function StationsDirectory() {
                 station={station}
                 fuelType={fuelType}
                 now={now}
+                pricesFetchedAt={pricesFetchedAt}
               />
             ))}
           </ul>

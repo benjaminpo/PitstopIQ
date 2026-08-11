@@ -66,5 +66,11 @@ export default async function BrandDetailPage({
     notFound();
   }
 
-  return <BrandDetailView detail={loaded.detail} source={loaded.source} />;
+  return (
+    <BrandDetailView
+      detail={loaded.detail}
+      source={loaded.source}
+      pricesFetchedAt={loaded.pricesFetchedAt}
+    />
+  );
 }

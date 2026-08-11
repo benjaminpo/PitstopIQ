@@ -8,6 +8,7 @@ import {
   fuelGradesForVehicle,
 } from "@/app/lib/fuelConstants";
 import {
+  formatOfficialPriceAgeLine,
   formatPriceAge,
   stationPriceAgeTitle,
   stationPriceTone,
@@ -31,6 +32,8 @@ interface StationCardProps {
   origin?: GeoPoint | null;
   /** Current clock (epoch ms) for rendering price update age */
   now?: number;
+  /** Dataset sync time — shown as “Checked …” beside price change age */
+  pricesFetchedAt?: number | null;
   fuelType?: FuelType;
   onSelect?: () => void;
 }
@@ -98,10 +101,12 @@ function PriceFreshness({
   updatedAt,
   fromCommunity,
   now,
+  pricesFetchedAt,
 }: Readonly<{
   updatedAt: number | null;
   fromCommunity: boolean;
   now?: number;
+  pricesFetchedAt?: number | null;
 }>) {
   const priceTone = now != null ? stationPriceTone(updatedAt, now) : null;
 
@@ -143,10 +148,10 @@ function PriceFreshness({
   return (
     <p
       className={cn(
-        "mt-0.5 flex items-center gap-1 font-mono text-[10px]",
+        "mt-0.5 flex flex-wrap items-center gap-x-1 gap-y-0.5 font-mono text-[10px]",
         STATION_AGE_TEXT_CLASSES[priceTone]
       )}
-      title={stationPriceAgeTitle(updatedAt, priceTone)}
+      title={stationPriceAgeTitle(updatedAt, priceTone, pricesFetchedAt)}
     >
       <span
         className={cn(
@@ -154,7 +159,7 @@ function PriceFreshness({
           FRESHNESS_DOT_CLASSES[priceTone]
         )}
       />
-      {updatedAt != null ? formatPriceAge(updatedAt, now) : "age unknown"}
+      {formatOfficialPriceAgeLine(updatedAt, pricesFetchedAt, now)}
     </p>
   );
 }
@@ -165,6 +170,7 @@ export function StationCard({
   isBest,
   origin,
   now,
+  pricesFetchedAt,
   fuelType,
   onSelect,
 }: Readonly<StationCardProps>) {
@@ -261,6 +267,7 @@ export function StationCard({
                     updatedAt={row.updatedAt}
                     fromCommunity={row.fromCommunity}
                     now={now}
+                    pricesFetchedAt={pricesFetchedAt}
                   />
                 </li>
               ))}

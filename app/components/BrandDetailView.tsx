@@ -35,11 +35,13 @@ function sortStationsByFuel(
 interface BrandDetailViewProps {
   detail: BrandDetail;
   source: "live" | "mock";
+  pricesFetchedAt?: number | null;
 }
 
 export function BrandDetailView({
   detail,
   source,
+  pricesFetchedAt = null,
 }: Readonly<BrandDetailViewProps>) {
   const availableFuels = useMemo(
     () =>
@@ -142,6 +144,7 @@ export function BrandDetailView({
             station={station}
             fuelType={sortFuel}
             rank={index + 1}
+            pricesFetchedAt={pricesFetchedAt}
           />
         ))}
       </ul>

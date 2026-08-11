@@ -7,7 +7,7 @@ import { BrandLogo } from "@/app/components/BrandLogo";
 import { NavigateHere } from "@/app/components/NavigateHere";
 import { StationClosureBadge } from "@/app/components/StationClosureBadge";
 import { ALL_FUEL_TYPES, FUEL_TYPE_SHORT } from "@/app/lib/fuelConstants";
-import { formatPriceAge } from "@/app/lib/freshness";
+import { formatOfficialPriceAgeLine } from "@/app/lib/freshness";
 import {
   isStationOfficiallyClosed,
   isStationOpenNow,
@@ -59,6 +59,8 @@ interface DirectoryStationCardProps {
   rank?: number;
   /** Shared clock from parent list; falls back to a local ticker */
   now?: number;
+  /** Dataset sync time — shown as “Checked …” beside price change age */
+  pricesFetchedAt?: number | null;
 }
 
 /** Station card shared by All stations, brand detail, and location detail. */
@@ -67,6 +69,7 @@ export function DirectoryStationCard({
   fuelType = "E10",
   rank,
   now: nowProp,
+  pricesFetchedAt,
 }: Readonly<DirectoryStationCardProps>) {
   const [localNow, setLocalNow] = useState(() => Date.now());
   const now = nowProp ?? localNow;
@@ -147,9 +150,11 @@ export function DirectoryStationCard({
                         {formatPrice(gradePrice)}
                       </span>
                       <span className="mt-0.5 block font-mono text-[10px] text-slate-500">
-                        {gradeUpdatedAt != null
-                          ? formatPriceAge(gradeUpdatedAt, now)
-                          : "age unknown"}
+                        {formatOfficialPriceAgeLine(
+                          gradeUpdatedAt,
+                          pricesFetchedAt,
+                          now
+                        )}
                       </span>
                     </dd>
                   </div>

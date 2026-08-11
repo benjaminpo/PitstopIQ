@@ -115,23 +115,70 @@ export const STATION_AGE_TEXT_CLASSES_LIGHT: Record<FreshnessTone, string> = {
   unknown: "text-slate-500",
 };
 
-/** Tooltip/help text for a station's price age tone. */
-export function stationPriceAgeTitle(
-  priceLastUpdatedAt: number | null | undefined,
-  tone: FreshnessTone
-): string {
-  if (priceLastUpdatedAt == null) {
-    return "This station has not reported when its price was last updated — treat the price with caution";
-  }
-  const stamp = new Date(priceLastUpdatedAt).toLocaleString("en-GB", {
+function absoluteStamp(epochMs: number): string {
+  return new Date(epochMs).toLocaleString("en-GB", {
     dateStyle: "medium",
     timeStyle: "short",
   });
+}
+
+/** Relative label for when the retailer last changed this price. */
+export function formatPriceChangedLabel(
+  changedAt: number | null | undefined,
+  now: number
+): string {
+  if (changedAt == null || !Number.isFinite(changedAt)) {
+    return "Changed unknown";
+  }
+  return `Changed ${formatPriceAge(changedAt, now)}`;
+}
+
+/**
+ * Relative label for when PitstopIQ last synced Fuel Finder.
+ * Null when sync time is unavailable (e.g. mock / not loaded yet).
+ */
+export function formatPriceCheckedLabel(
+  checkedAt: number | null | undefined,
+  now: number
+): string | null {
+  if (checkedAt == null || !Number.isFinite(checkedAt)) return null;
+  return `Checked ${formatPriceAge(checkedAt, now)}`;
+}
+
+/**
+ * One-line official price freshness: "Changed 3d ago · Checked 12m ago".
+ * Retailers only report when a price changes; "Checked" is the dataset sync.
+ */
+export function formatOfficialPriceAgeLine(
+  changedAt: number | null | undefined,
+  checkedAt: number | null | undefined,
+  now: number
+): string {
+  const changed = formatPriceChangedLabel(changedAt, now);
+  const checked = formatPriceCheckedLabel(checkedAt, now);
+  return checked ? `${changed} · ${checked}` : changed;
+}
+
+/** Tooltip/help text for a station's price age tone. */
+export function stationPriceAgeTitle(
+  priceLastUpdatedAt: number | null | undefined,
+  tone: FreshnessTone,
+  pricesFetchedAt?: number | null
+): string {
+  const checkedBit =
+    pricesFetchedAt != null && Number.isFinite(pricesFetchedAt)
+      ? ` Dataset last checked ${absoluteStamp(pricesFetchedAt)}.`
+      : "";
+
+  if (priceLastUpdatedAt == null) {
+    return `This station has not reported when its price last changed — treat the price with caution.${checkedBit}`;
+  }
+  const stamp = absoluteStamp(priceLastUpdatedAt);
   if (tone === "stale") {
-    return `Price last reported ${stamp} — over a week old, likely out of date`;
+    return `Price last changed ${stamp} — over a week without a reported change, may be out of date.${checkedBit}`;
   }
   if (tone === "aging") {
-    return `Price last reported ${stamp} — more than a day old`;
+    return `Price last changed ${stamp} — more than a day without a reported change. Stations only report when a price changes.${checkedBit}`;
   }
-  return `Price last reported ${stamp}`;
+  return `Price last changed ${stamp}.${checkedBit}`;
 }

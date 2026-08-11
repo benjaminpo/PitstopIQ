@@ -1023,7 +1023,7 @@ export function AdminStationMatcher() {
                         </th>
                       ))}
                       <th className="px-4 py-2.5 font-medium">
-                        {sortableHeading("pricesLastUpdatedAt", "Price updated")}
+                        {sortableHeading("pricesLastUpdatedAt", "Price changed")}
                       </th>
                       <th className="px-4 py-2.5 font-medium">
                         <span className="sr-only">Edit</span>

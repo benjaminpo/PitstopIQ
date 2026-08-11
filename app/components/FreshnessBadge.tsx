@@ -37,13 +37,13 @@ export function FreshnessBadge({
       break;
     default: {
       const age = formatPriceAge(pricesFetchedAt!, now);
-      label = `Updated ${age}`;
+      label = `Checked ${age}`;
       title = `Fuel Finder national dataset last synced ${new Date(
         pricesFetchedAt!
       ).toLocaleString("en-GB", {
         dateStyle: "medium",
         timeStyle: "short",
-      })}`;
+      })}. Station “Changed” times are when a retailer last reported a price change.`;
       break;
     }
   }

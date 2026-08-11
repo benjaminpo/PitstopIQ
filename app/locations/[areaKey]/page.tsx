@@ -70,5 +70,11 @@ export default async function LocationAreaPage({
     notFound();
   }
 
-  return <LocationAreaView detail={loaded.detail} source={loaded.source} />;
+  return (
+    <LocationAreaView
+      detail={loaded.detail}
+      source={loaded.source}
+      pricesFetchedAt={loaded.pricesFetchedAt}
+    />
+  );
 }

@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
+  formatOfficialPriceAgeLine,
   formatPriceAge,
+  formatPriceChangedLabel,
+  formatPriceCheckedLabel,
   freshnessTone,
   matchesPriceFreshness,
   stationPriceAgeTitle,
@@ -16,6 +19,31 @@ describe("formatPriceAge", () => {
     expect(formatPriceAge(now - 90 * 60_000, now)).toBe("1h 30m ago");
     expect(formatPriceAge(now - 2 * 60 * 60_000, now)).toBe("2h ago");
     expect(formatPriceAge(now - 26 * 60 * 60_000, now)).toBe("1d ago");
+  });
+});
+
+describe("official price age labels", () => {
+  const now = Date.UTC(2026, 6, 30, 12, 0, 0);
+
+  it("labels changed and checked times separately", () => {
+    expect(formatPriceChangedLabel(now - 3 * 24 * 60 * 60_000, now)).toBe(
+      "Changed 3d ago"
+    );
+    expect(formatPriceCheckedLabel(now - 12 * 60_000, now)).toBe(
+      "Checked 12m ago"
+    );
+    expect(formatPriceCheckedLabel(null, now)).toBeNull();
+    expect(
+      formatOfficialPriceAgeLine(
+        now - 3 * 24 * 60 * 60_000,
+        now - 12 * 60_000,
+        now
+      )
+    ).toBe("Changed 3d ago · Checked 12m ago");
+    expect(formatOfficialPriceAgeLine(now - 5 * 60_000, null, now)).toBe(
+      "Changed 5m ago"
+    );
+    expect(formatPriceChangedLabel(null, now)).toBe("Changed unknown");
   });
 });
 
@@ -84,6 +112,7 @@ describe("matchesPriceFreshness", () => {
 
 describe("stationPriceAgeTitle", () => {
   const reportedAt = Date.UTC(2026, 6, 30, 12, 0, 0);
+  const checkedAt = Date.UTC(2026, 6, 30, 11, 45, 0);
 
   it("warns when no update time was reported", () => {
     expect(stationPriceAgeTitle(null, "unknown")).toContain(
@@ -96,13 +125,19 @@ describe("stationPriceAgeTitle", () => {
 
   it("includes the report timestamp and tone-specific caveats", () => {
     expect(stationPriceAgeTitle(reportedAt, "fresh")).toMatch(
-      /^Price last reported .+/
+      /^Price last changed .+/
     );
     expect(stationPriceAgeTitle(reportedAt, "aging")).toContain(
-      "more than a day old"
+      "more than a day without a reported change"
     );
     expect(stationPriceAgeTitle(reportedAt, "stale")).toContain(
-      "over a week old"
+      "over a week without a reported change"
+    );
+  });
+
+  it("appends dataset check time when provided", () => {
+    expect(stationPriceAgeTitle(reportedAt, "fresh", checkedAt)).toContain(
+      "Dataset last checked"
     );
   });
 });

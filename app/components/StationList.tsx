@@ -73,6 +73,7 @@ export function StationList() {
     error,
     stations,
     dataSource,
+    pricesFetchedAt,
     originCoords,
     destinationCoords,
     vehicle,
@@ -567,6 +568,7 @@ export function StationList() {
             isBest={item.station.id === bestId}
             origin={originCoords}
             now={now}
+            pricesFetchedAt={pricesFetchedAt}
             fuelType={vehicle.fuelType}
             selected={selectedStationId === item.station.id}
             onSelect={() => handleSelect(item.station.id)}
