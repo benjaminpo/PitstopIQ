@@ -45,6 +45,9 @@ describe("resolveBrandLogo", () => {
     expect(resolveBrandLogo("Costco").src).toBe("/brands/costco.svg");
     expect(resolveBrandLogo("Welcome Break").id).toBe("welcomebreak");
     expect(resolveBrandLogo("Circle K").id).toBe("circlek");
+    expect(resolveBrandLogo("GO").id).toBe("go");
+    expect(resolveBrandLogo("GO").src).toBe("/brands/go.svg");
+    expect(resolveBrandLogo("GO Forecourt").id).toBe("go");
   });
 
   it("is case-insensitive and trims", () => {
@@ -89,6 +92,7 @@ describe("KNOWN_BRAND_LABELS", () => {
     expect(KNOWN_BRAND_LABELS).toContain("Shell");
     expect(KNOWN_BRAND_LABELS).toContain("Sainsbury's");
     expect(KNOWN_BRAND_LABELS).toContain("Independent");
+    expect(KNOWN_BRAND_LABELS).toContain("GO");
     expect(resolveBrandLogo("Shell").id).toBe("shell");
     expect(resolveBrandLogo("Welcome Break").id).toBe("welcomebreak");
   });

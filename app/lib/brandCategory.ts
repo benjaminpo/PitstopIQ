@@ -65,6 +65,9 @@ const PREMIUM_PATTERNS = [
   /\bharrison'?s?\b/i,
   /\bvalero\b/i,
   /\bqfuel\b/i,
+  /^\s*go\s*$/i,
+  /\bgo\s+forecourt\b/i,
+  /\bgoforecourt\b/i,
 ];
 
 function matchesAny(text: string, patterns: RegExp[]): boolean {
