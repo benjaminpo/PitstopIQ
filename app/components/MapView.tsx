@@ -507,7 +507,7 @@ function FocusBestStations({
         );
         bounds.extend([best.station.location.lat, best.station.location.lng]);
         bounds.extend([originCoords.lat, originCoords.lng]);
-        map.fitBounds(bounds.pad(0.12), pad);
+        map.fitBounds(bounds.pad(0.12), { ...pad, maxZoom: 14 });
         return;
       }
 
