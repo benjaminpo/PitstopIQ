@@ -173,8 +173,17 @@ function toLatLngs(coords: GeoPoint[]): [number, number][] {
 
 function sampleRoute(coords: GeoPoint[], maxSamples = 40): GeoPoint[] {
   if (coords.length <= maxSamples) return coords;
-  const step = Math.max(1, Math.floor(coords.length / maxSamples));
-  return coords.filter((_, i) => i % step === 0);
+  if (maxSamples < 2) return [coords[0]!];
+  // Even spacing that always keeps both endpoints — dropping the last
+  // vertex used to clip fitBounds short of the full driving polyline.
+  const last = coords.length - 1;
+  const out: GeoPoint[] = new Array(maxSamples);
+  const step = last / (maxSamples - 1);
+  for (let i = 0; i < maxSamples; i++) {
+    out[i] = coords[Math.min(last, Math.round(i * step))]!;
+  }
+  out[maxSamples - 1] = coords[last]!;
+  return out;
 }
 
 function isNearbySearch(
@@ -225,14 +234,12 @@ function computeFitPoints(args: FitPointsInputs): GeoPoint[] {
     enriched.length > 0 &&
     originCoords
   ) {
-    const best = enriched.reduce(
-      (top, item) =>
-        item.calculation.netAfterTime > top.calculation.netAfterTime
-          ? item
-          : top,
-      enriched[0]!
-    );
-    return [originCoords, best.station.location];
+    // Frame the whole nearby search area — origin + best alone zooms in so
+    // tightly that other forecourts (and later detours) sit off-screen.
+    return [
+      originCoords,
+      ...enriched.map((item) => item.station.location),
+    ];
   }
   if (route?.coordinates?.length) {
     pts.push(...sampleRoute(route.coordinates));
@@ -395,16 +402,40 @@ function SafeLocationControl({
   return null;
 }
 
+/** Pixel padding so fitBounds clears map chrome (locate/zoom + mobile CTA). */
+function mapFitPadding(options?: {
+  selectedStationId?: string | null;
+  sidebarOpen?: boolean;
+}): L.FitBoundsOptions {
+  const isMobile =
+    typeof window !== "undefined" &&
+    window.matchMedia("(max-width: 767px)").matches;
+  const showMobileBar =
+    isMobile &&
+    Boolean(options?.selectedStationId) &&
+    !options?.sidebarOpen;
+  return {
+    paddingTopLeft: [20, 72],
+    paddingBottomRight: showMobileBar ? [20, 210] : [20, 48],
+    maxZoom: 15,
+  };
+}
+
 function FitBounds({ points }: { points: GeoPoint[] }) {
   const map = useMap();
+  const selectedStationId = usePitstopStore((s) => s.selectedStationId);
+  const sidebarOpen = usePitstopStore((s) => s.sidebarOpen);
   const key = points.map((p) => `${p.lat.toFixed(5)},${p.lng.toFixed(5)}`).join("|");
 
   useEffect(() => {
     if (points.length === 0) return;
     const bounds = L.latLngBounds(points.map((p) => [p.lat, p.lng]));
-    map.fitBounds(bounds.pad(0.12));
+    map.fitBounds(
+      bounds.pad(0.08),
+      mapFitPadding({ selectedStationId, sidebarOpen })
+    );
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [map, key]);
+  }, [map, key, selectedStationId, sidebarOpen]);
 
   return null;
 }
@@ -427,6 +458,8 @@ function FocusBestStations({
   detourRoute: { coordinates: GeoPoint[] } | null;
 }) {
   const map = useMap();
+  const selectedStationId = usePitstopStore((s) => s.selectedStationId);
+  const sidebarOpen = usePitstopStore((s) => s.sidebarOpen);
   const previousFreshness = useRef(freshnessFilter);
   const previousOpenNow = useRef(openNowFilter);
   /** Keep focusing until a nearby-search detour route arrives after a filter flip. */
@@ -462,8 +495,11 @@ function FocusBestStations({
       enriched[0]!
     );
 
+    const pad = mapFitPadding({ selectedStationId, sidebarOpen });
+
     if (nearby && originCoords) {
-      // Prefer the drawn A→station route once it lands; otherwise frame origin + best.
+      // Prefer the drawn A→station route once it lands; otherwise frame the
+      // full nearby station set so nothing important is clipped off-map.
       if (detourRoute?.coordinates?.length) {
         pendingNearbyRouteFocus.current = false;
         const bounds = L.latLngBounds(
@@ -471,17 +507,21 @@ function FocusBestStations({
         );
         bounds.extend([best.station.location.lat, best.station.location.lng]);
         bounds.extend([originCoords.lat, originCoords.lng]);
-        map.fitBounds(bounds.pad(0.2), { maxZoom: 14 });
+        map.fitBounds(bounds.pad(0.12), pad);
         return;
       }
 
-      map.fitBounds(
-        L.latLngBounds([
-          [originCoords.lat, originCoords.lng],
-          [best.station.location.lat, best.station.location.lng],
-        ]).pad(0.25),
-        { maxZoom: 14 }
-      );
+      const bounds = L.latLngBounds([
+        [originCoords.lat, originCoords.lng],
+        [best.station.location.lat, best.station.location.lng],
+      ]);
+      for (const item of enriched) {
+        bounds.extend([
+          item.station.location.lat,
+          item.station.location.lng,
+        ]);
+      }
+      map.fitBounds(bounds.pad(0.12), { ...pad, maxZoom: 14 });
       return;
     }
 
@@ -499,7 +539,7 @@ function FocusBestStations({
         item.station.location.lng,
       ])
     );
-    map.fitBounds(bounds.pad(0.2), { maxZoom: 12 });
+    map.fitBounds(bounds.pad(0.12), { ...pad, maxZoom: 12 });
   }, [
     map,
     freshnessFilter,
@@ -509,6 +549,8 @@ function FocusBestStations({
     destinationCoords,
     stopCoords,
     detourRoute,
+    selectedStationId,
+    sidebarOpen,
   ]);
 
   return null;

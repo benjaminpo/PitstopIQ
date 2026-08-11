@@ -121,11 +121,6 @@ export function HomeApp() {
             <h1>
               <AppLogo />
             </h1>
-            <p className="mt-1.5 max-w-[16rem] text-[11px] leading-snug text-slate-500">
-              Compare live UK Fuel Finder prices along your route. Divert only
-              when cheaper fuel is a real saving after detour miles, MPG, and
-              time.
-            </p>
           </div>
           <div className="flex flex-wrap items-center justify-end gap-2">
             <DirectoryNav variant="segment" current={null} />
