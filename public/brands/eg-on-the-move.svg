@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="EG On The Move">
+  <rect width="64" height="64" rx="8" fill="#1A1A1A"/>
+  <!-- Official eG wordmark paths scaled from eg-otm.com logo (viewBox 108.2 x 69.2) -->
+  <g transform="translate(4.5 6) scale(0.51)">
+    <path fill="#78BB21" fill-rule="evenodd" d="M107.9,22h-34.9v8.8h25.8c-2,7.6-8.9,13.2-17.2,13.2s-17.7-7.9-17.7-17.6,7.9-17.6,17.7-17.6,10.6,2.6,13.8,6.6h10.3c-4.2-9.1-13.4-15.4-24.2-15.4s-26.6,11.8-26.6,26.4,11.9,26.4,26.6,26.4,26.6-11.8,26.6-26.4,0-3-.4-4.4h.2Z"/>
+    <path fill="#78BB21" fill-rule="evenodd" d="M52.8,30.8c.2-1.4.4-2.9.4-4.4C53.2,11.8,41.3,0,26.6,0S0,11.8,0,26.4s11.9,26.4,26.6,26.4,20-6.3,24.2-15.4h-10.3c-3.2,4-8.2,6.6-13.8,6.6-9.8,0-17.7-7.9-17.7-17.6s7.9-17.6,17.7-17.6,15.2,5.6,17.2,13.2h-26.9v8.8h35.9-.1Z"/>
+  </g>
+  <text x="32" y="56" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="7.5" fill="#B0B0B0" letter-spacing="0.4">on the move</text>
+</svg>

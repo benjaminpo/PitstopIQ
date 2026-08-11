@@ -44,6 +44,28 @@ describe("classifyStationBrands", () => {
     ).toMatchObject({ premium: true, supermarket: false });
 
     expect(
+      classifyStationBrands({
+        brand: "HARVEST ENERGY",
+        name: "Harvest Energy Filling Station",
+      })
+    ).toMatchObject({ premium: true, supermarket: false });
+
+    expect(
+      classifyStationBrands({ brand: "Maxol", name: "Maxol Dundalk" })
+    ).toMatchObject({ premium: true, supermarket: false });
+
+    expect(
+      classifyStationBrands({ brand: "Gleaner", name: "Gleaner Onich" })
+    ).toMatchObject({ premium: true, supermarket: false });
+
+    expect(
+      classifyStationBrands({
+        brand: "EG On The Move",
+        name: "EG On The Move Rivington",
+      })
+    ).toMatchObject({ premium: true, supermarket: false });
+
+    expect(
       classifyStationBrands({ brand: "Stop & Go", name: "Stop & Go Extra" })
     ).toMatchObject({ premium: false });
 
@@ -110,6 +132,24 @@ describe("stationBrandKey", () => {
     expect(
       stationBrandKey({ brand: "Shell Select", name: "Shell Reading" })
     ).toBe("shell");
+    expect(
+      stationBrandKey({
+        brand: "HARVEST ENERGY",
+        name: "Harvest Energy Filling Station",
+      })
+    ).toBe("harvestenergy");
+    expect(stationBrandKey({ brand: "Maxol Dundalk", name: "Maxol" })).toBe(
+      "maxol"
+    );
+    expect(stationBrandKey({ brand: "GLEANER", name: "Onich" })).toBe(
+      "gleaner"
+    );
+    expect(
+      stationBrandKey({
+        brand: "EG On The Move",
+        name: "EG On The Move Rivington",
+      })
+    ).toBe("egonthemove");
   });
 
   it("falls back to the trading name when brand is blank", () => {

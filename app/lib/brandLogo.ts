@@ -297,6 +297,51 @@ const KNOWN_BRANDS: BrandDef[] = [
     bg: "#D80810",
     fg: "#FFFFFF",
   },
+  {
+    id: "harvestenergy",
+    label: "Harvest Energy",
+    // Prax Group downstream retail brand (harvestenergy.com)
+    patterns: [/\bharvest\s*energy\b/i, /\bharvestenergy\b/i],
+    domain: "harvestenergy.com",
+    initials: "HE",
+    bg: "#0080C0",
+    fg: "#FFFFFF",
+  },
+  {
+    id: "maxol",
+    label: "Maxol",
+    // Irish Maxol Group forecourt network (maxol.ie)
+    patterns: [/\bmaxol\b/i],
+    domain: "maxol.ie",
+    initials: "Mx",
+    bg: "#B00060",
+    fg: "#F0D000",
+  },
+  {
+    id: "gleaner",
+    label: "Gleaner",
+    // Scottish Gleaner Ltd service stations (gleaner.co.uk)
+    patterns: [/\bgleaner\b/i],
+    domain: "gleaner.co.uk",
+    initials: "Gl",
+    bg: "#D00000",
+    fg: "#F0C000",
+  },
+  {
+    id: "egonthemove",
+    label: "EG On The Move",
+    // eg-otm.com — Fuel Finder may list “EG On The Move” / “EG OTM”
+    patterns: [
+      /\beg\s+on\s+the\s+move\b/i,
+      /\beg\s*otm\b/i,
+      /\beg-?otm\b/i,
+    ],
+    // Site favicon is only 48px; bundled lime eG mark from official SVG
+    src: "/brands/eg-on-the-move.svg",
+    initials: "EG",
+    bg: "#1A1A1A",
+    fg: "#78BB21",
+  },
 ];
 
 /**

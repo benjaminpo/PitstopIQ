@@ -68,6 +68,13 @@ const PREMIUM_PATTERNS = [
   // Brand/name lead with GO (not mid-string "Stop & Go")
   /^go\b/i,
   /\bgoforecourt\b/i,
+  /\bharvest\s*energy\b/i,
+  /\bharvestenergy\b/i,
+  /\bmaxol\b/i,
+  /\bgleaner\b/i,
+  /\beg\s+on\s+the\s+move\b/i,
+  /\beg\s*otm\b/i,
+  /\beg-?otm\b/i,
 ];
 
 function matchesAny(text: string, patterns: RegExp[]): boolean {

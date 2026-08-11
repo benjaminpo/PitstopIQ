@@ -53,6 +53,23 @@ describe("resolveBrandLogo", () => {
     expect(resolveBrandLogo("GO OIL COMPANY").src).toBe("/brands/go.png");
     expect(resolveBrandLogo("Go Oil Company").id).toBe("go");
     expect(resolveBrandLogo("Stop & Go").id).not.toBe("go");
+    expect(resolveBrandLogo("HARVEST ENERGY").id).toBe("harvestenergy");
+    expect(resolveBrandLogo("HARVEST ENERGY").domain).toBe(
+      "harvestenergy.com"
+    );
+    expect(resolveBrandLogo("Harvest Energy").id).toBe("harvestenergy");
+    expect(resolveBrandLogo("Maxol").id).toBe("maxol");
+    expect(resolveBrandLogo("Maxol").domain).toBe("maxol.ie");
+    expect(resolveBrandLogo("MAXOL DUBLIN").id).toBe("maxol");
+    expect(resolveBrandLogo("Gleaner").id).toBe("gleaner");
+    expect(resolveBrandLogo("Gleaner").domain).toBe("gleaner.co.uk");
+    expect(resolveBrandLogo("GLEANER LTD").id).toBe("gleaner");
+    expect(resolveBrandLogo("EG On The Move").id).toBe("egonthemove");
+    expect(resolveBrandLogo("EG On The Move").src).toBe(
+      "/brands/eg-on-the-move.svg"
+    );
+    expect(resolveBrandLogo("EG OTM").id).toBe("egonthemove");
+    expect(resolveBrandLogo("EG-OTM Bolton").id).toBe("egonthemove");
   });
 
   it("is case-insensitive and trims", () => {
@@ -81,6 +98,22 @@ describe("matchKnownBrand", () => {
       id: "shell",
       label: "Shell",
     });
+    expect(matchKnownBrand("HARVEST ENERGY")).toEqual({
+      id: "harvestenergy",
+      label: "Harvest Energy",
+    });
+    expect(matchKnownBrand("Maxol Express")).toEqual({
+      id: "maxol",
+      label: "Maxol",
+    });
+    expect(matchKnownBrand("GLEANER")).toEqual({
+      id: "gleaner",
+      label: "Gleaner",
+    });
+    expect(matchKnownBrand("EG On The Move")).toEqual({
+      id: "egonthemove",
+      label: "EG On The Move",
+    });
   });
 
   it("returns null for unknown independents", () => {
@@ -98,6 +131,10 @@ describe("KNOWN_BRAND_LABELS", () => {
     expect(KNOWN_BRAND_LABELS).toContain("Sainsbury's");
     expect(KNOWN_BRAND_LABELS).toContain("Independent");
     expect(KNOWN_BRAND_LABELS).toContain("GO");
+    expect(KNOWN_BRAND_LABELS).toContain("Harvest Energy");
+    expect(KNOWN_BRAND_LABELS).toContain("Maxol");
+    expect(KNOWN_BRAND_LABELS).toContain("Gleaner");
+    expect(KNOWN_BRAND_LABELS).toContain("EG On The Move");
     expect(resolveBrandLogo("Shell").id).toBe("shell");
     expect(resolveBrandLogo("Welcome Break").id).toBe("welcomebreak");
   });
