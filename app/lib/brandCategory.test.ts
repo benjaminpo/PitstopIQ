@@ -43,6 +43,10 @@ describe("classifyStationBrands", () => {
       classifyStationBrands({ brand: "GO", name: "GO Belfast" })
     ).toMatchObject({ premium: true, supermarket: false });
 
+    expect(
+      classifyStationBrands({ brand: "Stop & Go", name: "Stop & Go Extra" })
+    ).toMatchObject({ premium: false });
+
     // Supermarket wins over premium classification
     expect(
       classifyStationBrands({

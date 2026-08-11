@@ -48,6 +48,8 @@ describe("resolveBrandLogo", () => {
     expect(resolveBrandLogo("GO").id).toBe("go");
     expect(resolveBrandLogo("GO").src).toBe("/brands/go.svg");
     expect(resolveBrandLogo("GO Forecourt").id).toBe("go");
+    expect(resolveBrandLogo("GO Belfast").id).toBe("go");
+    expect(resolveBrandLogo("Stop & Go").id).not.toBe("go");
   });
 
   it("is case-insensitive and trims", () => {
