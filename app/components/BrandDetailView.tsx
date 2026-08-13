@@ -6,31 +6,15 @@ import { Fuel } from "lucide-react";
 import { BrandLogo } from "@/app/components/BrandLogo";
 import { DirectoryHeader } from "@/app/components/DirectoryHeader";
 import { DirectoryShell } from "@/app/components/DirectoryShell";
-import { DirectoryStationCard } from "@/app/components/DirectoryStationCard";
+import { DirectoryStationBrowser } from "@/app/components/DirectoryStationBrowser";
 import { formatDirectoryPrice } from "@/app/components/DirectoryUi";
 import {
   BRAND_BROWSE_CATEGORY_LABELS,
   type BrandDetail,
-  type BrandStationRow,
 } from "@/app/lib/brandsDirectory";
 import { ALL_FUEL_TYPES, FUEL_TYPE_SHORT } from "@/app/lib/fuelConstants";
 import type { FuelType } from "@/app/lib/types";
 import { cn } from "@/app/lib/utils";
-
-function sortStationsByFuel(
-  rows: BrandStationRow[],
-  fuel: FuelType
-): BrandStationRow[] {
-  return [...rows].sort((a, b) => {
-    const pa = a.station.prices[fuel];
-    const pb = b.station.prices[fuel];
-    if (pa == null && pb == null)
-      return a.station.name.localeCompare(b.station.name);
-    if (pa == null) return 1;
-    if (pb == null) return -1;
-    return pa - pb;
-  });
-}
 
 interface BrandDetailViewProps {
   detail: BrandDetail;
@@ -53,15 +37,13 @@ export function BrandDetailView({
     [detail.cheapestByFuel, detail.averageByFuel]
   );
 
-  const [sortFuelChoice, setSortFuel] = useState<FuelType | null>(null);
-  const sortFuel =
-    sortFuelChoice != null && availableFuels.includes(sortFuelChoice)
-      ? sortFuelChoice
-      : (availableFuels[0] ?? "E10");
+  const [fuelType, setFuelType] = useState<FuelType>(
+    availableFuels[0] ?? "E10"
+  );
 
-  const sorted = useMemo(
-    () => sortStationsByFuel(detail.stations, sortFuel),
-    [detail.stations, sortFuel]
+  const stations = useMemo(
+    () => detail.stations.map((row) => row.station),
+    [detail.stations]
   );
 
   return (
@@ -74,10 +56,9 @@ export function BrandDetailView({
         description={
           <>
             Live Fuel Finder prices
-            {source === "mock" ? " (demo data)" : ""}
-            {availableFuels.length > 0
-              ? `, sorted by ${FUEL_TYPE_SHORT[sortFuel]} cheapest first.`
-              : "."}
+            {source === "mock" ? " (demo data)" : ""}. Filter by location,
+            freshness, and open hours — or sort by price, name, location, or last
+            update.
           </>
         }
       />
@@ -106,12 +87,12 @@ export function BrandDetailView({
             {availableFuels.map((fuel) => {
               const cheapest = detail.cheapestByFuel[fuel];
               const average = detail.averageByFuel[fuel];
-              const isActive = fuel === sortFuel;
+              const isActive = fuel === fuelType;
               return (
                 <li key={fuel}>
                   <button
                     type="button"
-                    onClick={() => setSortFuel(fuel)}
+                    onClick={() => setFuelType(fuel)}
                     aria-pressed={isActive}
                     className={cn(
                       "min-w-[7.5rem] shrink-0 rounded-xl px-3 py-2.5 text-left ring-1 transition",
@@ -137,17 +118,16 @@ export function BrandDetailView({
         </section>
       )}
 
-      <ul className="space-y-2.5 pb-10">
-        {sorted.map(({ station }, index) => (
-          <DirectoryStationCard
-            key={station.id}
-            station={station}
-            fuelType={sortFuel}
-            rank={index + 1}
-            pricesFetchedAt={pricesFetchedAt}
-          />
-        ))}
-      </ul>
+      <DirectoryStationBrowser
+        stations={stations}
+        pricesFetchedAt={pricesFetchedAt}
+        showBrandFilters={false}
+        showRank
+        fuelType={fuelType}
+        onFuelTypeChange={setFuelType}
+        searchPlaceholder="Search name, postcode, or address"
+        emptyMessage="No stations match these filters. Clear search or open-now / freshness filters and try again."
+      />
 
       <p className="pb-6 text-center text-xs text-slate-500">
         <Link href="/brands" className="text-teal-400 hover:text-teal-300">

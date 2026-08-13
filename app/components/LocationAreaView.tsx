@@ -5,31 +5,13 @@ import { useMemo, useState } from "react";
 import { Fuel, Navigation } from "lucide-react";
 import { DirectoryHeader } from "@/app/components/DirectoryHeader";
 import { DirectoryShell } from "@/app/components/DirectoryShell";
-import { DirectoryStationCard } from "@/app/components/DirectoryStationCard";
+import { DirectoryStationBrowser } from "@/app/components/DirectoryStationBrowser";
 import { formatDirectoryPrice } from "@/app/components/DirectoryUi";
 import { NavigateHere } from "@/app/components/NavigateHere";
 import { ALL_FUEL_TYPES, FUEL_TYPE_SHORT } from "@/app/lib/fuelConstants";
-import type {
-  LocationAreaDetail,
-  LocationAreaStationRow,
-} from "@/app/lib/locationsDirectory";
+import type { LocationAreaDetail } from "@/app/lib/locationsDirectory";
 import type { FuelType } from "@/app/lib/types";
 import { cn } from "@/app/lib/utils";
-
-function sortStationsByFuel(
-  rows: LocationAreaStationRow[],
-  fuel: FuelType
-): LocationAreaStationRow[] {
-  return [...rows].sort((a, b) => {
-    const pa = a.station.prices[fuel];
-    const pb = b.station.prices[fuel];
-    if (pa == null && pb == null)
-      return a.station.name.localeCompare(b.station.name);
-    if (pa == null) return 1;
-    if (pb == null) return -1;
-    return pa - pb;
-  });
-}
 
 interface LocationAreaViewProps {
   detail: LocationAreaDetail;
@@ -52,15 +34,13 @@ export function LocationAreaView({
     [detail.cheapestByFuel, detail.averageByFuel]
   );
 
-  const [sortFuelChoice, setSortFuel] = useState<FuelType | null>(null);
-  const sortFuel =
-    sortFuelChoice != null && availableFuels.includes(sortFuelChoice)
-      ? sortFuelChoice
-      : (availableFuels[0] ?? "E10");
+  const [fuelType, setFuelType] = useState<FuelType>(
+    availableFuels[0] ?? "E10"
+  );
 
-  const sorted = useMemo(
-    () => sortStationsByFuel(detail.stations, sortFuel),
-    [detail.stations, sortFuel]
+  const stations = useMemo(
+    () => detail.stations.map((row) => row.station),
+    [detail.stations]
   );
 
   return (
@@ -73,10 +53,9 @@ export function LocationAreaView({
         description={
           <>
             Live Fuel Finder prices for postcode area {detail.area}
-            {source === "mock" ? " (demo data)" : ""}
-            {availableFuels.length > 0
-              ? `. Sorted by ${FUEL_TYPE_SHORT[sortFuel]} cheapest first.`
-              : "."}
+            {source === "mock" ? " (demo data)" : ""}. Filter by brand,
+            freshness, and open hours — or sort by price, name, location, or last
+            update.
           </>
         }
       />
@@ -123,12 +102,12 @@ export function LocationAreaView({
             {availableFuels.map((fuel) => {
               const cheapest = detail.cheapestByFuel[fuel];
               const average = detail.averageByFuel[fuel];
-              const isActive = fuel === sortFuel;
+              const isActive = fuel === fuelType;
               return (
                 <li key={fuel}>
                   <button
                     type="button"
-                    onClick={() => setSortFuel(fuel)}
+                    onClick={() => setFuelType(fuel)}
                     aria-pressed={isActive}
                     className={cn(
                       "min-w-[7.5rem] shrink-0 rounded-xl px-3 py-2.5 text-left ring-1 transition",
@@ -154,17 +133,15 @@ export function LocationAreaView({
         </section>
       )}
 
-      <ul className="space-y-2.5 pb-10">
-        {sorted.map(({ station }, index) => (
-          <DirectoryStationCard
-            key={station.id}
-            station={station}
-            fuelType={sortFuel}
-            rank={index + 1}
-            pricesFetchedAt={pricesFetchedAt}
-          />
-        ))}
-      </ul>
+      <DirectoryStationBrowser
+        stations={stations}
+        pricesFetchedAt={pricesFetchedAt}
+        showBrandFilters
+        showRank
+        fuelType={fuelType}
+        onFuelTypeChange={setFuelType}
+        emptyMessage="No stations in this area match these filters. Clear search, brand exclusions, or open-now / freshness filters and try again."
+      />
 
       <p className="pb-6 text-center text-xs text-slate-500">
         <Link href="/locations" className="text-teal-400 hover:text-teal-300">
