@@ -11,12 +11,14 @@ import { MobileSelectedStationBar } from "@/app/components/MobileSelectedStation
 import { RouteForm } from "@/app/components/RouteForm";
 import { SidebarAd } from "@/app/components/AdUnit";
 import { ShareTripButton } from "@/app/components/ShareTripButton";
+import { SiteFooter } from "@/app/components/SiteFooter";
 import { StationList } from "@/app/components/StationList";
 import { TripUrlSync } from "@/app/components/TripUrlSync";
 import { RecentPlacesSync } from "@/app/components/RecentPlacesSync";
 import { VehiclePresetsSync } from "@/app/components/VehiclePresetsSync";
 import { usePitstopStore } from "@/app/lib/store";
 import { formatDuration } from "@/app/lib/routing";
+import { SITE_FAQS, SITE_INTRO } from "@/app/lib/site";
 import { subscribeStationsAutoRefresh } from "@/app/lib/stationsAutoRefresh";
 import { cn } from "@/app/lib/utils";
 
@@ -121,6 +123,9 @@ export function HomeApp() {
             <h1>
               <AppLogo />
             </h1>
+            <p className="mt-1 max-w-[16rem] text-[11px] leading-snug text-slate-400">
+              {SITE_INTRO}
+            </p>
           </div>
           <div className="flex flex-wrap items-center justify-end gap-2">
             <DirectoryNav variant="segment" current={null} />
@@ -140,33 +145,53 @@ export function HomeApp() {
           <div className="shrink-0">
             <RouteForm />
           </div>
+          <section className="shrink-0 rounded-lg border border-slate-800/80 bg-slate-900/40 px-3 py-2.5">
+            <h2 className="text-xs font-semibold text-slate-200">
+              How it works
+            </h2>
+            <div className="mt-1.5 space-y-1">
+              {SITE_FAQS.map((faq) => (
+                <details key={faq.question} className="group">
+                  <summary className="cursor-pointer text-[11px] font-medium text-slate-300 marker:text-slate-600 hover:text-slate-100">
+                    {faq.question}
+                  </summary>
+                  <p className="mt-1 pb-1.5 pl-1 text-[11px] leading-relaxed text-slate-400">
+                    {faq.answer}
+                  </p>
+                </details>
+              ))}
+            </div>
+          </section>
           <div className="h-px shrink-0 bg-slate-800/80" />
           <StationList />
         </div>
 
         <SidebarAd />
 
-        <footer className="flex items-center justify-between gap-3 border-t border-slate-800/80 px-5 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] text-[10px] text-slate-500">
-          <a
-            href="https://buymeacoffee.com/benjaminpo"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-amber-700/50 bg-amber-950/40 px-2.5 py-1 text-[11px] font-medium text-amber-300 transition hover:bg-amber-900/50 hover:text-amber-200"
-            aria-label="Buy me a coffee"
-          >
-            <Coffee className="h-3.5 w-3.5" />
-            Buy me a coffee
-          </a>
-          <div className="flex min-w-0 items-center gap-2">
-            {dataSource && (
-              <FreshnessBadge
-                source={dataSource}
-                pricesFetchedAt={pricesFetchedAt}
-                now={now}
-              />
-            )}
-            <ShareTripButton />
+        <footer className="flex flex-col gap-2 border-t border-slate-800/80 px-5 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] text-[10px] text-slate-500">
+          <div className="flex items-center justify-between gap-3">
+            <a
+              href="https://buymeacoffee.com/benjaminpo"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-amber-700/50 bg-amber-950/40 px-2.5 py-1 text-[11px] font-medium text-amber-300 transition hover:bg-amber-900/50 hover:text-amber-200"
+              aria-label="Buy me a coffee"
+            >
+              <Coffee className="h-3.5 w-3.5" />
+              Buy me a coffee
+            </a>
+            <div className="flex min-w-0 items-center gap-2">
+              {dataSource && (
+                <FreshnessBadge
+                  source={dataSource}
+                  pricesFetchedAt={pricesFetchedAt}
+                  now={now}
+                />
+              )}
+              <ShareTripButton />
+            </div>
           </div>
+          <SiteFooter />
         </footer>
       </aside>
 

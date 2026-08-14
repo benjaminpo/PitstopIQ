@@ -7,6 +7,7 @@ import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { AppLogo } from "@/app/components/AppLogo";
 import { signIn, signUp } from "@/app/lib/auth-client";
 import { joinDisplayName } from "@/app/lib/userName";
+import { SiteFooter } from "@/app/components/SiteFooter";
 
 const inputClass =
   "w-full rounded-lg border border-slate-700/80 bg-slate-900/60 px-3 py-2 text-sm text-slate-100 outline-none ring-teal-500/40 transition placeholder:text-slate-500 focus:border-teal-500/60 focus:ring-2";
@@ -196,6 +197,22 @@ export function AuthForm({ mode }: Readonly<{ mode: "login" | "register" }>) {
               </>
             )}
           </p>
+          {isRegister ? (
+            <p className="mt-3 text-center text-[11px] leading-relaxed text-slate-500">
+              By creating an account you agree to the{" "}
+              <Link href="/terms" className="text-slate-400 hover:text-slate-300">
+                Terms
+              </Link>{" "}
+              and{" "}
+              <Link
+                href="/privacy"
+                className="text-slate-400 hover:text-slate-300"
+              >
+                Privacy Policy
+              </Link>
+              .
+            </p>
+          ) : null}
         </div>
 
         <p className="mt-4 text-center text-[11px] text-slate-500">
@@ -203,6 +220,7 @@ export function AuthForm({ mode }: Readonly<{ mode: "login" | "register" }>) {
             ← Continue without an account
           </Link>
         </p>
+        <SiteFooter className="mt-4 justify-center" />
       </div>
     </div>
   );

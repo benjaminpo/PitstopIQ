@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { SiteFooter } from "@/app/components/SiteFooter";
 import { cn } from "@/app/lib/utils";
 
 interface DirectoryShellProps {
@@ -35,6 +36,7 @@ export function DirectoryShell({
         )}
       >
         {children}
+        <SiteFooter className="mt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]" />
       </div>
     </div>
   );

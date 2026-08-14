@@ -3,8 +3,14 @@ import { resolveAuthBaseURL } from "./auth-url";
 import {
   resolveSiteUrl,
   SITE_DESCRIPTION,
+  SITE_FAQS,
+  SITE_INTRO,
   SITE_NAME,
   SITE_TAGLINE,
+  LEGAL_NAV,
+  buildAiTxt,
+  buildLlmsTxt,
+  buildSiteJsonLd,
 } from "./site";
 
 describe("resolveSiteUrl", () => {
@@ -43,5 +49,54 @@ describe("site copy", () => {
     expect(SITE_NAME).toBe("PitstopIQ");
     expect(SITE_TAGLINE.length).toBeGreaterThan(0);
     expect(SITE_DESCRIPTION).toContain("Fuel Finder");
+    expect(SITE_INTRO.length).toBeGreaterThan(0);
+  });
+});
+
+describe("legal nav", () => {
+  it("lists privacy, terms, and cookies", () => {
+    expect(LEGAL_NAV.map((item) => item.href)).toEqual([
+      "/privacy",
+      "/terms",
+      "/cookies",
+    ]);
+  });
+});
+
+describe("buildLlmsTxt", () => {
+  it("summarises the product and lists main URLs", () => {
+    const txt = buildLlmsTxt("https://pitstopiq.example/");
+    expect(txt).toContain("# PitstopIQ");
+    expect(txt).toContain("https://pitstopiq.example/stations");
+    expect(txt).toContain("https://pitstopiq.example/privacy");
+    expect(txt).not.toContain("https://pitstopiq.example//");
+  });
+});
+
+describe("buildAiTxt", () => {
+  it("allows crawlers and points at llms.txt", () => {
+    const txt = buildAiTxt("https://pitstopiq.example");
+    expect(txt).toContain("User-Agent: *");
+    expect(txt).toContain("Allow: /");
+    expect(txt).toContain("https://pitstopiq.example/llms.txt");
+    expect(txt).toContain("https://pitstopiq.example/sitemap.xml");
+  });
+});
+
+describe("buildSiteJsonLd", () => {
+  it("emits Organization, WebSite, WebApplication, and FAQPage", () => {
+    const data = buildSiteJsonLd("https://pitstopiq.example");
+    const types = data["@graph"].map((node) => node["@type"]);
+    expect(types).toEqual([
+      "Organization",
+      "WebSite",
+      "WebApplication",
+      "FAQPage",
+    ]);
+    const faq = data["@graph"][3] as {
+      mainEntity: Array<{ name: string }>;
+    };
+    expect(faq.mainEntity).toHaveLength(SITE_FAQS.length);
+    expect(faq.mainEntity[0]?.name).toBe(SITE_FAQS[0].question);
   });
 });

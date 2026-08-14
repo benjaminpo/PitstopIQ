@@ -9,7 +9,7 @@ import {
   applyStationAdminOverrides,
   listStationAdminOverrides,
 } from "@/app/lib/stationAdminOverrides";
-import { resolveSiteUrl } from "@/app/lib/site";
+import { LEGAL_NAV, resolveSiteUrl } from "@/app/lib/site";
 import { stationHref } from "@/app/lib/stationPath";
 
 export const revalidate = 3600;
@@ -43,6 +43,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: "hourly",
       priority: 0.8,
     },
+    ...LEGAL_NAV.map((page) => ({
+      url: `${siteUrl}${page.href}`,
+      lastModified,
+      changeFrequency: "yearly" as const,
+      priority: 0.3,
+    })),
   ];
 
   try {

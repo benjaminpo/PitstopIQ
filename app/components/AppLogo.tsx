@@ -35,7 +35,7 @@ export function AppLogo({
         {/* eslint-disable-next-line @next/next/no-img-element -- local SVG brand mark */}
         <img
           src="/brand/mark.svg"
-          alt=""
+          alt="PitstopIQ"
           width={36}
           height={36}
           className="h-full w-full"
@@ -44,6 +44,7 @@ export function AppLogo({
       </span>
       {showWordmark ? (
         <span
+          aria-hidden="true"
           className={cn(
             "text-lg font-bold tracking-tight text-white",
             wordmarkClassName

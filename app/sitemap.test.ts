@@ -60,11 +60,14 @@ describe("sitemap", () => {
       "https://pitstopiq.example/stations",
       "https://pitstopiq.example/locations",
       "https://pitstopiq.example/brands",
+      "https://pitstopiq.example/privacy",
+      "https://pitstopiq.example/terms",
+      "https://pitstopiq.example/cookies",
       "https://pitstopiq.example/locations/rg",
       "https://pitstopiq.example/brands/shell",
       "https://pitstopiq.example/stations/ff-1-shell-reading",
     ]);
-    expect(entries[6]?.changeFrequency).toBe("hourly");
+    expect(entries[9]?.changeFrequency).toBe("hourly");
   });
 
   it("still returns core pages when fuel data is unavailable", async () => {
@@ -77,6 +80,9 @@ describe("sitemap", () => {
       "https://pitstopiq.example/stations",
       "https://pitstopiq.example/locations",
       "https://pitstopiq.example/brands",
+      "https://pitstopiq.example/privacy",
+      "https://pitstopiq.example/terms",
+      "https://pitstopiq.example/cookies",
     ]);
   });
 
@@ -91,7 +97,7 @@ describe("sitemap", () => {
     mockedOverrides.mockRejectedValue(new Error("db down"));
 
     const entries = await sitemap();
-    expect(entries).toHaveLength(7);
+    expect(entries).toHaveLength(10);
     expect(warn).toHaveBeenCalled();
     warn.mockRestore();
   });
@@ -102,7 +108,7 @@ describe("sitemap", () => {
     mockedFetch.mockRejectedValue(new Error("network"));
 
     const entries = await sitemap();
-    expect(entries).toHaveLength(4);
+    expect(entries).toHaveLength(7);
     expect(warn).toHaveBeenCalled();
     warn.mockRestore();
   });
