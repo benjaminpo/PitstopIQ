@@ -3,12 +3,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   MapContainer,
-  TileLayer,
   Marker,
   Popup,
   Polyline,
   useMap,
 } from "react-leaflet";
+import { BasemapLayer } from "@/app/components/BasemapLayer";
+import {
+  MAP_MAX_ZOOM,
+  PLANNER_BASEMAP_ATTRIBUTION,
+} from "@/app/lib/mapTiles";
 import L from "leaflet";
 import MarkerClusterGroup from "react-leaflet-cluster";
 import "leaflet/dist/leaflet.css";
@@ -764,6 +768,7 @@ export default function MapView() {
           : [FALLBACK_CENTER.lat, FALLBACK_CENTER.lng]
       }
       zoom={originCoords ? 10 : FALLBACK_ZOOM}
+      maxZoom={MAP_MAX_ZOOM}
       className="h-full w-full"
       zoomControl={false}
       attributionControl
@@ -774,10 +779,7 @@ export default function MapView() {
         onLocate={handleLocate}
       />
       <SafeZoomControl position="topright" />
-      <TileLayer
-        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> · Routing © <a href="https://project-osrm.org">OSRM</a> / <a href="https://github.com/valhalla/valhalla">Valhalla</a>'
-        url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-      />
+      <BasemapLayer attribution={PLANNER_BASEMAP_ATTRIBUTION} />
 
       {/* Direct route — muted when a detour is active */}
       {baseLine && (

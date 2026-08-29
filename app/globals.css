@@ -93,6 +93,17 @@ code,
   height: 18px;
 }
 
+/* MapLibre canvas lives in the tile pane; Leaflet must keep pointer events. */
+.leaflet-gl-layer,
+.leaflet-gl-layer .maplibregl-map,
+.leaflet-gl-layer canvas {
+  pointer-events: none !important;
+}
+
+.leaflet-gl-layer .maplibregl-map {
+  background: #020617;
+}
+
 .leaflet-control-attribution {
   background: rgba(2, 6, 23, 0.75) !important;
   color: #94a3b8 !important;

@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { MapContainer, Marker, Popup, TileLayer, useMap } from "react-leaflet";
+import { MapContainer, Marker, Popup, useMap } from "react-leaflet";
+import { BasemapLayer } from "@/app/components/BasemapLayer";
+import { BASEMAP_ATTRIBUTION, MAP_MAX_ZOOM } from "@/app/lib/mapTiles";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import Link from "next/link";
@@ -111,16 +113,14 @@ export default function StationLocationMap({
         key={mapInstanceKey}
         center={[centre.lat, centre.lng]}
         zoom={14}
+        maxZoom={MAP_MAX_ZOOM}
         className="h-full w-full"
         scrollWheelZoom={false}
         zoomControl={false}
         attributionControl
       >
         <SafeZoomControl position="topright" />
-        <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> · &copy; <a href="https://carto.com/attributions">CARTO</a>'
-          url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-        />
+        <BasemapLayer attribution={BASEMAP_ATTRIBUTION} />
         <FitBounds points={points} />
         {markers.map(({ station, primary }) => (
           <Marker
