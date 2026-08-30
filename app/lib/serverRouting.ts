@@ -380,3 +380,22 @@ export async function resolveRouteMatrix(
   if (osrm) return osrm;
   return fetchValhallaMatrix(sources, targets, avoid);
 }
+
+const VALHALLA_HEALTH_TIMEOUT_MS = 4_000;
+
+/**
+ * Lightweight check used on planner load. Avoid options need Valhalla when
+ * public OSRM cannot exclude motorways / tolls / ferries.
+ */
+export async function probeValhallaHealth(): Promise<boolean> {
+  try {
+    const res = await fetch(`${VALHALLA_BASE}/status`, {
+      cache: "no-store",
+      headers: { Accept: "application/json" },
+      signal: AbortSignal.timeout(VALHALLA_HEALTH_TIMEOUT_MS),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}

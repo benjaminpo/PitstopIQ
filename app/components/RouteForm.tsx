@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useSyncExternalStore, type DragEvent } from "react";
+import { useEffect, useState, useSyncExternalStore, type DragEvent } from "react";
 import {
+  AlertTriangle,
   ArrowUpDown,
   Car,
   ChevronDown,
@@ -10,6 +11,7 @@ import {
   Fuel,
   Gauge,
   GripVertical,
+  Info,
   Loader2,
   Plus,
   SlidersHorizontal,
@@ -32,6 +34,10 @@ import {
 } from "@/app/lib/fuelConstants";
 import { MAX_TRIP_STOPS } from "@/app/lib/types";
 import { cn } from "@/app/lib/utils";
+import {
+  avoidRoutingNotice,
+  useValhallaHealth,
+} from "@/app/lib/valhallaHealth";
 
 const AVOID_OPTIONS: {
   key: keyof RouteAvoidOptions;
@@ -241,6 +247,14 @@ export function RouteForm() {
   const [dragging, setDragging] = useState<TripRowKey | null>(null);
   const [dropTarget, setDropTarget] = useState<TripRowKey | null>(null);
   const [optionsOpen, setOptionsOpen] = useState(false);
+  const [avoidNoticeDismissed, setAvoidNoticeDismissed] = useState(false);
+  const valhallaHealth = useValhallaHealth();
+  const avoidActive = hasRouteAvoid(routeAvoid);
+  const avoidNotice = avoidRoutingNotice(valhallaHealth, avoidActive);
+
+  useEffect(() => {
+    if (avoidActive) setAvoidNoticeDismissed(false);
+  }, [avoidActive]);
   // Collapsed on phones so From/To + Find surface first; open on desktop.
   const desktopVehicleOpen = useSyncExternalStore(
     (onChange) => {
@@ -521,6 +535,32 @@ export function RouteForm() {
               );
             })}
           </fieldset>
+        )}
+        {avoidNotice && !avoidNoticeDismissed && (
+          <div
+            role="status"
+            className={cn(
+              "flex items-start gap-2 rounded-lg px-2.5 py-2 text-xs leading-relaxed shadow-lg",
+              avoidNotice.tone === "ok"
+                ? "border border-teal-700/50 bg-teal-950/80 text-teal-100"
+                : "border border-amber-800/50 bg-slate-950/90 text-amber-200"
+            )}
+          >
+            {avoidNotice.tone === "ok" ? (
+              <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-teal-300" />
+            ) : (
+              <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-300" />
+            )}
+            <p className="min-w-0 flex-1">{avoidNotice.text}</p>
+            <button
+              type="button"
+              onClick={() => setAvoidNoticeDismissed(true)}
+              className="rounded p-0.5 text-slate-400 transition hover:bg-white/10 hover:text-slate-100"
+              aria-label="Dismiss avoid routing notice"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </div>
         )}
       </div>
 

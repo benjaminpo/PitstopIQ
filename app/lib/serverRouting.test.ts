@@ -240,6 +240,25 @@ describe("server routing", () => {
       .mockResolvedValueOnce(new Response(null, { status: 500 }));
     await expect(resolveRouteLeg(points, noAvoid)).resolves.toBeNull();
   });
+
+  it("probes Valhalla /status for planner health", async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(new Response(null, { status: 200 }));
+    const { probeValhallaHealth } = await loadRouting();
+    await expect(probeValhallaHealth()).resolves.toBe(true);
+    expect(fetch).toHaveBeenCalledWith(
+      "https://valhalla.example/status",
+      expect.objectContaining({
+        cache: "no-store",
+        signal: expect.any(AbortSignal),
+      })
+    );
+  });
+
+  it("treats a Valhalla probe timeout as down", async () => {
+    vi.mocked(fetch).mockRejectedValueOnce(new Error("timeout"));
+    const { probeValhallaHealth } = await loadRouting();
+    await expect(probeValhallaHealth()).resolves.toBe(false);
+  });
 });
 
 function encodePolyline(
