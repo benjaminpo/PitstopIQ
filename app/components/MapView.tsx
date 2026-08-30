@@ -238,6 +238,9 @@ function computeFitPoints(args: FitPointsInputs): GeoPoint[] {
   if (showingDetour && detourRoute?.coordinates?.length) {
     pts.push(...sampleRoute(detourRoute.coordinates));
     if (selected) pts.push(selected.station.location);
+    if (route?.coordinates?.length) {
+      pts.push(...sampleRoute(route.coordinates));
+    }
     return pts;
   }
   if (
@@ -413,24 +416,91 @@ function SafeLocationControl({
   return null;
 }
 
-/** Pixel padding so fitBounds clears map chrome (locate/zoom + mobile CTA). */
-function mapFitPadding(options?: {
+function mapChromePad(options?: {
   selectedStationId?: string | null;
   sidebarOpen?: boolean;
-}): L.FitBoundsOptions {
+}): { top: number; right: number; bottom: number; left: number; maxZoom: number } {
   const isMobile =
     typeof window !== "undefined" &&
     window.matchMedia("(max-width: 767px)").matches;
   const selected = Boolean(options?.selectedStationId);
   const showMobileBar =
     isMobile && selected && !options?.sidebarOpen;
-  // Selected pins open a tall popup above the marker; leave headroom and
-  // cap zoom so the card isn't clipped by the top chrome.
+  let bottom = 48;
+  if (showMobileBar) bottom = 210;
+  else if (selected) bottom = 88;
   return {
-    paddingTopLeft: selected ? [32, 340] : [20, 72],
-    paddingBottomRight: showMobileBar ? [20, 210] : selected ? [32, 88] : [20, 48],
-    maxZoom: selected ? 12 : 15,
+    top: selected ? 80 : 72,
+    left: 40,
+    right: 36,
+    bottom,
+    maxZoom: selected ? 13 : 15,
   };
+}
+
+/** Pixel padding so fitBounds clears map chrome (locate/zoom + mobile CTA). */
+function mapFitPadding(options?: {
+  selectedStationId?: string | null;
+  sidebarOpen?: boolean;
+}): L.FitBoundsOptions {
+  const pad = mapChromePad(options);
+  return {
+    paddingTopLeft: [pad.left, pad.top],
+    paddingBottomRight: [pad.right, pad.bottom],
+    maxZoom: pad.maxZoom,
+  };
+}
+
+function pixelUnion(
+  map: L.Map,
+  points: GeoPoint[],
+  popupEl: HTMLElement | null
+): { minX: number; maxX: number; minY: number; maxY: number } | null {
+  let minX = Infinity;
+  let maxX = -Infinity;
+  let minY = Infinity;
+  let maxY = -Infinity;
+  if (points.length > 0) {
+    const bounds = L.latLngBounds(points.map((p) => [p.lat, p.lng]));
+    const sw = map.latLngToContainerPoint(bounds.getSouthWest());
+    const ne = map.latLngToContainerPoint(bounds.getNorthEast());
+    minX = Math.min(sw.x, ne.x);
+    maxX = Math.max(sw.x, ne.x);
+    minY = Math.min(sw.y, ne.y);
+    maxY = Math.max(sw.y, ne.y);
+  }
+  if (popupEl) {
+    const mapRect = map.getContainer().getBoundingClientRect();
+    const rect = popupEl.getBoundingClientRect();
+    minX = Math.min(minX, rect.left - mapRect.left);
+    maxX = Math.max(maxX, rect.right - mapRect.left);
+    minY = Math.min(minY, rect.top - mapRect.top);
+    maxY = Math.max(maxY, rect.bottom - mapRect.top);
+  }
+  if (!Number.isFinite(minX) || !Number.isFinite(maxY)) return null;
+  return { minX, maxX, minY, maxY };
+}
+
+/** Pan so the route and the open station popup sit as one group in the map. */
+function frameRouteAndPopup(
+  map: L.Map,
+  points: GeoPoint[],
+  marker: L.Marker,
+  pad: { top: number; right: number; bottom: number; left: number }
+): void {
+  const size = map.getSize();
+  const viewX = pad.left + (size.x - pad.left - pad.right) / 2;
+  const viewY = pad.top + (size.y - pad.top - pad.bottom) / 2;
+  const union = pixelUnion(
+    map,
+    points,
+    marker.getPopup()?.getElement() ?? null
+  );
+  if (!union) return;
+  const dx = (union.minX + union.maxX) / 2 - viewX;
+  const dy = (union.minY + union.maxY) / 2 - viewY;
+  if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
+  map.panBy([dx, dy], { animate: true });
 }
 
 function FitBounds({ points }: { points: GeoPoint[] }) {
@@ -444,7 +514,7 @@ function FitBounds({ points }: { points: GeoPoint[] }) {
     const bounds = L.latLngBounds(points.map((p) => [p.lat, p.lng]));
     const selected = Boolean(selectedStationId);
     map.fitBounds(
-      bounds.pad(selected ? 0.22 : 0.08),
+      bounds.pad(selected ? 0.06 : 0.08),
       mapFitPadding({ selectedStationId, sidebarOpen })
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -586,7 +656,11 @@ function StationMarker({
   const vehicle = usePitstopStore((s) => s.vehicle);
   const pricesFetchedAt = usePitstopStore((s) => s.pricesFetchedAt);
   const originCoords = usePitstopStore((s) => s.originCoords);
+  const destinationCoords = usePitstopStore((s) => s.destinationCoords);
+  const route = usePitstopStore((s) => s.route);
+  const detourRoute = usePitstopStore((s) => s.detourRoute);
   const detourRouting = usePitstopStore((s) => s.detourRouting);
+  const sidebarOpen = usePitstopStore((s) => s.sidebarOpen);
   const gradeRows = popupGradePrices(item, vehicle.fuelType);
   let zIndexOffset = 0;
   if (isSelected) zIndexOffset = 1000;
@@ -597,18 +671,30 @@ function StationMarker({
 
     let cancelled = false;
     let opened = false;
+    let panTimer: ReturnType<typeof window.setTimeout> | undefined;
     const open = () => {
       if (cancelled || opened) return;
       const marker = markerRef.current;
       if (!marker) return;
       opened = true;
       marker.openPopup();
-      // Popups open above the pin; pan down if the card would clip the top chrome.
-      const point = map.latLngToContainerPoint(marker.getLatLng());
-      const minY = 320;
-      if (point.y < minY) {
-        map.panBy([0, point.y - minY], { animate: true });
-      }
+      const pad = mapChromePad({
+        selectedStationId: item.station.id,
+        sidebarOpen,
+      });
+      panTimer = window.setTimeout(() => {
+        if (cancelled) return;
+        const framePoints: GeoPoint[] = [item.station.location];
+        if (originCoords) framePoints.push(originCoords);
+        if (destinationCoords) framePoints.push(destinationCoords);
+        if (route?.coordinates?.length) {
+          framePoints.push(...sampleRoute(route.coordinates));
+        }
+        if (detourRoute?.coordinates?.length) {
+          framePoints.push(...sampleRoute(detourRoute.coordinates));
+        }
+        frameRouteAndPopup(map, framePoints, marker, pad);
+      }, 80);
     };
     map.once("moveend", open);
     const fallback = window.setTimeout(open, 400);
@@ -616,8 +702,20 @@ function StationMarker({
       cancelled = true;
       map.off("moveend", open);
       window.clearTimeout(fallback);
+      if (panTimer) window.clearTimeout(panTimer);
     };
-  }, [isSelected, item.station.id, map, detourRouting]);
+  }, [
+    isSelected,
+    item.station.id,
+    item.station.location,
+    map,
+    detourRouting,
+    sidebarOpen,
+    originCoords,
+    destinationCoords,
+    route,
+    detourRoute,
+  ]);
 
   return (
     <Marker
@@ -629,12 +727,7 @@ function StationMarker({
       }}
       zIndexOffset={zIndexOffset}
     >
-      <Popup
-        autoPan
-        keepInView
-        autoPanPaddingTopLeft={[32, 300]}
-        autoPanPaddingBottomRight={[32, 64]}
-      >
+      <Popup autoPan={false}>
         <div className="min-w-[180px] space-y-1.5 text-slate-900">
           <div className="flex items-start gap-2">
             <BrandLogo brand={item.station.brand} size="md" className="mt-0.5" />
