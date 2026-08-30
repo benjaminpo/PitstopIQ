@@ -35,7 +35,7 @@ function parseVias(sp: URLSearchParams): GeoPoint[] {
 /**
  * GET /api/osrm/route?fromLat&fromLng&toLat&toLng[&viaLat&viaLng…]
  *   [&avoidMotorways=1][&avoidTolls=1][&avoidFerries=1]
- * Proxies driving directions (OSRM, with Valhalla fallback for avoid options).
+ * Proxies driving directions (OSRM; Valhalla for avoid options, then unconstrained OSRM).
  * Repeat viaLat/viaLng pairs for multiple intermediate stops.
  */
 export async function GET(request: NextRequest) {

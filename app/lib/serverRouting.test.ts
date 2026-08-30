@@ -185,6 +185,70 @@ describe("server routing", () => {
     });
   });
 
+  it("falls back to unconstrained OSRM when Valhalla cannot apply avoid options", async () => {
+    vi.mocked(fetch)
+      .mockResolvedValueOnce(new Response(null, { status: 504 }))
+      .mockResolvedValueOnce(
+        Response.json({
+          code: "Ok",
+          routes: [
+            {
+              distance: 1609.344,
+              duration: 90,
+              geometry: {
+                coordinates: [
+                  [-0.12, 51.5],
+                  [-0.13, 51.51],
+                ],
+              },
+            },
+          ],
+        })
+      );
+    const { resolveDrivingRoute } = await loadRouting();
+
+    const route = await resolveDrivingRoute(points, {
+      motorways: false,
+      tolls: true,
+      ferries: false,
+    });
+
+    expect(route).toMatchObject({
+      distanceMiles: 1,
+      durationSeconds: 90,
+      coordinates: points,
+    });
+    expect(String(vi.mocked(fetch).mock.calls[0]?.[0])).toBe(
+      "https://valhalla.example/route"
+    );
+    const osrmUrl = String(vi.mocked(fetch).mock.calls[1]?.[0]);
+    expect(osrmUrl).toContain("router.project-osrm.org/route/v1/driving/");
+    expect(osrmUrl).not.toContain("exclude=");
+  });
+
+  it("skips Valhalla after a failed health probe and still routes via OSRM", async () => {
+    vi.mocked(fetch)
+      .mockRejectedValueOnce(new Error("timeout"))
+      .mockResolvedValueOnce(
+        Response.json({
+          code: "Ok",
+          routes: [{ distance: 800, duration: 60 }],
+        })
+      );
+    const { probeValhallaHealth, resolveRouteLeg } = await loadRouting();
+    await expect(probeValhallaHealth()).resolves.toBe(false);
+    await expect(
+      resolveRouteLeg(points, { motorways: false, tolls: true, ferries: false })
+    ).resolves.toEqual({
+      distanceMeters: 800,
+      durationSeconds: 60,
+    });
+    expect(fetch).toHaveBeenCalledTimes(2);
+    expect(String(vi.mocked(fetch).mock.calls[1]?.[0])).toContain(
+      "router.project-osrm.org"
+    );
+  });
+
   it("falls back to Valhalla and can omit geometry", async () => {
     vi.mocked(fetch)
       .mockResolvedValueOnce(new Response(null, { status: 503 }))

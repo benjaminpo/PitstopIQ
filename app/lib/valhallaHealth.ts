@@ -8,7 +8,7 @@ export const VALHALLA_AVOID_OK_MESSAGE =
   "Avoid routing is available. Motorways, tolls, and ferries will be skipped where possible.";
 
 export const VALHALLA_AVOID_DOWN_MESSAGE =
-  "Avoid routing is unavailable right now. Routes may still use motorways, tolls, or ferries.";
+  "Avoid routing is unavailable right now. Routes will still use motorways, tolls, or ferries.";
 
 export function avoidRoutingNotice(
   health: ValhallaHealth,

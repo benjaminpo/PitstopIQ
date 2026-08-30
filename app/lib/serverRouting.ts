@@ -23,6 +23,22 @@ const VALHALLA_BASE =
 
 /** Public demo routers can stall for minutes; fail fast instead of hanging. */
 const ROUTING_FETCH_TIMEOUT_MS = 8_000;
+const VALHALLA_HEALTH_TIMEOUT_MS = 4_000;
+const VALHALLA_HEALTH_TTL_MS = 60_000;
+
+let valhallaHealth: { ok: boolean; checkedAt: number } | null = null;
+
+function rememberValhallaHealth(ok: boolean): void {
+  valhallaHealth = { ok, checkedAt: Date.now() };
+}
+
+function shouldTryValhalla(): boolean {
+  if (!valhallaHealth) return true;
+  if (Date.now() - valhallaHealth.checkedAt > VALHALLA_HEALTH_TTL_MS) {
+    return true;
+  }
+  return valhallaHealth.ok;
+}
 
 async function fetchRouting(
   input: string,
@@ -169,10 +185,17 @@ async function fetchValhallaRoute(
     },
     body: JSON.stringify(body),
   });
-  if (!res.ok) return null;
+  if (!res.ok) {
+    rememberValhallaHealth(false);
+    return null;
+  }
 
   const data = (await res.json()) as ValhallaRouteResponse;
-  if (!data.trip?.legs?.length) return null;
+  if (!data.trip?.legs?.length) {
+    rememberValhallaHealth(false);
+    return null;
+  }
+  rememberValhallaHealth(true);
 
   const metrics: RouteLegMetrics = {
     distanceMeters: data.trip.summary.length * 1000,
@@ -232,10 +255,17 @@ async function fetchValhallaMatrix(
     },
     body: JSON.stringify(body),
   });
-  if (!res.ok) return null;
+  if (!res.ok) {
+    rememberValhallaHealth(false);
+    return null;
+  }
 
   const data = (await res.json()) as ValhallaMatrixResponse;
-  if (!Array.isArray(data.sources_to_targets)) return null;
+  if (!Array.isArray(data.sources_to_targets)) {
+    rememberValhallaHealth(false);
+    return null;
+  }
+  rememberValhallaHealth(true);
   const distanceMeters = Array.from({ length: sources.length }, () =>
     new Array<number | null>(targets.length).fill(null)
   );
@@ -324,6 +354,16 @@ async function resolveLeg(
   const osrm = await fetchOsrmRoute(points, avoid, overview);
   if (osrm) return osrm;
 
+  if (hasRouteAvoid(avoid)) {
+    if (shouldTryValhalla()) {
+      const valhalla = await fetchValhallaRoute(points, avoid, wantGeometry);
+      if (valhalla) return valhalla;
+    }
+    // Public OSRM cannot apply exclude, and Valhalla is down: still return a
+    // driving route, including motorways, tolls, and ferries.
+    return fetchOsrmRoute(points, DEFAULT_ROUTE_AVOID, overview);
+  }
+
   return fetchValhallaRoute(points, avoid, wantGeometry);
 }
 
@@ -347,7 +387,8 @@ function toDrivingRoute(
 
 /**
  * Driving route for 2+ waypoints. Uses OSRM by default; when avoid options
- * are set and public OSRM cannot exclude, falls back to Valhalla.
+ * are set and public OSRM cannot exclude, tries Valhalla, then unconstrained
+ * OSRM so a route is still returned (motorways / tolls / ferries allowed).
  */
 export async function resolveDrivingRoute(
   points: GeoPoint[],
@@ -378,10 +419,15 @@ export async function resolveRouteMatrix(
   if (sources.length === 0 || targets.length === 0) return null;
   const osrm = await fetchOsrmMatrix(sources, targets, avoid);
   if (osrm) return osrm;
+  if (hasRouteAvoid(avoid)) {
+    if (shouldTryValhalla()) {
+      const valhalla = await fetchValhallaMatrix(sources, targets, avoid);
+      if (valhalla) return valhalla;
+    }
+    return fetchOsrmMatrix(sources, targets, DEFAULT_ROUTE_AVOID);
+  }
   return fetchValhallaMatrix(sources, targets, avoid);
 }
-
-const VALHALLA_HEALTH_TIMEOUT_MS = 4_000;
 
 /**
  * Lightweight check used on planner load. Avoid options need Valhalla when
@@ -394,8 +440,11 @@ export async function probeValhallaHealth(): Promise<boolean> {
       headers: { Accept: "application/json" },
       signal: AbortSignal.timeout(VALHALLA_HEALTH_TIMEOUT_MS),
     });
-    return res.ok;
+    const ok = res.ok;
+    rememberValhallaHealth(ok);
+    return ok;
   } catch {
+    rememberValhallaHealth(false);
     return false;
   }
 }
