@@ -430,7 +430,7 @@ function mapChromePad(options?: {
   if (showMobileBar) bottom = 210;
   else if (selected) bottom = 88;
   return {
-    top: selected ? 118 : 108,
+    top: selected ? 80 : 72,
     left: 40,
     right: 36,
     bottom,
