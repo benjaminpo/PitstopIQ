@@ -225,7 +225,7 @@ export function HomeApp() {
               type="button"
               onClick={() => setLegendOpen((open) => !open)}
               className={cn(
-                "inline-flex h-11 w-11 items-center justify-center rounded-lg border border-slate-700/80 text-slate-200 shadow-lg backdrop-blur hover:bg-slate-900",
+                "inline-flex h-11 w-11 items-center justify-center rounded-lg border border-slate-700/80 text-slate-200 shadow-lg backdrop-blur hover:bg-slate-900 md:hidden",
                 legendOpen ? "bg-slate-800" : "bg-slate-950/90"
               )}
               aria-label={legendOpen ? "Hide map legend" : "Show map legend"}
@@ -234,11 +234,14 @@ export function HomeApp() {
               <HelpCircle className="h-5 w-5" />
             </button>
           </div>
-          {legendOpen && (
-            <div className="flex max-w-[min(100%,20rem)] flex-wrap gap-2">
-              <MapLegend />
-            </div>
-          )}
+          <div
+            className={cn(
+              "flex max-w-[min(100%,20rem)] flex-wrap gap-2 md:max-w-[11.5rem] md:flex-col md:flex-nowrap",
+              !legendOpen && "hidden md:flex"
+            )}
+          >
+            <MapLegend />
+          </div>
         </div>
 
         <div
