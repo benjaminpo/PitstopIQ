@@ -208,41 +208,41 @@ export function HomeApp() {
             </div>
           </div>
         )}
-        <div className="absolute left-3 top-[max(0.75rem,env(safe-area-inset-top))] z-[500] flex gap-2 md:left-4 md:top-4">
-          <button
-            type="button"
-            onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="flex items-center gap-2 rounded-lg border border-slate-700/80 bg-slate-950/90 px-3 py-2.5 text-sm font-medium text-slate-100 shadow-lg backdrop-blur hover:bg-slate-900"
-            aria-label="Toggle sidebar"
+        <div className="absolute left-3 top-[max(0.75rem,env(safe-area-inset-top))] z-[500] flex flex-col items-start gap-2 md:left-4 md:top-4">
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => setSidebarOpen(!sidebarOpen)}
+              className="flex items-center gap-2 rounded-lg border border-slate-700/80 bg-slate-950/90 px-3 py-2.5 text-sm font-medium text-slate-100 shadow-lg backdrop-blur hover:bg-slate-900"
+              aria-label="Toggle sidebar"
+            >
+              <Menu className="h-5 w-5" />
+              <span className="hidden sm:inline">
+                {sidebarOpen ? "Hide panel" : "Show panel"}
+              </span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setLegendOpen((open) => !open)}
+              className="inline-flex h-11 w-11 items-center justify-center rounded-lg border border-slate-700/80 bg-slate-950/90 text-slate-200 shadow-lg backdrop-blur hover:bg-slate-900 md:hidden"
+              aria-label={legendOpen ? "Hide map legend" : "Show map legend"}
+              aria-expanded={legendOpen}
+            >
+              <HelpCircle className="h-5 w-5" />
+            </button>
+          </div>
+          <div
+            className={cn(
+              "flex max-w-[min(100%,32rem)] flex-wrap gap-2",
+              !legendOpen && "hidden md:flex"
+            )}
           >
-            <Menu className="h-5 w-5" />
-            <span className="hidden sm:inline">
-              {sidebarOpen ? "Hide panel" : "Show panel"}
-            </span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setLegendOpen((open) => !open)}
-            className="inline-flex h-11 w-11 items-center justify-center rounded-lg border border-slate-700/80 bg-slate-950/90 text-slate-200 shadow-lg backdrop-blur hover:bg-slate-900 md:hidden"
-            aria-label={legendOpen ? "Hide map legend" : "Show map legend"}
-            aria-expanded={legendOpen}
-          >
-            <HelpCircle className="h-5 w-5" />
-          </button>
-        </div>
-
-        <div
-          className={cn(
-            "absolute z-[500] flex flex-wrap gap-2",
-            "left-3 right-3 top-[calc(3.25rem+env(safe-area-inset-top))] md:bottom-4 md:left-4 md:right-auto md:top-auto",
-            !legendOpen && "hidden md:flex"
-          )}
-        >
-          <LegendDot color="bg-emerald-400" label="Worth it" />
-          <LegendDot color="bg-amber-400" label="Break-even ±£0.50" />
-          <LegendDot color="bg-rose-400" label="False economy" />
-          <LegendDot color="bg-teal-400" label="Direct" />
-          <LegendDot color="bg-amber-300" label="Detour" />
+            <LegendDot color="bg-emerald-400" label="Worth it" />
+            <LegendDot color="bg-amber-400" label="Break-even ±£0.50" />
+            <LegendDot color="bg-rose-400" label="False economy" />
+            <LegendDot color="bg-teal-400" label="Direct" />
+            <LegendDot color="bg-amber-300" label="Detour" />
+          </div>
         </div>
 
         <div
