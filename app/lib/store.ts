@@ -20,6 +20,10 @@ import {
   remainingRangeMiles,
 } from "./detourCalculator";
 import { computeBaselineRoutePrice } from "./baselinePrice";
+import {
+  shouldAutoSelectBestStation,
+  tripStationsKey,
+} from "./stationAutoSelect";
 import { DEFAULT_BASE_ROUTE_AVG_PRICE, vehicleFuelKind } from "./fuelConstants";
 import {
   matchesPriceFreshness,
@@ -292,6 +296,8 @@ let enrichedStationsCache: {
 
 /** Bumps on each loadStations call so a stale in-flight refresh can bail out. */
 let loadStationsGeneration = 0;
+/** Last corridor that successfully loaded stations — used to auto-select only on a new trip. */
+let lastLoadedTripKey: string | null = null;
 
 export const usePitstopStore = create<PitstopState>()(
   persist(
@@ -1060,7 +1066,23 @@ export const usePitstopStore = create<PitstopState>()(
             selectedId = null;
             set({ selectedStationId: null });
           }
-          const shouldAutoSelectBest = !silent;
+          const tripKey = tripStationsKey(
+            originCoords,
+            destinationCoords,
+            vias
+          );
+          const isNewTrip = tripKey !== lastLoadedTripKey;
+          lastLoadedTripKey = tripKey;
+          const nearbySearch =
+            stops.length === 0 &&
+            isSameLocation(originCoords, destinationCoords);
+          const shouldAutoSelectBest = shouldAutoSelectBestStation({
+            silent,
+            isNewTrip,
+            nearbySearch,
+            priceFreshnessFilter: get().priceFreshnessFilter,
+            openNowFilter: get().openNowFilter,
+          });
           if (!selectedId && shouldAutoSelectBest) {
             let best: StationWithCalculation | undefined;
             for (const item of enriched) {
