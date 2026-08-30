@@ -1052,9 +1052,6 @@ export const usePitstopStore = create<PitstopState>()(
               : {}),
           });
 
-          const nearbySearch =
-            stops.length === 0 &&
-            isSameLocation(originCoords, destinationCoords);
           const enriched = get().getEnrichedStations();
           if (
             selectedId &&
@@ -1063,11 +1060,7 @@ export const usePitstopStore = create<PitstopState>()(
             selectedId = null;
             set({ selectedStationId: null });
           }
-          const shouldAutoSelectBest =
-            !silent &&
-            (nearbySearch ||
-              get().priceFreshnessFilter !== "any" ||
-              get().openNowFilter);
+          const shouldAutoSelectBest = !silent;
           if (!selectedId && shouldAutoSelectBest) {
             let best: StationWithCalculation | undefined;
             for (const item of enriched) {

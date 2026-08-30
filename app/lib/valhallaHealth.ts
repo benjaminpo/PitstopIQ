@@ -32,7 +32,7 @@ export function resetValhallaHealthCache(): void {
 export function fetchValhallaHealth(): Promise<ValhallaHealth> {
   if (cached) return Promise.resolve(cached);
   if (!inflight) {
-    inflight = fetch("/api/osrm/valhalla", {
+    const request = fetch("/api/osrm/valhalla", {
       cache: "no-store",
       signal: AbortSignal.timeout(6_000),
     })
@@ -43,9 +43,14 @@ export function fetchValhallaHealth(): Promise<ValhallaHealth> {
       })
       .catch(() => "down" as const)
       .then((health) => {
-        cached = health;
+        // Ignore completions from a probe that was reset (or superseded).
+        if (inflight === request) {
+          cached = health;
+          inflight = null;
+        }
         return health;
       });
+    inflight = request;
   }
   return inflight;
 }

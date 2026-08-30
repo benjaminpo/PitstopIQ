@@ -56,4 +56,37 @@ describe("fetchValhallaHealth", () => {
     );
     await expect(fetchValhallaHealth()).resolves.toBe("down");
   });
+
+  it("does not let a reset inflight overwrite a newer probe", async () => {
+    let resolveStale: (value: {
+      ok: boolean;
+      json: () => Promise<{ ok: boolean }>;
+    }) => void = () => {};
+    const staleFetch = new Promise<{
+      ok: boolean;
+      json: () => Promise<{ ok: boolean }>;
+    }>((resolve) => {
+      resolveStale = resolve;
+    });
+    const fetchMock = vi
+      .fn()
+      .mockImplementationOnce(() => staleFetch)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ ok: true }),
+      });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const stale = fetchValhallaHealth();
+    resetValhallaHealthCache();
+    await expect(fetchValhallaHealth()).resolves.toBe("ok");
+
+    resolveStale({
+      ok: true,
+      json: async () => ({ ok: false }),
+    });
+    await expect(stale).resolves.toBe("down");
+    await expect(fetchValhallaHealth()).resolves.toBe("ok");
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
 });

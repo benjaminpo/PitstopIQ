@@ -421,14 +421,15 @@ function mapFitPadding(options?: {
   const isMobile =
     typeof window !== "undefined" &&
     window.matchMedia("(max-width: 767px)").matches;
+  const selected = Boolean(options?.selectedStationId);
   const showMobileBar =
-    isMobile &&
-    Boolean(options?.selectedStationId) &&
-    !options?.sidebarOpen;
+    isMobile && selected && !options?.sidebarOpen;
+  // Selected pins open a tall popup above the marker; leave headroom and
+  // cap zoom so the card isn't clipped by the top chrome.
   return {
-    paddingTopLeft: [20, 72],
-    paddingBottomRight: showMobileBar ? [20, 210] : [20, 48],
-    maxZoom: 15,
+    paddingTopLeft: selected ? [32, 340] : [20, 72],
+    paddingBottomRight: showMobileBar ? [20, 210] : selected ? [32, 88] : [20, 48],
+    maxZoom: selected ? 12 : 15,
   };
 }
 
@@ -441,8 +442,9 @@ function FitBounds({ points }: { points: GeoPoint[] }) {
   useEffect(() => {
     if (points.length === 0) return;
     const bounds = L.latLngBounds(points.map((p) => [p.lat, p.lng]));
+    const selected = Boolean(selectedStationId);
     map.fitBounds(
-      bounds.pad(0.08),
+      bounds.pad(selected ? 0.22 : 0.08),
       mapFitPadding({ selectedStationId, sidebarOpen })
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -567,6 +569,155 @@ function FocusBestStations({
   return null;
 }
 
+function StationMarker({
+  item,
+  isSelected,
+  isBest,
+  now,
+}: {
+  item: StationWithCalculation;
+  isSelected: boolean;
+  isBest: boolean;
+  now: number;
+}) {
+  const map = useMap();
+  const markerRef = useRef<L.Marker | null>(null);
+  const setSelectedStationId = usePitstopStore((s) => s.setSelectedStationId);
+  const vehicle = usePitstopStore((s) => s.vehicle);
+  const pricesFetchedAt = usePitstopStore((s) => s.pricesFetchedAt);
+  const originCoords = usePitstopStore((s) => s.originCoords);
+  const detourRouting = usePitstopStore((s) => s.detourRouting);
+  const gradeRows = popupGradePrices(item, vehicle.fuelType);
+  let zIndexOffset = 0;
+  if (isSelected) zIndexOffset = 1000;
+  else if (isBest) zIndexOffset = 500;
+
+  useEffect(() => {
+    if (!isSelected) return;
+
+    let cancelled = false;
+    let opened = false;
+    const open = () => {
+      if (cancelled || opened) return;
+      const marker = markerRef.current;
+      if (!marker) return;
+      opened = true;
+      marker.openPopup();
+      // Popups open above the pin; pan down if the card would clip the top chrome.
+      const point = map.latLngToContainerPoint(marker.getLatLng());
+      const minY = 320;
+      if (point.y < minY) {
+        map.panBy([0, point.y - minY], { animate: true });
+      }
+    };
+    map.once("moveend", open);
+    const fallback = window.setTimeout(open, 400);
+    return () => {
+      cancelled = true;
+      map.off("moveend", open);
+      window.clearTimeout(fallback);
+    };
+  }, [isSelected, item.station.id, map, detourRouting]);
+
+  return (
+    <Marker
+      ref={markerRef}
+      position={[item.station.location.lat, item.station.location.lng]}
+      icon={makePinIcon(item.calculation.status, isSelected, isBest)}
+      eventHandlers={{
+        click: () => setSelectedStationId(item.station.id),
+      }}
+      zIndexOffset={zIndexOffset}
+    >
+      <Popup
+        autoPan
+        keepInView
+        autoPanPaddingTopLeft={[32, 300]}
+        autoPanPaddingBottomRight={[32, 64]}
+      >
+        <div className="min-w-[180px] space-y-1.5 text-slate-900">
+          <div className="flex items-start gap-2">
+            <BrandLogo brand={item.station.brand} size="md" className="mt-0.5" />
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5">
+                <p className="font-semibold">{item.station.name}</p>
+                {isBest && (
+                  <span className="inline-flex shrink-0 items-center rounded-md bg-teal-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-teal-700 ring-1 ring-teal-500/35">
+                    ★ Best
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-slate-600">{item.station.brand}</p>
+              {(item.station.address || item.station.postcode) && (
+                <p className="text-[11px] leading-snug text-slate-500">
+                  {[item.station.address, item.station.postcode]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </p>
+              )}
+            </div>
+          </div>
+          <StatusBadge status={item.calculation.status} />
+          <ul className="space-y-1 font-mono text-sm">
+            {gradeRows.map((row) => {
+              const rowTone = stationPriceTone(row.updatedAt, now);
+              return (
+                <li key={row.fuel} className="space-y-0.5">
+                  <div className="flex justify-between gap-3">
+                    <span className="text-slate-600">
+                      {FUEL_TYPE_SHORT[row.fuel]}
+                      {row.fromCommunity ? " · members" : ""}
+                    </span>
+                    <span>£{row.price.toFixed(3)}/L</span>
+                  </div>
+                  <p
+                    className={cn(
+                      "text-[10px]",
+                      STATION_AGE_TEXT_CLASSES_LIGHT[rowTone]
+                    )}
+                    title={stationPriceAgeTitle(
+                      row.updatedAt,
+                      rowTone,
+                      row.fromCommunity ? undefined : pricesFetchedAt
+                    )}
+                  >
+                    {row.fromCommunity
+                      ? communityPriceAgeLabel(row.updatedAt, now)
+                      : formatOfficialPriceAgeLine(
+                          row.updatedAt,
+                          pricesFetchedAt,
+                          now
+                        )}
+                  </p>
+                </li>
+              );
+            })}
+          </ul>
+          <p className="font-mono text-sm text-slate-700">
+            {item.station.distanceOffRouteMiles.toFixed(1)} mi ·{" "}
+            {item.calculation.detourExtraMinutes < 0.5
+              ? "<1 min"
+              : `+${Math.round(item.calculation.detourExtraMinutes)} min`}
+          </p>
+          <p className="font-mono text-sm font-bold">
+            Net {formatGbp(item.calculation.netAfterTime)}
+          </p>
+          <NavigateHere
+            className="mt-2"
+            primary
+            tone="light"
+            target={{
+              location: item.station.location,
+              name: item.station.name,
+              origin: originCoords,
+            }}
+          />
+        </div>
+      </Popup>
+    </Marker>
+  );
+}
+
 export default function MapView() {
   const {
     origin,
@@ -578,11 +729,8 @@ export default function MapView() {
     detourRoute,
     getEnrichedStations,
     selectedStationId,
-    setSelectedStationId,
     priceFreshnessFilter,
     openNowFilter,
-    vehicle,
-    pricesFetchedAt,
     locateCurrentPosition,
     locating,
   } = usePitstopStore();
@@ -655,107 +803,6 @@ export default function MapView() {
     route,
     enriched,
   });
-
-  const renderStationMarker = (item: StationWithCalculation) => {
-    const isSelected = selectedStationId === item.station.id;
-    const isBest = bestId === item.station.id;
-    const gradeRows = popupGradePrices(item, vehicle.fuelType);
-    let zIndexOffset = 0;
-    if (isSelected) zIndexOffset = 1000;
-    else if (isBest) zIndexOffset = 500;
-    return (
-      <Marker
-        key={item.station.id}
-        position={[item.station.location.lat, item.station.location.lng]}
-        icon={makePinIcon(item.calculation.status, isSelected, isBest)}
-        eventHandlers={{
-          click: () => setSelectedStationId(item.station.id),
-        }}
-        zIndexOffset={zIndexOffset}
-      >
-        <Popup>
-          <div className="min-w-[180px] space-y-1.5 text-slate-900">
-            <div className="flex items-start gap-2">
-              <BrandLogo brand={item.station.brand} size="md" className="mt-0.5" />
-              <div className="min-w-0">
-                <div className="flex items-center gap-1.5">
-                  <p className="font-semibold">{item.station.name}</p>
-                  {isBest && (
-                    <span className="inline-flex shrink-0 items-center rounded-md bg-teal-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-teal-700 ring-1 ring-teal-500/35">
-                      ★ Best
-                    </span>
-                  )}
-                </div>
-                <p className="text-xs text-slate-600">{item.station.brand}</p>
-                {(item.station.address || item.station.postcode) && (
-                  <p className="text-[11px] leading-snug text-slate-500">
-                    {[item.station.address, item.station.postcode]
-                      .filter(Boolean)
-                      .join(" · ")}
-                  </p>
-                )}
-              </div>
-            </div>
-            <StatusBadge status={item.calculation.status} />
-            <ul className="space-y-1 font-mono text-sm">
-              {gradeRows.map((row) => {
-                const rowTone = stationPriceTone(row.updatedAt, now);
-                return (
-                  <li key={row.fuel} className="space-y-0.5">
-                    <div className="flex justify-between gap-3">
-                      <span className="text-slate-600">
-                        {FUEL_TYPE_SHORT[row.fuel]}
-                        {row.fromCommunity ? " · members" : ""}
-                      </span>
-                      <span>£{row.price.toFixed(3)}/L</span>
-                    </div>
-                    <p
-                      className={cn(
-                        "text-[10px]",
-                        STATION_AGE_TEXT_CLASSES_LIGHT[rowTone]
-                      )}
-                      title={stationPriceAgeTitle(
-                        row.updatedAt,
-                        rowTone,
-                        row.fromCommunity ? undefined : pricesFetchedAt
-                      )}
-                    >
-                      {row.fromCommunity
-                        ? communityPriceAgeLabel(row.updatedAt, now)
-                        : formatOfficialPriceAgeLine(
-                            row.updatedAt,
-                            pricesFetchedAt,
-                            now
-                          )}
-                    </p>
-                  </li>
-                );
-              })}
-            </ul>
-            <p className="font-mono text-sm text-slate-700">
-              {item.station.distanceOffRouteMiles.toFixed(1)} mi ·{" "}
-              {item.calculation.detourExtraMinutes < 0.5
-                ? "<1 min"
-                : `+${Math.round(item.calculation.detourExtraMinutes)} min`}
-            </p>
-            <p className="font-mono text-sm font-bold">
-              Net {formatGbp(item.calculation.netAfterTime)}
-            </p>
-            <NavigateHere
-              className="mt-2"
-              primary
-              tone="light"
-              target={{
-                location: item.station.location,
-                name: item.station.name,
-                origin: originCoords,
-              }}
-            />
-          </div>
-        </Popup>
-      </Marker>
-    );
-  };
 
   return (
     <MapContainer
@@ -884,11 +931,35 @@ export default function MapView() {
                 item.station.id !== selectedStationId &&
                 item.station.id !== bestId
             )
-            .map((item) => renderStationMarker(item))}
+            .map((item) => (
+              <StationMarker
+                key={item.station.id}
+                item={item}
+                isSelected={false}
+                isBest={false}
+                now={now}
+              />
+            ))}
         </MarkerClusterGroup>
       ))}
-      {best && best.station.id !== selectedStationId && renderStationMarker(best)}
-      {selected && renderStationMarker(selected)}
+      {best && best.station.id !== selectedStationId && (
+        <StationMarker
+          key={best.station.id}
+          item={best}
+          isSelected={false}
+          isBest
+          now={now}
+        />
+      )}
+      {selected && (
+        <StationMarker
+          key={selected.station.id}
+          item={selected}
+          isSelected
+          isBest={bestId === selected.station.id}
+          now={now}
+        />
+      )}
 
       <FitBounds points={fitPoints} />
       <FocusBestStations
