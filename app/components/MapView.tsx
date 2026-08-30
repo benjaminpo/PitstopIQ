@@ -38,6 +38,7 @@ import type {
   GeoPoint,
   StationWithCalculation,
 } from "@/app/lib/types";
+import { isSameLocation } from "@/app/lib/routing";
 import { cn } from "@/app/lib/utils";
 import { BrandLogo } from "./BrandLogo";
 import { NavigateHere } from "./NavigateHere";
@@ -205,10 +206,7 @@ function isNearbySearch(
   stopCoords: GeoPoint[]
 ): boolean {
   if (!originCoords || !destinationCoords || stopCoords.length > 0) return false;
-  return (
-    Math.abs(originCoords.lat - destinationCoords.lat) < 0.00001 &&
-    Math.abs(originCoords.lng - destinationCoords.lng) < 0.00001
-  );
+  return isSameLocation(originCoords, destinationCoords);
 }
 
 interface FitPointsInputs {

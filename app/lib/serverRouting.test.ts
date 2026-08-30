@@ -61,7 +61,10 @@ describe("server routing", () => {
     expect(route!.bounds.south).toBeLessThan(51.5);
     expect(fetch).toHaveBeenCalledWith(
       expect.stringContaining("overview=full"),
-      expect.objectContaining({ cache: "no-store" })
+      expect.objectContaining({
+        cache: "no-store",
+        signal: expect.any(AbortSignal),
+      })
     );
   });
 
@@ -80,7 +83,10 @@ describe("server routing", () => {
     });
     expect(fetch).toHaveBeenCalledWith(
       expect.stringContaining("overview=false"),
-      expect.any(Object)
+      expect.objectContaining({
+        cache: "no-store",
+        signal: expect.any(AbortSignal),
+      })
     );
   });
 
@@ -202,6 +208,26 @@ describe("server routing", () => {
       String(vi.mocked(fetch).mock.calls[1]?.[1]?.body)
     ) as Record<string, unknown>;
     expect(body.directions_type).toBe("none");
+  });
+
+  it("returns a zero-length route for coincident waypoints without fetching", async () => {
+    const { resolveDrivingRoute, resolveRouteLeg } = await loadRouting();
+    const same = [
+      { lat: 51.3538, lng: -0.19814 },
+      { lat: 51.3538, lng: -0.19814 },
+    ];
+    await expect(
+      resolveDrivingRoute(same, { motorways: false, tolls: true, ferries: false })
+    ).resolves.toMatchObject({
+      distanceMiles: 0,
+      durationSeconds: 0,
+      coordinates: [same[0]],
+    });
+    await expect(resolveRouteLeg(same, noAvoid)).resolves.toEqual({
+      distanceMeters: 0,
+      durationSeconds: 0,
+    });
+    expect(fetch).not.toHaveBeenCalled();
   });
 
   it("returns null for too few points or failed providers", async () => {

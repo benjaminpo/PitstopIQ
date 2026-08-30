@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   CORRIDOR_MAX_DISTANCE_MILES,
+  allSameLocation,
   approximateDetourMiles,
   approximateDetourSeconds,
   boundsFromCoordinates,
@@ -11,9 +12,11 @@ import {
   filterToRouteCorridor,
   formatDuration,
   haversineMiles,
+  isSameLocation,
   metersToMiles,
   milesFromOriginToStation,
   nearestOnRoute,
+  trivialDrivingRoute,
 } from "./routing";
 import type { GeoPoint } from "./types";
 
@@ -32,6 +35,25 @@ describe("unit conversions", () => {
     const pad = corridorPadDegrees();
     expect(pad).toBeGreaterThan(CORRIDOR_MAX_DISTANCE_MILES / 69);
     expect(corridorPadDegrees(6.9)).toBeCloseTo(0.1 + 0.015, 6);
+  });
+});
+
+describe("coincident locations", () => {
+  it("treats sub-metre pin jitter as the same place", () => {
+    expect(isSameLocation(origin, origin)).toBe(true);
+    expect(
+      isSameLocation(origin, { lat: origin.lat + 0.000001, lng: origin.lng })
+    ).toBe(true);
+    expect(isSameLocation(origin, dest)).toBe(false);
+    expect(allSameLocation([origin, origin, origin])).toBe(true);
+    expect(allSameLocation([origin, dest])).toBe(false);
+  });
+
+  it("builds a zero-length route for a nearby-search pin", () => {
+    const route = trivialDrivingRoute(origin);
+    expect(route.distanceMiles).toBe(0);
+    expect(route.durationSeconds).toBe(0);
+    expect(route.coordinates).toEqual([origin]);
   });
 });
 
@@ -186,6 +208,22 @@ describe("fetchDrivingRoute / fetchStationDetours", () => {
     const result = await fetchDrivingRoute(origin, dest);
     expect(result.distanceMiles).toBe(42);
     expect(String(fetchMock.mock.calls[0][0])).not.toContain("viaLat");
+  });
+
+  it("does not call the proxy for origin === destination", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    const result = await fetchDrivingRoute(origin, origin, null, {
+      motorways: false,
+      tolls: true,
+      ferries: false,
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(result).toMatchObject({
+      distanceMiles: 0,
+      durationSeconds: 0,
+      coordinates: [origin],
+    });
   });
 
   it("requests a via waypoint for detour routes", async () => {

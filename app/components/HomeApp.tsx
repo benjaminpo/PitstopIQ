@@ -17,7 +17,7 @@ import { TripUrlSync } from "@/app/components/TripUrlSync";
 import { RecentPlacesSync } from "@/app/components/RecentPlacesSync";
 import { VehiclePresetsSync } from "@/app/components/VehiclePresetsSync";
 import { usePitstopStore } from "@/app/lib/store";
-import { formatDuration } from "@/app/lib/routing";
+import { formatDuration, isSameLocation } from "@/app/lib/routing";
 import { SITE_FAQS, SITE_INTRO } from "@/app/lib/site";
 import { subscribeStationsAutoRefresh } from "@/app/lib/stationsAutoRefresh";
 import { cn } from "@/app/lib/utils";
@@ -55,8 +55,7 @@ export function HomeApp() {
     originCoords !== null &&
     destinationCoords !== null &&
     stops.length === 0 &&
-    Math.abs(originCoords.lat - destinationCoords.lat) < 0.00001 &&
-    Math.abs(originCoords.lng - destinationCoords.lng) < 0.00001;
+    isSameLocation(originCoords, destinationCoords);
 
   // Ticking clock so the "Updated X ago" badge stays current
   const [now, setNow] = useState(() => Date.now());

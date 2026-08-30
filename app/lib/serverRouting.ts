@@ -1,4 +1,5 @@
 import {
+  allSameLocation,
   boundsFromCoordinates,
   metersToMiles,
   type DrivingRoute,
@@ -19,6 +20,24 @@ const OSRM_BASE =
 const VALHALLA_BASE =
   process.env.VALHALLA_BASE_URL?.replace(/\/$/, "") ||
   "https://valhalla1.openstreetmap.de";
+
+/** Public demo routers can stall for minutes; fail fast instead of hanging. */
+const ROUTING_FETCH_TIMEOUT_MS = 8_000;
+
+async function fetchRouting(
+  input: string,
+  init: RequestInit = {}
+): Promise<Response> {
+  try {
+    return await fetch(input, {
+      ...init,
+      cache: "no-store",
+      signal: AbortSignal.timeout(ROUTING_FETCH_TIMEOUT_MS),
+    });
+  } catch {
+    return new Response(null, { status: 504 });
+  }
+}
 
 /** Public demo OSRM dropped exclude support; self-hosted instances may still have it. */
 function osrmLikelySupportsExclude(base: string): boolean {
@@ -95,9 +114,8 @@ async function fetchOsrmRoute(
     url.searchParams.set("exclude", osrmExcludeClasses(avoid).join(","));
   }
 
-  const res = await fetch(url.toString(), {
+  const res = await fetchRouting(url.toString(), {
     headers: { Accept: "application/json" },
-    cache: "no-store",
   });
   if (!res.ok) return null;
 
@@ -143,14 +161,13 @@ async function fetchValhallaRoute(
     body.directions_type = "none";
   }
 
-  const res = await fetch(`${VALHALLA_BASE}/route`, {
+  const res = await fetchRouting(`${VALHALLA_BASE}/route`, {
     method: "POST",
     headers: {
       Accept: "application/json",
       "Content-Type": "application/json",
     },
     body: JSON.stringify(body),
-    cache: "no-store",
   });
   if (!res.ok) return null;
 
@@ -207,14 +224,13 @@ async function fetchValhallaMatrix(
     body.costing_options = { auto: costingOptions };
   }
 
-  const res = await fetch(`${VALHALLA_BASE}/sources_to_targets`, {
+  const res = await fetchRouting(`${VALHALLA_BASE}/sources_to_targets`, {
     method: "POST",
     headers: {
       Accept: "application/json",
       "Content-Type": "application/json",
     },
     body: JSON.stringify(body),
-    cache: "no-store",
   });
   if (!res.ok) return null;
 
@@ -273,9 +289,8 @@ async function fetchOsrmMatrix(
   if (hasRouteAvoid(avoid)) {
     url.searchParams.set("exclude", osrmExcludeClasses(avoid).join(","));
   }
-  const res = await fetch(url.toString(), {
+  const res = await fetchRouting(url.toString(), {
     headers: { Accept: "application/json" },
-    cache: "no-store",
   });
   if (!res.ok) return null;
   const data = (await res.json()) as OsrmTableResponse;
@@ -298,6 +313,12 @@ async function resolveLeg(
   wantGeometry: boolean
 ): Promise<ResolvedLeg | null> {
   if (points.length < 2) return null;
+  if (allSameLocation(points)) {
+    return {
+      metrics: { distanceMeters: 0, durationSeconds: 0 },
+      coordinates: [points[0]],
+    };
+  }
 
   const overview = wantGeometry ? "full" : "false";
   const osrm = await fetchOsrmRoute(points, avoid, overview);

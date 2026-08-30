@@ -42,6 +42,7 @@ import {
   filterToRouteCorridor,
   fetchDrivingRoute,
   fetchStationDetours,
+  isSameLocation,
   milesFromOriginToStation,
   type DrivingRoute,
 } from "./routing";
@@ -78,13 +79,6 @@ export type LocateTarget =
 function parseLocateStopId(target: LocateTarget): string | null {
   if (!target.startsWith("stop:")) return null;
   return target.slice(5) || null;
-}
-
-function isSameLocation(a: GeoPoint, b: GeoPoint): boolean {
-  return (
-    Math.abs(a.lat - b.lat) < 0.00001 &&
-    Math.abs(a.lng - b.lng) < 0.00001
-  );
 }
 
 const SETTINGS_STORAGE_KEY = "pitstopiq-vehicle-settings";

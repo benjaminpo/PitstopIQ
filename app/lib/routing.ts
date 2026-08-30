@@ -32,6 +32,30 @@ export function metersToMiles(meters: number): number {
   return meters / METERS_PER_MILE;
 }
 
+/** ~1 m — same map pin, not a real trip. */
+export const COINCIDENT_DEG = 0.00001;
+
+export function isSameLocation(a: GeoPoint, b: GeoPoint): boolean {
+  return (
+    Math.abs(a.lat - b.lat) < COINCIDENT_DEG &&
+    Math.abs(a.lng - b.lng) < COINCIDENT_DEG
+  );
+}
+
+export function allSameLocation(points: GeoPoint[]): boolean {
+  if (points.length === 0) return true;
+  return points.every((p) => isSameLocation(p, points[0]));
+}
+
+export function trivialDrivingRoute(point: GeoPoint): DrivingRoute {
+  return {
+    distanceMiles: 0,
+    durationSeconds: 0,
+    coordinates: [point],
+    bounds: boundsFromCoordinates([point]),
+  };
+}
+
 export function haversineMiles(a: GeoPoint, b: GeoPoint): number {
   const R = 3958.7613;
   const dLat = ((b.lat - a.lat) * Math.PI) / 180;
@@ -272,13 +296,18 @@ export async function fetchDrivingRoute(
   via?: GeoPoint | GeoPoint[] | null,
   avoid: RouteAvoidOptions = DEFAULT_ROUTE_AVOID
 ): Promise<DrivingRoute> {
+  const vias = normalizeVias(via);
+  if (allSameLocation([origin, ...vias, destination])) {
+    return trivialDrivingRoute(origin);
+  }
+
   const params = new URLSearchParams({
     fromLat: String(origin.lat),
     fromLng: String(origin.lng),
     toLat: String(destination.lat),
     toLng: String(destination.lng),
   });
-  for (const v of normalizeVias(via)) {
+  for (const v of vias) {
     params.append("viaLat", String(v.lat));
     params.append("viaLng", String(v.lng));
   }
