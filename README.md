@@ -98,7 +98,7 @@ Redeploy after adding or changing env vars so serverless functions pick them up.
 
 ### Member station updates
 
-Signed-in members can **report a pump price** and separately **rate / comment** on a selected station (two independent forms). Stored in Neon (or local SQLite) in `station_contribution` (one row per user per station; each side can be cleared without wiping the other). The most recent member price for the active fuel grade is used for detour scoring when present; guests see a sign-in prompt instead of the forms.
+Signed-in members can **report a pump price** and separately **rate / comment** on a selected station (two independent forms). Stored in Neon (or local SQLite) in `station_contribution` (one row per user per station; each side can be cleared without wiping the other). The most recent member price for the active fuel grade is used for detour scoring when it is at least as fresh as Fuel Finder; if the government API is more recently updated, that official price is used instead. Guests see a sign-in prompt instead of the forms.
 
 Members can also use **Report a missing station** to submit a forecourt that is absent from Fuel Finder. Reports include its map location and optional brand, address, and notes.
 

@@ -66,6 +66,7 @@ import {
   addToRecentPlaces,
   sanitizeRecentPlaces,
 } from "./locationHistory";
+import { resolveStationFuelPrice } from "./stationPrice";
 import type { PlaceSuggestion } from "./placeSearch";
 import {
   emptyTripStop,
@@ -1231,13 +1232,11 @@ export const usePitstopStore = create<PitstopState>()(
           )
           .filter((station) => {
             const community = communityByStationId[station.id];
-            const communityPrice =
-              community?.communityPrices[vehicle.fuelType];
-            const usesCommunityPrice =
-              communityPrice != null && Number.isFinite(communityPrice);
-            const updatedAt = usesCommunityPrice
-              ? community?.communityPriceUpdatedAt[vehicle.fuelType]
-              : station.pricesUpdatedAt?.[vehicle.fuelType];
+            const { updatedAt } = resolveStationFuelPrice(
+              station,
+              community,
+              vehicle.fuelType
+            );
             return matchesPriceFreshness(
               updatedAt,
               priceFreshnessFilter,
@@ -1262,13 +1261,13 @@ export const usePitstopStore = create<PitstopState>()(
           })
           .map((station): StationWithCalculation | null => {
             const community = communityByStationId[station.id];
-            const official = station.prices[vehicle.fuelType];
-            const communityPrice = community?.communityPrices[vehicle.fuelType];
-            const priceFromCommunity =
-              communityPrice != null && Number.isFinite(communityPrice);
-            const pricePerLitre = priceFromCommunity
-              ? communityPrice
-              : official;
+            const resolved = resolveStationFuelPrice(
+              station,
+              community,
+              vehicle.fuelType
+            );
+            const pricePerLitre = resolved.price;
+            const priceFromCommunity = resolved.fromCommunity;
             if (pricePerLitre === undefined) return null;
 
             const calculation = calculateDetourSavings({

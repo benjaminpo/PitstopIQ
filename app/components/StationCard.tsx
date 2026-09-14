@@ -15,6 +15,7 @@ import {
   FRESHNESS_DOT_CLASSES,
   STATION_AGE_TEXT_CLASSES,
 } from "@/app/lib/freshness";
+import { resolveStationFuelPrice } from "@/app/lib/stationPrice";
 import type { FuelType, GeoPoint, StationWithCalculation } from "@/app/lib/types";
 import { cn } from "@/app/lib/utils";
 import { BrandLogo } from "./BrandLogo";
@@ -54,21 +55,13 @@ function resolveGradePrices(
   const rows: GradePriceRow[] = [];
 
   for (const fuel of grades) {
-    const communityPrice = community?.communityPrices[fuel];
-    const fromCommunity =
-      communityPrice != null && Number.isFinite(communityPrice);
-    const official = item.station.prices[fuel];
-    const price = fromCommunity ? communityPrice : official;
-    if (price == null || !Number.isFinite(price)) continue;
+    const resolved = resolveStationFuelPrice(item.station, community, fuel);
+    if (resolved.price == null || !Number.isFinite(resolved.price)) continue;
     rows.push({
       fuel,
-      price,
-      fromCommunity,
-      updatedAt: fromCommunity
-        ? community?.communityPriceUpdatedAt[fuel] ?? null
-        : item.station.pricesUpdatedAt?.[fuel] ??
-          item.station.pricesLastUpdatedAt ??
-          null,
+      price: resolved.price,
+      fromCommunity: resolved.fromCommunity,
+      updatedAt: resolved.updatedAt,
     });
   }
 

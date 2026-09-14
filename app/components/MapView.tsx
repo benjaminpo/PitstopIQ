@@ -32,6 +32,7 @@ import {
   STATION_AGE_TEXT_CLASSES_LIGHT,
   type PriceFreshnessFilter,
 } from "@/app/lib/freshness";
+import { resolveStationFuelPrice } from "@/app/lib/stationPrice";
 import type {
   DetourStatus,
   FuelType,
@@ -60,22 +61,17 @@ function popupGradePrices(
     updatedAt: number | null;
   }> = [];
   for (const fuel of fuelGradesForVehicle(fuelType)) {
-    const communityPrice = item.community?.communityPrices[fuel];
-    const fromCommunity =
-      communityPrice != null && Number.isFinite(communityPrice);
-    const price = fromCommunity
-      ? communityPrice
-      : item.station.prices[fuel];
-    if (price == null || !Number.isFinite(price)) continue;
+    const resolved = resolveStationFuelPrice(
+      item.station,
+      item.community,
+      fuel
+    );
+    if (resolved.price == null || !Number.isFinite(resolved.price)) continue;
     rows.push({
       fuel,
-      price,
-      fromCommunity,
-      updatedAt: fromCommunity
-        ? item.community?.communityPriceUpdatedAt[fuel] ?? null
-        : item.station.pricesUpdatedAt?.[fuel] ??
-          item.station.pricesLastUpdatedAt ??
-          null,
+      price: resolved.price,
+      fromCommunity: resolved.fromCommunity,
+      updatedAt: resolved.updatedAt,
     });
   }
   if (rows.length === 0) {
