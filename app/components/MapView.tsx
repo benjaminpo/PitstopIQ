@@ -667,7 +667,7 @@ function StationMarker({
 
     let cancelled = false;
     let opened = false;
-    let panTimer: ReturnType<typeof window.setTimeout> | undefined;
+    let panTimer: number | undefined;
     const open = () => {
       if (cancelled || opened) return;
       const marker = markerRef.current;

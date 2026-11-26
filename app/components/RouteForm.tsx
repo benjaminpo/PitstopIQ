@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useSyncExternalStore, type DragEvent } from "react";
+import { useState, useSyncExternalStore, type DragEvent } from "react";
 import {
   AlertTriangle,
   ArrowUpDown,
@@ -252,9 +252,13 @@ export function RouteForm() {
   const avoidActive = hasRouteAvoid(routeAvoid);
   const avoidNotice = avoidRoutingNotice(valhallaHealth, avoidActive);
 
-  useEffect(() => {
+  // Re-show the notice each time avoid options switch on (adjust state during
+  // render rather than in an effect, per react.dev "you might not need an effect").
+  const [prevAvoidActive, setPrevAvoidActive] = useState(avoidActive);
+  if (avoidActive !== prevAvoidActive) {
+    setPrevAvoidActive(avoidActive);
     if (avoidActive) setAvoidNoticeDismissed(false);
-  }, [avoidActive]);
+  }
   // Collapsed on phones so From/To + Find surface first; open on desktop.
   const desktopVehicleOpen = useSyncExternalStore(
     (onChange) => {

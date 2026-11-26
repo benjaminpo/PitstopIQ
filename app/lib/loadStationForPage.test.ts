@@ -13,7 +13,7 @@ import {
   listStationAdminOverrides,
 } from "@/app/lib/stationAdminOverrides";
 import { loadStationForPage } from "./loadStationForPage";
-import type { FuelStation } from "./types";
+import type { FuelStation, StationCommunitySummary } from "./types";
 
 vi.mock("@/app/lib/fuelApiAdapter", () => ({
   fetchFuelStationByPathKey: vi.fn(),
@@ -42,6 +42,16 @@ const station: FuelStation = {
   prices: { E10: 1.4 },
   distanceOffRouteMiles: 0,
   detourExtraSeconds: 0,
+};
+
+const community: StationCommunitySummary = {
+  stationId: "ff-1",
+  avgRating: 4.5,
+  ratingCount: 2,
+  commentCount: 1,
+  communityPrices: {},
+  communityPriceUpdatedAt: {},
+  recentComments: [],
 };
 
 const mockedFetch = vi.mocked(fetchFuelStationByPathKey);
@@ -75,16 +85,14 @@ describe("loadStationForPage", () => {
       source: "live",
       pricesFetchedAt: 1000,
     });
-    mockedCommunity.mockResolvedValue({
-      "ff-1": { ratingAvg: 4.5, ratingCount: 2, tipCount: 1 },
-    });
+    mockedCommunity.mockResolvedValue({ "ff-1": community });
 
     await expect(loadStationForPage("shell-reading")).resolves.toEqual({
       ok: true,
       station,
       source: "live",
       pricesFetchedAt: 1000,
-      community: { ratingAvg: 4.5, ratingCount: 2, tipCount: 1 },
+      community,
     });
   });
 
