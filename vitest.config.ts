@@ -1,48 +1,37 @@
 import path from "node:path";
 import { defineConfig } from "vitest/config";
 
-/** Keep in sync with sonar.coverage.inclusions in sonar-project.properties. */
+/**
+ * Coverage counts every module in app/lib (plus the metadata routes) by
+ * default, so new files are measured without editing this list.
+ * Keep in sync with sonar.coverage.* in sonar-project.properties.
+ */
 const coverageInclude = [
-  "app/lib/detourCalculator.ts",
-  "app/lib/brandCategory.ts",
-  "app/lib/routing.ts",
-  "app/lib/tripUrl.ts",
-  "app/lib/baselinePrice.ts",
-  "app/lib/mapsLinks.ts",
-  "app/lib/utils.ts",
-  "app/lib/freshness.ts",
-  "app/lib/adsense.ts",
-  "app/lib/locationHistory.ts",
-  "app/lib/fuelConstants.ts",
-  "app/lib/fuelFinderCsv.ts",
-  "app/lib/fuelPriceParse.ts",
-  "app/lib/suppressedStations.ts",
-  "app/lib/vehiclePresets.ts",
-  "app/lib/vehicleLookup.ts",
-  "app/lib/routeAvoid.ts",
-  "app/lib/polyline6.ts",
-  "app/lib/analytics.ts",
-  "app/lib/brandLogo.ts",
-  "app/lib/missingStationReports.ts",
-  "app/lib/recentPlaces.ts",
-  "app/lib/serverRouting.ts",
-  "app/lib/stationAddress.ts",
-  "app/lib/tripPath.ts",
-  "app/lib/userName.ts",
-  "app/lib/adminAuth.ts",
-  "app/lib/csvRecords.ts",
-  "app/lib/loadStationForPage.ts",
-  "app/lib/site.ts",
-  "app/lib/stationAdminOverrides.ts",
-  "app/lib/stationFacilities.ts",
-  "app/lib/stationMatching.ts",
-  "app/lib/stationPath.ts",
-  "app/lib/stationPriceMatches.ts",
-  "app/lib/stationsAutoRefresh.ts",
-  "app/lib/stationsDirectory.ts",
+  "app/lib/**/*.ts",
   "app/manifest.ts",
   "app/robots.ts",
   "app/sitemap.ts",
+];
+
+const coverageExclude = [
+  "**/*.test.ts",
+  // Runtime wiring / types only: DB + auth handles, Zustand store, browser APIs,
+  // server data loaders that just compose tested helpers.
+  "app/lib/db.ts",
+  "app/lib/auth.ts",
+  "app/lib/auth-client.ts",
+  "app/lib/store.ts",
+  "app/lib/types.ts",
+  "app/lib/priceWatchTypes.ts",
+  "app/lib/fuelDatasetCache.ts",
+  "app/lib/geolocation.ts",
+  "app/lib/loadBrands.ts",
+  "app/lib/loadLocations.ts",
+  // Known test debt: network/DB-heavy modules whose pure parsers are tested
+  // but whose I/O paths are not yet. Remove from this list once covered.
+  "app/lib/fuelFinderClient.ts",
+  "app/lib/priceWatches.ts",
+  "app/lib/stationContributions.ts",
 ];
 
 export default defineConfig({
@@ -54,6 +43,7 @@ export default defineConfig({
       reporter: ["text", "html", "lcov"],
       reportsDirectory: "./coverage",
       include: coverageInclude,
+      exclude: coverageExclude,
       thresholds: {
         lines: 90,
         functions: 90,
