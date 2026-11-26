@@ -37,6 +37,10 @@ jobs:
       - name: Lint
         run: npm run lint
 
+      # next build skips test files, so type-check the whole project here.
+      - name: Type check
+        run: npm run typecheck
+
       - name: Unit tests with coverage
         run: npm run test:coverage
 
